@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">WalkBuddy</string>
+    <string name="brand_name">Mekong Inclusive Ventures</string>
+    <string name="splash_start">Start Walking</string>
+    <string name="splash_tts">WalkBuddy. Start Walking button.</string>
+    <string name="home_title">HOME</string>
+    <string name="home_my_current">My Current</string>
+    <string name="home_saved">Saved</string>
+    <string name="home_navigation">Navigation</string>
+    <string name="home_search">Search</string>
+    <string name="home_favourites">Favourites</string>
+    <string name="coming_soon">Coming soon</string>
+</resources>
