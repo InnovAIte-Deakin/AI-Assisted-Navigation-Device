@@ -10,4 +10,29 @@
     <string name="home_search">Search</string>
     <string name="home_favourites">Favourites</string>
     <string name="coming_soon">Coming soon</string>
+    
+    <!-- New strings for updated design -->
+    <string name="microphone">Microphone</string>
+    <string name="profile">Profile</string>
+    <string name="favorite">Favorite</string>
+    <string name="share">Share</string>
+    <string name="saved">Saved</string>
+    <string name="navigation">Navigation</string>
+    <string name="search">Search</string>
+    <string name="favourites">Favourites</string>
+    <string name="home">Home</string>
+    <string name="camera">Camera</string>
+    <string name="my_account">My Account</string>
+    
+    <!-- Search Activity strings -->
+    <string name="back">Back</string>
+    <string name="search_title">SEARCH</string>
+    <string name="search_hint">Enter destination...</string>
+    <string name="voice_input">Voice Input</string>
+    <string name="mic_icon">🎤</string>
+    <string name="search_button">Search</string>
+    <string name="current_location_loading">Current: Loading...</string>
+    <string name="destination_not_selected">Destination: Not selected</string>
+    <string name="distance_unknown">Distance: --</string>
+    <string name="duration_unknown">Time: --</string>
 </resources>

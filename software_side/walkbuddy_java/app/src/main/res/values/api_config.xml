@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 
+    To use this app, you need to:
+    1. Get a Google Maps API key from: https://console.cloud.google.com/
+    2. Enable the following APIs:
+       - Maps SDK for Android
+       - Places API
+       - Directions API
+    3. Replace YOUR_API_KEY_HERE with your actual API key
+    4. Add your API key to this file and update SearchActivity.java to use it
+    -->
+    <string name="google_maps_api_key">YOUR_API_KEY_HERE</string>
+</resources>

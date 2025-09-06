@@ -1,197 +1,389 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
+
+    <!-- Top yellow line -->
+    <View
+        android:id="@+id/topLine"
+        android:layout_width="0dp"
+        android:layout_height="2dp"
+        android:background="@color/accent_amber"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Header with icons -->
+
+    <ImageView
+        android:id="@+id/btnMicrophone"
+        android:layout_width="45dp"
+        android:layout_height="45dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:contentDescription="@string/microphone"
+        android:padding="8dp"
+        android:src="@drawable/ic_microphone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topLine" />
 
     <TextView
         android:id="@+id/txtHeader"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:text="@string/home_title"
         android:textColor="@color/accent_amber"
         android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="16dp"/>
+        app:layout_constraintTop_toBottomOf="@id/topLine" />
 
-    <TextView
-        android:id="@+id/txtSection"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/home_my_current"
-        android:textColor="@color/accent_amber"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/txtHeader"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="24dp"/>
+    <!-- Header divider line with icons -->
+    <ImageView
+        android:id="@+id/btnProfile"
+        android:layout_width="45dp"
+        android:layout_height="45dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        android:contentDescription="@string/profile"
+        android:padding="8dp"
+        android:src="@drawable/ic_person"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topLine" />
 
     <View
         android:id="@+id/dividerHeader"
         android:layout_width="0dp"
         android:layout_height="1dp"
+        android:layout_marginTop="16dp"
         android:background="@color/accent_amber"
-        app:layout_constraintTop_toBottomOf="@id/txtHeader"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtHeader" />
+
+    <!-- Vertical stack of star and share icons in divider area -->
+    <LinearLayout
+        android:id="@+id/iconStack"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="@id/dividerHeader"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtHeader">
+
+    </LinearLayout>
+
+    <!-- My Current section -->
+
+    <TextView
+        android:id="@+id/txtSection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="10dp"
+        android:text="@string/home_my_current"
+        android:textColor="@color/accent_amber"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dividerHeader" />
 
     <TextView
         android:id="@+id/txtAddress"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/txtSection"
         android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"/>
+        android:text="70 Elgar Rd, Burwood, 3125"
+        android:textColor="@color/accent_amber"
+        android:textSize="20sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtSection" />
 
+    <!-- My Current divider line -->
     <View
         android:id="@+id/dividerMyCurrent"
         android:layout_width="0dp"
         android:layout_height="1dp"
+        android:layout_marginTop="16dp"
         android:background="@color/accent_amber"
-        app:layout_constraintTop_toBottomOf="@id/txtAddress"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/txtAddress" />
 
+    <!-- Action Grid 2x2 -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardSaved"
         android:layout_width="0dp"
-        android:layout_height="100dp"
-        app:strokeColor="@color/accent_amber"
-        app:strokeWidth="2dp"
+        android:layout_height="120dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="80dp"
         android:foreground="?attr/selectableItemBackground"
-        app:layout_constraintTop_toBottomOf="@id/dividerMyCurrent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/cardNavigation"
-        android:layout_margin="16dp">
-        <TextView
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dividerMyCurrent"
+        app:strokeColor="@color/accent_amber"
+        app:strokeWidth="2dp">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="@string/home_saved"
+            android:background="@color/bg_dark"
             android:gravity="center"
-            android:textColor="@color/accent_amber"/>
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="@string/saved"
+                android:src="@drawable/ic_bookmark_outline" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/home_saved"
+                android:textColor="@color/accent_amber"
+                android:textSize="14sp" />
+        </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardNavigation"
         android:layout_width="0dp"
-        android:layout_height="100dp"
-        app:strokeColor="@color/accent_amber"
-        app:strokeWidth="2dp"
-        android:foreground="?attr/selectableItemBackground"
-        app:layout_constraintTop_toBottomOf="@id/dividerMyCurrent"
-        app:layout_constraintStart_toEndOf="@id/cardSaved"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_height="120dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="80dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp">
-        <TextView
+        android:foreground="?attr/selectableItemBackground"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/cardSaved"
+        app:layout_constraintTop_toBottomOf="@id/dividerMyCurrent"
+        app:strokeColor="@color/accent_amber"
+        app:strokeWidth="2dp">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="@string/home_navigation"
+            android:background="@color/bg_dark"
             android:gravity="center"
-            android:textColor="@color/accent_amber"/>
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="@string/navigation"
+                android:src="@drawable/ic_paper_plane" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/home_navigation"
+                android:textColor="@color/accent_amber"
+                android:textSize="14sp" />
+        </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardSearch"
         android:layout_width="0dp"
-        android:layout_height="100dp"
-        app:strokeColor="@color/accent_amber"
-        app:strokeWidth="2dp"
-        android:foreground="?attr/selectableItemBackground"
-        app:layout_constraintTop_toBottomOf="@id/cardSaved"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/cardFavourites"
+        android:layout_height="120dp"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp">
-        <TextView
+        android:layout_marginTop="70dp"
+        android:layout_marginEnd="16dp"
+        android:foreground="?attr/selectableItemBackground"
+        app:layout_constraintEnd_toStartOf="@id/cardFavourites"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cardSaved"
+        app:strokeColor="@color/accent_amber"
+        app:strokeWidth="2dp">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="@string/home_search"
+            android:background="@color/bg_dark"
             android:gravity="center"
-            android:textColor="@color/accent_amber"/>
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="@string/search"
+                android:src="@drawable/ic_search" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/home_search"
+                android:textColor="@color/accent_amber"
+                android:textSize="14sp" />
+        </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardFavourites"
         android:layout_width="0dp"
-        android:layout_height="100dp"
-        app:strokeColor="@color/accent_amber"
-        app:strokeWidth="2dp"
-        android:foreground="?attr/selectableItemBackground"
-        app:layout_constraintTop_toBottomOf="@id/cardNavigation"
-        app:layout_constraintStart_toEndOf="@id/cardSearch"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_height="120dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="70dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp">
-        <TextView
+        android:foreground="?attr/selectableItemBackground"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/cardSearch"
+        app:layout_constraintTop_toBottomOf="@id/cardNavigation"
+        app:strokeColor="@color/accent_amber"
+        app:strokeWidth="2dp">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="@string/home_favourites"
+            android:background="@color/bg_dark"
             android:gravity="center"
-            android:textColor="@color/accent_amber"/>
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginBottom="8dp"
+                android:contentDescription="@string/favourites"
+                android:src="@drawable/ic_star_outline" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/home_favourites"
+                android:textColor="@color/accent_amber"
+                android:textSize="14sp" />
+        </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Bottom navigation placeholders -->
+    <!-- Bottom navigation bar -->
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="0dp"
-        android:layout_height="56dp"
+        android:layout_height="80dp"
         android:background="@color/bg_dark"
         android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-        <Button
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- Home button -->
+        <LinearLayout
             android:id="@+id/btnBottomHome"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Home"
-            android:textAllCaps="false"
-            android:textColor="@color/accent_amber"
-            android:backgroundTint="@color/bg_dark" />
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <ImageView
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:contentDescription="@string/home"
+                android:src="@drawable/ic_home_outline" />
+        </LinearLayout>
+
         <View
             android:layout_width="1dp"
             android:layout_height="match_parent"
-            android:background="@color/accent_amber"/>
-        <Button
+            android:background="@color/accent_amber" />
+
+        <!-- Camera button -->
+        <LinearLayout
             android:id="@+id/btnBottomCamera"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Camera"
-            android:textAllCaps="false"
-            android:textColor="@color/accent_amber"
-            android:backgroundTint="@color/bg_dark" />
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <ImageView
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:contentDescription="@string/camera"
+                android:src="@drawable/ic_camera_outline" />
+        </LinearLayout>
+
         <View
             android:layout_width="1dp"
             android:layout_height="match_parent"
-            android:background="@color/accent_amber"/>
-        <Button
+            android:background="@color/accent_amber" />
+
+        <!-- Account button with special styling -->
+        <LinearLayout
             android:id="@+id/btnBottomAccount"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Account"
-            android:textAllCaps="false"
-            android:textColor="@color/accent_amber"
-            android:backgroundTint="@color/bg_dark" />
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="@drawable/circle_yellow_background"
+                android:contentDescription="@string/my_account"
+                android:padding="4dp"
+                android:src="@drawable/ic_person_filled" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/my_account"
+                android:textColor="@color/accent_amber"
+                android:textSize="15sp" />
+        </LinearLayout>
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/btnStar"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="357dp"
+        android:layout_marginTop="79dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="612dp"
+        android:contentDescription="@string/favorite"
+        android:padding="8dp"
+        android:src="@drawable/ic_star_outline"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/btnShare"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="357dp"
+        android:layout_marginTop="119dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="572dp"
+        android:contentDescription="@string/share"
+        android:padding="8dp"
+        android:src="@drawable/ic_share"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

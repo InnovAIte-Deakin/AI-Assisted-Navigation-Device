@@ -17,6 +17,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication"
         tools:targetApi="31">
+
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyDr7RelhoAC27KYVGi7FaK4SPqiDNMu950" />
         <activity
             android:name=".HomeActivity"
             android:exported="false" />
@@ -31,6 +36,9 @@
         </activity>
         <activity
             android:name=".MainActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SearchActivityWorking"
             android:exported="false" />
     </application>
 

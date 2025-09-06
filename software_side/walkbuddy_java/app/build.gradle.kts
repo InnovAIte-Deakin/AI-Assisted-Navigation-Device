@@ -39,6 +39,12 @@ dependencies {
     implementation(libs.constraintlayout)
     // Location services for FusedLocationProviderClient
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Google Maps
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    // Google Places API (New)
+    implementation("com.google.android.libraries.places:places:3.4.0")
+    // Google Directions API
+    implementation("com.google.maps:google-maps-services:2.2.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

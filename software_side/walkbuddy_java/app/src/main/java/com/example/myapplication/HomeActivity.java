@@ -1,6 +1,7 @@
 package com.example.myapplication;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
@@ -52,12 +53,57 @@ public class HomeActivity extends AppCompatActivity {
             requestSingleUpdate();
         });
 
+        // Header icon click handlers
+        findViewById(R.id.btnMicrophone).setOnClickListener(v -> {
+            // Toggle microphone or start voice input
+            Toast.makeText(this, "Microphone (placeholder)", Toast.LENGTH_SHORT).show();
+        });
+
+        findViewById(R.id.btnProfile).setOnClickListener(v -> {
+            // Open profile or settings
+            Toast.makeText(this, "Profile (placeholder)", Toast.LENGTH_SHORT).show();
+        });
+
+        // My Current section action buttons
+        findViewById(R.id.btnStar).setOnClickListener(v -> {
+            // Add current location to favorites
+            Toast.makeText(this, "Added to favorites", Toast.LENGTH_SHORT).show();
+        });
+
+        findViewById(R.id.btnShare).setOnClickListener(v -> {
+            // Share current location
+            Toast.makeText(this, "Share location (placeholder)", Toast.LENGTH_SHORT).show();
+        });
+
+        // Action grid click handlers
+        findViewById(R.id.cardSaved).setOnClickListener(v -> {
+            Toast.makeText(this, "Saved locations (placeholder)", Toast.LENGTH_SHORT).show();
+        });
+
+        findViewById(R.id.cardSearch).setOnClickListener(v -> {
+            Intent intent = new Intent(HomeActivity.this, SearchActivityWorking.class);
+            startActivity(intent);
+        });
+
+        findViewById(R.id.cardFavourites).setOnClickListener(v -> {
+            Toast.makeText(this, "Favourites (placeholder)", Toast.LENGTH_SHORT).show();
+        });
+
         ensureLocationPermissionThenStart();
 
-        // Bottom bar placeholders
-        findViewById(R.id.btnBottomHome).setOnClickListener(v -> Toast.makeText(this, "Home (placeholder)", Toast.LENGTH_SHORT).show());
-        findViewById(R.id.btnBottomCamera).setOnClickListener(v -> Toast.makeText(this, "Camera (placeholder)", Toast.LENGTH_SHORT).show());
-        findViewById(R.id.btnBottomAccount).setOnClickListener(v -> Toast.makeText(this, "Account (placeholder)", Toast.LENGTH_SHORT).show());
+        // Bottom bar click handlers
+        findViewById(R.id.btnBottomHome).setOnClickListener(v -> {
+            // Already on home, just show feedback
+            Toast.makeText(this, "Home", Toast.LENGTH_SHORT).show();
+        });
+        
+        findViewById(R.id.btnBottomCamera).setOnClickListener(v -> {
+            Toast.makeText(this, "Camera (placeholder)", Toast.LENGTH_SHORT).show();
+        });
+        
+        findViewById(R.id.btnBottomAccount).setOnClickListener(v -> {
+            Toast.makeText(this, "My Account (placeholder)", Toast.LENGTH_SHORT).show();
+        });
     }
 
     private void ensureLocationPermissionThenStart() {
