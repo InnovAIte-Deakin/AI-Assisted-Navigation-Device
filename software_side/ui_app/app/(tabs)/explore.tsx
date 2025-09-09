@@ -6,7 +6,6 @@ import { Ionicons } from "@expo/vector-icons";
 import CategoryButton from "../../components/CategoryButton"; 
 
 const CATEGORIES = [
-  { id: "ALL", title: "All" },
   { id: "ARTS", title: "Arts" },
   { id: "FIN", title: "Finance" },
   { id: "SCI", title: "Science" },
