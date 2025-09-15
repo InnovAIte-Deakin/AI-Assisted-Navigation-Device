@@ -1,110 +1,133 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, Pressable, TextInput } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useMemo, useState } from "react";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import CategoryButton from "../../components/CategoryButton"; 
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+const CATEGORIES = [
+  { id: "ARTS", title: "Arts" },
+  { id: "FIN", title: "Finance" },
+  { id: "SCI", title: "Science" },
+  { id: "SCIFI", title: "Sci-Fi" },
+  { id: "GEO", title: "Geography" },
+  { id: "KIDS", title: "Kids" },
+  { id: "IT", title: "I.T." },
+  { id: "WC", title: "Toilets" },
+  { id: "HELP", title: "Helpdesk" },
+];
 
-export default function TabTwoScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+export default function ExploreScreen() {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return CATEGORIES;
+    return CATEGORIES.filter(c =>
+      c.title.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
+    );
+  }, [query]);
+
+  const goToCategory = (id: string, title: string) =>
+    router.push({ pathname: "/category/[id]", params: { id, title } });
+
+  const goHome = () => router.replace("/");
+
+  const ListHeader = (
+    <>
+      {/* Header row with Home icon + title */}
+      <View style={styles.headerRow}>
+        <Pressable
+          onPress={goHome}
+          accessibilityRole="button"
+          accessibilityLabel="Go to Home"
+          style={styles.iconBtn}
+        >
+          <Ionicons name="home-outline" size={22} color="#F9A826" />
+        </Pressable>
+        <Text accessibilityRole="header" style={styles.headerText}>EXPLORE</Text>
+        <View style={{ width: 32 }} />
+      </View>
+
+      {/* Search bar */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={16} color="#888" style={{ marginRight: 8 }} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search categories…"
+          placeholderTextColor="#888"
+          accessibilityLabel="Search categories"
+          style={styles.searchInput}
+          returnKeyType="search"
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.root} edges={['top']}>
+      <FlatList
+        data={filtered}
+        keyExtractor={(i) => i.id}
+        numColumns={2}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={ListHeader}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
+        renderItem={({ item }) => (
+          <CategoryButton
+            label={item.title}
+            onPress={() => goToCategory(item.id, item.title)}
+          />
+        )}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  root: { flex: 1, backgroundColor: "#0B0B0B" },
+
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    borderBottomWidth: 1.25,
+    borderBottomColor: "#F9A826",
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  iconBtn: {
+    width: 32, height: 32,
+    alignItems: "center", justifyContent: "center",
+    marginRight: 8,
+  },
+  headerText: {
+    flex: 1,
+    color: "#F9A826",
+    fontSize: 22,                
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    textAlign: "center",
+  },
+
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 10,
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    height: 40,                   
+    borderRadius: 12,
+    borderWidth: 1.25,
+    borderColor: "#2A2A2A",
+    backgroundColor: "#141414",
+  },
+  searchInput: {
+    flex: 1,
+    color: "#EEE",
+    fontSize: 15,
   },
 });
