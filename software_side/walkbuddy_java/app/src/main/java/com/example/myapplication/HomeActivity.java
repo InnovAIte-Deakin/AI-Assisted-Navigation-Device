@@ -81,7 +81,7 @@ public class HomeActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.cardSearch).setOnClickListener(v -> {
-            Intent intent = new Intent(HomeActivity.this, SearchActivityWorking.class);
+            Intent intent = new Intent(HomeActivity.this, SearchActivityOSM.class);
             startActivity(intent);
         });
 

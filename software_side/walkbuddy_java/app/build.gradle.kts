@@ -45,6 +45,8 @@ dependencies {
     implementation("com.google.android.libraries.places:places:3.4.0")
     // Google Directions API
     implementation("com.google.maps:google-maps-services:2.2.0")
+    // OSMDroid as backup mapping solution
+    implementation("org.osmdroid:osmdroid-android:6.1.17")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
