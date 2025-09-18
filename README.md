@@ -90,9 +90,14 @@ After forking the main repository to your own GitHub account:
 
 1. **Sync your local `development` branch with upstream `development` branch:** 
    - `git checkout development`
-   - `git fetch upstream`
-   - `git pull upstream development`
-   - `git push origin development`
+   
+   - **Option A: Fetch & Merge (Recommended for reviewing changes):**
+       - Fetch the latest changes without merging: git fetch upstream
+       - Review the changes, then merge them into your local branch: git merge upstream/development
+
+   - **Option B: Pull (Simple and direct)**
+       - Caution: Assuming there is no merge conflict between your local and the company files
+       - Fetch and merge in one step: git pull upstream development
 
 2. **Create a new feature branch from `development` in your local:**
    - Suggestion for branch naming: (side)-(task_description)-(your_name)
