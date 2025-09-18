@@ -171,6 +171,25 @@
 
     </LinearLayout>
 
+    <!-- Navigation button -->
+    <Button
+        android:id="@+id/btnStartNavigation"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:backgroundTint="@color/accent_amber"
+        android:text="Start Camera Navigation"
+        android:textAllCaps="false"
+        android:textColor="@color/black"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/locationInfo" />
+
     <!-- OSMDroid Map section -->
     <org.osmdroid.views.MapView
         android:id="@+id/mapView"
@@ -183,6 +202,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/locationInfo" />
+        app:layout_constraintTop_toBottomOf="@id/btnStartNavigation" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

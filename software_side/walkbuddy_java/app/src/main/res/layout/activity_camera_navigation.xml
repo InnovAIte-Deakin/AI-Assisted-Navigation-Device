@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+
+    <!-- Top navigation bar -->
+    <LinearLayout
+        android:id="@+id/topNavBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_dark"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/back"
+            android:padding="8dp"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/accent_amber" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txtNavigatingTo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Navigating to:"
+                android:textColor="@color/white"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/txtDestination"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Truman State University"
+                android:textColor="@color/accent_amber"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Camera preview -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/cameraPreview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/overlayContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topNavBar" />
+
+    <!-- Object detection overlay -->
+    <LinearLayout
+        android:id="@+id/overlayContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_dark"
+        android:orientation="vertical"
+        android:padding="16dp"
+        app:layout_constraintBottom_toTopOf="@id/statusBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/txtDetectedObjects"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Objects detected: None"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtLastAnnouncement"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Last announcement: Camera ready"
+            android:textColor="@color/accent_amber"
+            android:textSize="12sp" />
+
+    </LinearLayout>
+
+    <!-- Status bar -->
+    <LinearLayout
+        android:id="@+id/statusBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_dark"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        app:layout_constraintBottom_toTopOf="@id/controlButtons"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/txtDistance"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Distance: 2.1km"
+            android:textColor="@color/white"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtSteps"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Steps: 1,234"
+            android:textColor="@color/white"
+            android:textAlignment="textEnd"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+    <!-- Control buttons -->
+    <LinearLayout
+        android:id="@+id/controlButtons"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_dark"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <Button
+            android:id="@+id/btnPauseResume"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/accent_amber"
+            android:text="Pause"
+            android:textAllCaps="false"
+            android:textColor="@color/black"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnRepeatLast"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:backgroundTint="@color/accent_amber"
+            android:text="Repeat"
+            android:textAllCaps="false"
+            android:textColor="@color/black"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
