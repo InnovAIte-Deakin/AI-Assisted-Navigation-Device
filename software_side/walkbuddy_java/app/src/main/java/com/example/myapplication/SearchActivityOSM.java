@@ -12,6 +12,7 @@ import android.speech.RecognizerIntent;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.View;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -53,6 +54,7 @@ public class SearchActivityOSM extends AppCompatActivity {
     private AutoCompleteTextView searchField;
     private Button btnSearch;
     private Button btnVoiceInput;
+    private Button btnStartNavigation;
     private ImageView btnBack;
     private TextView txtCurrentLocation;
     private TextView txtDestination;
@@ -70,6 +72,9 @@ public class SearchActivityOSM extends AppCompatActivity {
     // Search debouncing
     private Handler searchHandler;
     private Runnable searchRunnable;
+    
+    // Current search result for navigation
+    private PlaceInfo currentDestination;
 
     private static class PlaceInfo {
         final GeoPoint geoPoint;
@@ -112,6 +117,7 @@ public class SearchActivityOSM extends AppCompatActivity {
         searchField = findViewById(R.id.searchField);
         btnSearch = findViewById(R.id.btnSearch);
         btnVoiceInput = findViewById(R.id.btnVoiceInput);
+        btnStartNavigation = findViewById(R.id.btnStartNavigation);
         btnBack = findViewById(R.id.btnBack);
         txtCurrentLocation = findViewById(R.id.txtCurrentLocation);
         txtDestination = findViewById(R.id.txtDestination);
@@ -271,6 +277,14 @@ public class SearchActivityOSM extends AppCompatActivity {
 
         btnVoiceInput.setOnClickListener(v -> {
             startVoiceInput();
+        });
+
+        btnStartNavigation.setOnClickListener(v -> {
+            if (currentDestination != null) {
+                startCameraNavigation();
+            } else {
+                announcer.speak("Please search for a destination first");
+            }
         });
     }
 
@@ -531,6 +545,7 @@ public class SearchActivityOSM extends AppCompatActivity {
     
     private void displaySearchResult(PlaceInfo foundPlace) {
         destinationLocation = foundPlace.geoPoint;
+        currentDestination = foundPlace; // Store for navigation
         
         if (currentLocation != null) {
             double distance = calculateDistance(currentLocation, destinationLocation);
@@ -551,6 +566,25 @@ public class SearchActivityOSM extends AppCompatActivity {
             txtDistance.setText("Distance: Calculating...");
             txtDuration.setText("Walking time: Calculating...");
         }
+        
+        // Show navigation button when destination is found
+        btnStartNavigation.setVisibility(View.VISIBLE);
+    }
+    
+    private void startCameraNavigation() {
+        Intent intent = new Intent(this, CameraNavigationActivity.class);
+        intent.putExtra("destination_name", currentDestination.fullName);
+        intent.putExtra("destination_lat", currentDestination.geoPoint.getLatitude());
+        intent.putExtra("destination_lon", currentDestination.geoPoint.getLongitude());
+        
+        // Calculate current distance if possible
+        if (currentLocation != null) {
+            double distance = calculateDistance(currentLocation, destinationLocation);
+            intent.putExtra("current_distance", distance);
+        }
+        
+        announcer.speak("Starting camera navigation to " + currentDestination.fullName);
+        startActivity(intent);
     }
     
     private PlaceInfo searchWithGeocoder(String query) {

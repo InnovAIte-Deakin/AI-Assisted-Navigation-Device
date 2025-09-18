@@ -47,6 +47,16 @@ dependencies {
     implementation("com.google.maps:google-maps-services:2.2.0")
     // OSMDroid as backup mapping solution
     implementation("org.osmdroid:osmdroid-android:6.1.17")
+    // PyTorch for object detection
+    implementation("org.pytorch:pytorch_android_lite:1.12.2")
+    implementation("org.pytorch:pytorch_android_torchvision_lite:1.12.2")
+    // Add explicit native dependencies
+    implementation("com.facebook.soloader:soloader:0.10.4")
+    // Camera and image processing
+    implementation("androidx.camera:camera-core:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.3.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
