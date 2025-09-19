@@ -66,6 +66,16 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topNavBar" />
 
+    <!-- Bounding box overlay -->
+    <com.example.myapplication.DetectionOverlay
+        android:id="@+id/detectionOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/overlayContainer"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/topNavBar" />
+
     <!-- Object detection overlay -->
     <LinearLayout
         android:id="@+id/overlayContainer"
