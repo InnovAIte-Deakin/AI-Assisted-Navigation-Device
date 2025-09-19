@@ -35,6 +35,7 @@ import org.pytorch.IValue;
 import org.pytorch.Module;
 import org.pytorch.Tensor;
 import org.pytorch.torchvision.TensorImageUtils;
+import org.pytorch.LiteModuleLoader;
 
 import com.facebook.soloader.SoLoader;
 
@@ -43,8 +44,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 
 public class CameraNavigationActivity extends AppCompatActivity {
 
@@ -90,6 +100,13 @@ public class CameraNavigationActivity extends AppCompatActivity {
     // Simulation timing
     private long lastAnnouncementTime = 0;
     private static final long ANNOUNCEMENT_INTERVAL = 3000; // 3 seconds
+    
+    // Performance monitoring
+    private long perfStartMs;
+    private long totalInferenceMs = 0;
+    private int perfFrames = 0;
+    private long lastFpsTick = 0;
+    private int framesSinceTick = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,10 +121,33 @@ public class CameraNavigationActivity extends AppCompatActivity {
         // Initialize TTS
         announcer = new TTSAnnouncer(this);
 
-        // Initialize SoLoader for PyTorch
+        // Initialize SoLoader for PyTorch Lite
         try {
             SoLoader.init(this, false);
             Log.d(TAG, "SoLoader initialized successfully");
+            
+            // Manually load PyTorch Lite libraries in correct order
+            try {
+                System.loadLibrary("c++_shared");
+                Log.d(TAG, "c++_shared loaded");
+            } catch (Exception e) {
+                Log.w(TAG, "c++_shared not loaded: " + e.getMessage());
+            }
+            
+            try {
+                System.loadLibrary("fbjni");
+                Log.d(TAG, "fbjni loaded");
+            } catch (Exception e) {
+                Log.w(TAG, "fbjni not loaded: " + e.getMessage());
+            }
+            
+            try {
+                System.loadLibrary("pytorch_jni_lite");
+                Log.d(TAG, "pytorch_jni_lite loaded");
+            } catch (Exception e) {
+                Log.w(TAG, "pytorch_jni_lite not loaded: " + e.getMessage());
+            }
+            
         } catch (Exception e) {
             Log.w(TAG, "SoLoader initialization failed", e);
         }
@@ -273,11 +313,15 @@ public class CameraNavigationActivity extends AppCompatActivity {
     private void loadMLModel() {
         try {
             // Copy model from assets to internal storage
-            String modelPath = copyAssetToFile("models/best.pt");
-            mlModel = Module.load(modelPath);
+            String modelPath = copyAssetToFile("models/best_lite_fixed.ptl");
+            
+            // Use LiteModuleLoader for PyTorch Lite
+            Log.d(TAG, "Loading model with PyTorch Lite: " + modelPath);
+            mlModel = LiteModuleLoader.load(modelPath);
             mlModelLoaded = true;
-            Log.d(TAG, "ML Model loaded successfully");
-            announcer.speak("Object detection model loaded");
+            Log.d(TAG, "FIXED ML Model loaded successfully with PyTorch Lite");
+            announcer.speak("Fixed object detection model loaded");
+            
         } catch (UnsatisfiedLinkError e) {
             Log.w(TAG, "PyTorch native libraries not available - running in simulation mode", e);
             mlModelLoaded = false;
@@ -319,21 +363,291 @@ public class CameraNavigationActivity extends AppCompatActivity {
             return;
         }
 
+        perfStartMs = System.currentTimeMillis();
+        
         try {
             if (mlModelLoaded && mlModel != null) {
-                // TODO: Real ML inference will go here
-                // Convert ImageProxy to Tensor, run inference, process results
-                runOnUiThread(() -> simulateObjectDetection());
+                Log.d(TAG, "Running REAL inference with best.pt model");
+                
+                // Convert ImageProxy to Tensor
+                Tensor inputTensor = preprocessImage(image);
+                
+                // Run inference
+                Log.d(TAG, "Input tensor shape: " + java.util.Arrays.toString(inputTensor.shape()));
+                IValue output = mlModel.forward(IValue.from(inputTensor));
+                
+                // Handle YOLOv8 tuple output
+                Tensor outputTensor;
+                if (output.isTuple()) {
+                    Log.d(TAG, "Model output is tuple (YOLOv8 format)");
+                    IValue[] outputs = output.toTuple();
+                    Log.d(TAG, "Tuple has " + outputs.length + " elements");
+                    // Use the first output (main detection tensor)
+                    outputTensor = outputs[0].toTensor();
+                } else {
+                    Log.d(TAG, "Model output is tensor");
+                    outputTensor = output.toTensor();
+                }
+                
+                // Process results
+                runOnUiThread(() -> processModelOutput(outputTensor));
+                
             } else {
-                // Simulation mode for testing
-                runOnUiThread(() -> simulateObjectDetection());
+                Log.d(TAG, "Model not loaded, using simulation");
+                //runOnUiThread(() -> simulateObjectDetection());
             }
             
         } catch (Exception e) {
-            Log.e(TAG, "Error analyzing image", e);
+            Log.e(TAG, "Error in real inference, falling back to simulation", e);
+            //runOnUiThread(() -> simulateObjectDetection());
         } finally {
+            // Performance monitoring
+            long elapsed = System.currentTimeMillis() - perfStartMs;
+            totalInferenceMs += elapsed;
+            perfFrames++;
+            framesSinceTick++;
+
+            // Log average latency every 30 frames
+            if (perfFrames % 30 == 0) {
+                long avg = totalInferenceMs / perfFrames;
+                Log.d(TAG, "Avg inference latency: " + avg + " ms over " + perfFrames + " frames");
+            }
+
+            // Compute FPS every second
+            long now = System.currentTimeMillis();
+            if (lastFpsTick == 0) lastFpsTick = now;
+            if (now - lastFpsTick >= 1000) {
+                int fps = framesSinceTick;
+                Log.d(TAG, "FPS: " + fps);
+                framesSinceTick = 0;
+                lastFpsTick = now;
+            }
+            
             image.close();
         }
+    }
+
+    private Tensor preprocessImage(ImageProxy image) {
+        try {
+            // TEMPORARILY DISABLED: Use static training image instead of camera
+            // Bitmap testBitmap = loadTestImageFromAssets();
+            // if (testBitmap != null) {
+            //     Log.d(TAG, "Using STATIC TRAINING IMAGE for testing");
+            //     return preprocessBitmap(testBitmap);
+            // }
+            
+            // Fallback to camera image
+            Log.d(TAG, "Input image size: " + image.getWidth() + "x" + image.getHeight());
+            
+            // Convert ImageProxy to Bitmap
+            Bitmap bitmap = imageProxyToBitmap(image);
+            Log.d(TAG, "Bitmap size: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+            
+            // Resize to model input size (assuming 640x640 for YOLO)
+            Bitmap resized = Bitmap.createScaledBitmap(bitmap, 640, 640, true);
+            Log.d(TAG, "Resized to: 640x640");
+            
+            // Convert to tensor with SIMPLE YOLOv8 normalization (0-1, no ImageNet mean/std)
+            // YOLOv8 expects RGB channel order, simple pixel/255.0 normalization
+            float[] mean = new float[]{0.0f, 0.0f, 0.0f}; // No mean subtraction
+            float[] std = new float[]{1.0f, 1.0f, 1.0f};   // No std division
+            
+            // IMPORTANT: TensorImageUtils.bitmapToFloat32Tensor uses RGB order (correct for YOLOv8)
+            Tensor tensor = TensorImageUtils.bitmapToFloat32Tensor(resized, mean, std);
+            
+            Log.d(TAG, "Input tensor shape: " + java.util.Arrays.toString(tensor.shape()));
+            
+            // DEBUG: Check tensor values to verify preprocessing
+            float[] tensorData = tensor.getDataAsFloatArray();
+            if (tensorData.length >= 10) {
+                Log.d(TAG, "Input tensor first 10 values: " + java.util.Arrays.toString(
+                    java.util.Arrays.copyOfRange(tensorData, 0, 10)));
+                
+                // Calculate statistics
+                float sum = 0, min = Float.MAX_VALUE, max = Float.MIN_VALUE;
+                for (int i = 0; i < Math.min(1000, tensorData.length); i++) { // Sample first 1000 values
+                    float val = tensorData[i];
+                    sum += val;
+                    min = Math.min(min, val);
+                    max = Math.max(max, val);
+                }
+                float sampleMean = sum / Math.min(1000, tensorData.length);
+                Log.d(TAG, "Input tensor stats (first 1000): mean=" + String.format("%.6f", sampleMean) + 
+                          ", min=" + String.format("%.6f", min) + ", max=" + String.format("%.6f", max));
+            }
+            
+            return tensor;
+                
+        } catch (Exception e) {
+            Log.e(TAG, "Error preprocessing image", e);
+            throw e;
+        }
+    }
+    
+    private Bitmap imageProxyToBitmap(ImageProxy image) {
+        ImageProxy.PlaneProxy[] planes = image.getPlanes();
+        ByteBuffer yBuffer = planes[0].getBuffer();
+        ByteBuffer uBuffer = planes[1].getBuffer();
+        ByteBuffer vBuffer = planes[2].getBuffer();
+
+        int ySize = yBuffer.remaining();
+        int uSize = uBuffer.remaining();
+        int vSize = vBuffer.remaining();
+
+        byte[] nv21 = new byte[ySize + uSize + vSize];
+        yBuffer.get(nv21, 0, ySize);
+        vBuffer.get(nv21, ySize, vSize);
+        uBuffer.get(nv21, ySize + vSize, uSize);
+
+        YuvImage yuvImage = new YuvImage(nv21, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        yuvImage.compressToJpeg(new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight()), 100, out);
+        byte[] imageBytes = out.toByteArray();
+        
+        return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+    }
+    
+    private void processModelOutput(Tensor output) {
+        try {
+            long[] shape = output.shape();
+            float[] scores = output.getDataAsFloatArray();
+            
+            Log.d(TAG, "Model output shape: " + java.util.Arrays.toString(shape));
+            Log.d(TAG, "Model output size: " + scores.length);
+            
+            // YOLOv8 output format: [1, num_classes + 4, num_anchors]
+            // For your model: [1, 11, 8400] = [batch, classes+coords, anchors]
+            if (shape.length != 3 || shape[0] != 1) {
+                Log.e(TAG, "Unexpected output shape for YOLOv8");
+                return;
+            }
+            
+            int numClasses = (int)shape[1] - 4; // 11 - 4 = 7 classes
+            int numAnchors = (int)shape[2]; // 8400
+            
+            Log.d(TAG, "Processing YOLOv8 output: " + numClasses + " classes, " + numAnchors + " anchors");
+            
+            String bestDetection = processYOLOv8Output(scores, numClasses, numAnchors);
+            
+            String detectionResult;
+            if (bestDetection != null) {
+                detectionResult = "REAL MODEL: " + bestDetection;
+                Log.d(TAG, "DETECTION: " + detectionResult);
+            } else {
+                detectionResult = "REAL MODEL: No confident detections";
+                Log.d(TAG, "NO DETECTION: " + detectionResult);
+            }
+            
+            // Update UI
+            txtDetectedObjects.setText("Objects detected: " + detectionResult);
+            lastAnnouncement = detectionResult;
+            txtLastAnnouncement.setText("Last: " + lastAnnouncement);
+            
+            // Announce with timing control
+            announceObjects(detectionResult);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error processing model output", e);
+            // Show error in UI
+            txtDetectedObjects.setText("Error: " + e.getMessage());
+        }
+    }
+    
+    private String processYOLOv8Output(float[] output, int numClasses, int numAnchors) {
+        // YOLOv8 format: [batch, num_classes + 4_coords, num_anchors]
+        // For shape [1, 11, 8400]: 
+        // - First 4 channels are bbox coords (x, y, w, h)
+        // - Last 7 channels are class scores
+        // - Data is stored as: [all_anchors_channel_0, all_anchors_channel_1, ...]
+        
+        float confidenceThreshold = 0.49999f; // BELOW sigmoid(0) to absolutely catch detections  
+        float debugThreshold = 0.49999f; // Log detections below sigmoid level
+        String bestClass = null;
+        float maxConfidence = 0;
+        int bestAnchor = -1;
+        
+        // Debug: Log raw values to understand the data format
+        Log.d(TAG, "Raw output analysis:");
+        Log.d(TAG, "  First 20 values: " + java.util.Arrays.toString(java.util.Arrays.copyOfRange(output, 0, Math.min(20, output.length))));
+        
+        // Calculate statistics
+        float sum = 0, min = Float.MAX_VALUE, max = Float.MIN_VALUE;
+        for (float val : output) {
+            sum += val;
+            min = Math.min(min, val);
+            max = Math.max(max, val);
+        }
+        float mean = sum / output.length;
+        Log.d(TAG, "  Stats: mean=" + String.format("%.6f", mean) + ", min=" + String.format("%.6f", min) + ", max=" + String.format("%.6f", max));
+        
+        // Try different indexing approaches
+        Log.d(TAG, "Testing different tensor interpretations:");
+        
+        // Sample a few confidence scores for debugging (first anchor only)
+        Log.d(TAG, "Sampling confidence scores from first anchor:");
+        for (int classIdx = 0; classIdx < Math.min(7, CLASSES.length); classIdx++) {
+            int channelIdx = 4 + classIdx;
+            float rawScore = output[channelIdx * numAnchors + 0]; // First anchor, this class
+            float sigmoidScore = 1.0f / (1.0f + (float) Math.exp(-rawScore));
+            Log.d(TAG, "  " + CLASSES[classIdx] + ": raw=" + String.format("%.6f", rawScore) + 
+                      " sigmoid=" + String.format("%.6f", sigmoidScore));
+        }
+        
+        // Approach 1: Channel-first format [batch, channels, anchors]
+        // Data layout: [x0,x1,...,x8399, y0,y1,...,y8399, w0,w1,...,w8399, h0,h1,...,h8399, cls0_0,cls0_1,...,cls0_8399, cls1_0,cls1_1,...,cls1_8399, ...]
+        int totalChannels = 4 + numClasses; // 11 total channels
+        for (int anchor = 0; anchor < Math.min(100, numAnchors); anchor++) { // Test first 100 anchors
+            for (int classIdx = 0; classIdx < numClasses && classIdx < CLASSES.length; classIdx++) {
+                // Class scores start after bbox coordinates
+                int channelIdx = 4 + classIdx; // Channel index (4, 5, 6, 7, 8, 9, 10)
+                int outputIndex = channelIdx * numAnchors + anchor;
+                
+                if (outputIndex < output.length) {
+                    float rawScore = output[outputIndex];
+                    
+                    // Try both with and without sigmoid
+                    float confidenceWithSigmoid = sigmoid(rawScore);
+                    float confidenceRaw = rawScore;
+                    
+                    // YOLOv8 outputs raw logits that need sigmoid activation
+                    float confidence = confidenceWithSigmoid;
+                    
+                        // Log any detections above debug threshold
+                        if (confidence > debugThreshold) {
+                            Log.d(TAG, "  DEBUG detection: " + CLASSES[classIdx] + " raw=" + String.format("%.6f", rawScore) + 
+                                  " sigmoid=" + String.format("%.6f", confidenceWithSigmoid) + " final=" + String.format("%.6f", confidence) + 
+                                  " anchor=" + anchor);
+                        }
+                        
+                        // EXPLICIT DEBUG: Log all confidence comparisons for first few anchors
+                        if (anchor < 3 && classIdx < 3) {
+                            Log.d(TAG, "    ANCHOR " + anchor + " " + CLASSES[classIdx] + ": conf=" + String.format("%.9f", confidence) + 
+                                  " > threshold=" + String.format("%.9f", debugThreshold) + " ? " + (confidence > debugThreshold));
+                        }
+                        
+                        if (confidence > confidenceThreshold && confidence > maxConfidence) {
+                            maxConfidence = confidence;
+                            bestClass = CLASSES[classIdx];
+                            bestAnchor = anchor;
+                            
+                            Log.d(TAG, "  Found detection: " + bestClass + " raw=" + String.format("%.6f", rawScore) + 
+                                  " sigmoid=" + String.format("%.6f", confidenceWithSigmoid) + " final=" + String.format("%.6f", confidence));
+                        }
+                }
+            }
+        }
+        
+        if (bestClass != null) {
+            Log.d(TAG, "Best detection: " + bestClass + " (conf: " + String.format("%.3f", maxConfidence) + ") at anchor " + bestAnchor);
+            return bestClass + " (conf: " + String.format("%.3f", maxConfidence) + ")";
+        }
+        
+        Log.d(TAG, "No detections above confidence threshold " + confidenceThreshold);
+        return null;
+    }
+    
+    private float sigmoid(float x) {
+        return (float) (1.0 / (1.0 + Math.exp(-x)));
     }
 
     private void simulateObjectDetection() {
@@ -394,6 +708,61 @@ public class CameraNavigationActivity extends AppCompatActivity {
                 Toast.makeText(this, "Camera permission required for navigation", Toast.LENGTH_SHORT).show();
                 finish();
             }
+        }
+    }
+
+    private Bitmap loadTestImageFromAssets() {
+        try {
+            InputStream inputStream = getAssets().open("test_image.jpg");
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            inputStream.close();
+            Log.d(TAG, "Successfully loaded test image from assets: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+            return bitmap;
+        } catch (IOException e) {
+            Log.w(TAG, "Could not load test image from assets, falling back to camera", e);
+            return null;
+        }
+    }
+    
+    private Tensor preprocessBitmap(Bitmap bitmap) {
+        try {
+            Log.d(TAG, "Preprocessing bitmap: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+            
+            // Resize to model input size (assuming 640x640 for YOLO)
+            Bitmap resized = Bitmap.createScaledBitmap(bitmap, 640, 640, true);
+            Log.d(TAG, "Resized to: 640x640");
+            
+            // Convert to normalized float tensor
+            float[] pixels = new float[3 * 640 * 640];
+            int[] intPixels = new int[640 * 640];
+            resized.getPixels(intPixels, 0, 640, 0, 0, 640, 640);
+            
+            // Convert ARGB to RGB and apply YOLOv8/ImageNet normalization
+            // YOLOv8 expects: (pixel/255.0 - mean) / std
+            // ImageNet: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            float[] mean = {0.485f, 0.456f, 0.406f};
+            float[] std = {0.229f, 0.224f, 0.225f};
+            
+            for (int i = 0; i < intPixels.length; i++) {
+                int pixel = intPixels[i];
+                
+                // Extract RGB channels
+                float r = ((pixel >> 16) & 0xFF) / 255.0f;
+                float g = ((pixel >> 8) & 0xFF) / 255.0f;
+                float b = (pixel & 0xFF) / 255.0f;
+                
+                // Apply ImageNet normalization
+                pixels[i] = (r - mean[0]) / std[0]; // R
+                pixels[i + 640 * 640] = (g - mean[1]) / std[1]; // G  
+                pixels[i + 2 * 640 * 640] = (b - mean[2]) / std[2]; // B
+            }
+            
+            Log.d(TAG, "Converted to float array, creating tensor...");
+            return Tensor.fromBlob(pixels, new long[]{1, 3, 640, 640});
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error preprocessing bitmap", e);
+            return null;
         }
     }
 
