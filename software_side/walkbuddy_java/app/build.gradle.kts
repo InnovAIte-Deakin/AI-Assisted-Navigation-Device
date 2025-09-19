@@ -14,6 +14,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Add ABI filters for PyTorch support
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+        }
     }
 
     buildTypes {
@@ -28,6 +33,19 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    
+    packaging {
+        jniLibs {
+            pickFirsts += listOf(
+                "**/libc++_shared.so",
+                "**/libfbjni.so", 
+                "**/libpytorch_jni.so",
+                "**/libpytorch_jni_lite.so",
+                "**/libpytorch_vision_jni.so",
+                "**/libimage_processing_util_jni.so"
+            )
+        }
     }
 }
 
@@ -47,11 +65,11 @@ dependencies {
     implementation("com.google.maps:google-maps-services:2.2.0")
     // OSMDroid as backup mapping solution
     implementation("org.osmdroid:osmdroid-android:6.1.17")
-    // PyTorch for object detection
-    implementation("org.pytorch:pytorch_android_lite:1.12.2")
-    implementation("org.pytorch:pytorch_android_torchvision_lite:1.12.2")
+    // PyTorch for object detection (updated version)
+    implementation("org.pytorch:pytorch_android_lite:1.13.1")
+    implementation("org.pytorch:pytorch_android_torchvision_lite:1.13.1")
     // Add explicit native dependencies
-    implementation("com.facebook.soloader:soloader:0.10.4")
+    implementation("com.facebook.soloader:soloader:0.10.5")
     // Camera and image processing
     implementation("androidx.camera:camera-core:1.3.0")
     implementation("androidx.camera:camera-camera2:1.3.0")
