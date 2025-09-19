@@ -28,6 +28,10 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
+
+import android.graphics.RectF;
+import java.util.ArrayList;
+import java.util.List;
 import com.google.android.gms.location.LocationServices;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -64,6 +68,7 @@ public class CameraNavigationActivity extends AppCompatActivity {
 
     // UI Components
     private PreviewView cameraPreview;
+    private DetectionOverlay detectionOverlay;
     private TextView txtDestination;
     private TextView txtDistance;
     private TextView txtSteps;
@@ -170,6 +175,7 @@ public class CameraNavigationActivity extends AppCompatActivity {
 
     private void initializeViews() {
         cameraPreview = findViewById(R.id.cameraPreview);
+        detectionOverlay = findViewById(R.id.detectionOverlay);
         txtDestination = findViewById(R.id.txtDestination);
         txtDistance = findViewById(R.id.txtDistance);
         txtSteps = findViewById(R.id.txtSteps);
@@ -560,90 +566,205 @@ public class CameraNavigationActivity extends AppCompatActivity {
         // - Last 7 channels are class scores
         // - Data is stored as: [all_anchors_channel_0, all_anchors_channel_1, ...]
         
-        float confidenceThreshold = 0.49999f; // BELOW sigmoid(0) to absolutely catch detections  
-        float debugThreshold = 0.49999f; // Log detections below sigmoid level
-        String bestClass = null;
-        float maxConfidence = 0;
-        int bestAnchor = -1;
+        float confidenceThreshold = 0.4f; // Temporarily lower to see detections
+        float debugThreshold = 0.49999f; // For debugging
+        int maxDetections = 10; // Limit to top 10 detections
+        float minBoxSize = 0.02f; // Minimum box size (2% of image)
         
-        // Debug: Log raw values to understand the data format
-        Log.d(TAG, "Raw output analysis:");
-        Log.d(TAG, "  First 20 values: " + java.util.Arrays.toString(java.util.Arrays.copyOfRange(output, 0, Math.min(20, output.length))));
+        List<DetectionOverlay.Detection> detections = new ArrayList<>();
         
-        // Calculate statistics
-        float sum = 0, min = Float.MAX_VALUE, max = Float.MIN_VALUE;
-        for (float val : output) {
-            sum += val;
-            min = Math.min(min, val);
-            max = Math.max(max, val);
-        }
-        float mean = sum / output.length;
-        Log.d(TAG, "  Stats: mean=" + String.format("%.6f", mean) + ", min=" + String.format("%.6f", min) + ", max=" + String.format("%.6f", max));
+        // Debug: Log raw values (reduced logging for performance)
+        Log.d(TAG, "Processing YOLOv8 output with bounding boxes");
         
-        // Try different indexing approaches
-        Log.d(TAG, "Testing different tensor interpretations:");
+        // YOLOv8 output format: [batch, channels, anchors] where channels = [x, y, w, h, class1, class2, ...]
+        // Channel layout: [x0,x1,...,x8399, y0,y1,...,y8399, w0,w1,...,w8399, h0,h1,...,h8399, cls0_0,cls0_1,...,cls0_8399, ...]
         
-        // Sample a few confidence scores for debugging (first anchor only)
-        Log.d(TAG, "Sampling confidence scores from first anchor:");
-        for (int classIdx = 0; classIdx < Math.min(7, CLASSES.length); classIdx++) {
-            int channelIdx = 4 + classIdx;
-            float rawScore = output[channelIdx * numAnchors + 0]; // First anchor, this class
-            float sigmoidScore = 1.0f / (1.0f + (float) Math.exp(-rawScore));
-            Log.d(TAG, "  " + CLASSES[classIdx] + ": raw=" + String.format("%.6f", rawScore) + 
-                      " sigmoid=" + String.format("%.6f", sigmoidScore));
-        }
-        
-        // Approach 1: Channel-first format [batch, channels, anchors]
-        // Data layout: [x0,x1,...,x8399, y0,y1,...,y8399, w0,w1,...,w8399, h0,h1,...,h8399, cls0_0,cls0_1,...,cls0_8399, cls1_0,cls1_1,...,cls1_8399, ...]
-        int totalChannels = 4 + numClasses; // 11 total channels
-        for (int anchor = 0; anchor < Math.min(100, numAnchors); anchor++) { // Test first 100 anchors
+        for (int anchor = 0; anchor < numAnchors; anchor++) {
+            // Extract bounding box coordinates (channels 0-3)
+            float x = output[0 * numAnchors + anchor]; // Center X (normalized)
+            float y = output[1 * numAnchors + anchor]; // Center Y (normalized)
+            float w = output[2 * numAnchors + anchor]; // Width (normalized)
+            float h = output[3 * numAnchors + anchor]; // Height (normalized)
+            
+            // Find best class for this anchor
+            float maxClassConf = 0;
+            int bestClassIdx = -1;
+            
             for (int classIdx = 0; classIdx < numClasses && classIdx < CLASSES.length; classIdx++) {
-                // Class scores start after bbox coordinates
-                int channelIdx = 4 + classIdx; // Channel index (4, 5, 6, 7, 8, 9, 10)
+                int channelIdx = 4 + classIdx; // Class scores start after bbox coordinates
                 int outputIndex = channelIdx * numAnchors + anchor;
                 
                 if (outputIndex < output.length) {
                     float rawScore = output[outputIndex];
+                    float confidence = sigmoid(rawScore);
                     
-                    // Try both with and without sigmoid
-                    float confidenceWithSigmoid = sigmoid(rawScore);
-                    float confidenceRaw = rawScore;
+                    if (confidence > maxClassConf) {
+                        maxClassConf = confidence;
+                        bestClassIdx = classIdx;
+                    }
+                }
+            }
+            
+            // Check if this detection meets our threshold and size requirements
+            if (maxClassConf > confidenceThreshold && bestClassIdx >= 0) {
+                // Filter out tiny boxes (likely false positives)
+                if (w > minBoxSize && h > minBoxSize) {
+                    // Convert normalized coordinates to pixel coordinates
+                    DetectionOverlay.Detection detection = createDetection(
+                        CLASSES[bestClassIdx], 
+                        maxClassConf, 
+                        x, y, w, h, 
+                        anchor
+                    );
                     
-                    // YOLOv8 outputs raw logits that need sigmoid activation
-                    float confidence = confidenceWithSigmoid;
-                    
-                        // Log any detections above debug threshold
-                        if (confidence > debugThreshold) {
-                            Log.d(TAG, "  DEBUG detection: " + CLASSES[classIdx] + " raw=" + String.format("%.6f", rawScore) + 
-                                  " sigmoid=" + String.format("%.6f", confidenceWithSigmoid) + " final=" + String.format("%.6f", confidence) + 
-                                  " anchor=" + anchor);
-                        }
-                        
-                        // EXPLICIT DEBUG: Log all confidence comparisons for first few anchors
-                        if (anchor < 3 && classIdx < 3) {
-                            Log.d(TAG, "    ANCHOR " + anchor + " " + CLASSES[classIdx] + ": conf=" + String.format("%.9f", confidence) + 
-                                  " > threshold=" + String.format("%.9f", debugThreshold) + " ? " + (confidence > debugThreshold));
-                        }
-                        
-                        if (confidence > confidenceThreshold && confidence > maxConfidence) {
-                            maxConfidence = confidence;
-                            bestClass = CLASSES[classIdx];
-                            bestAnchor = anchor;
-                            
-                            Log.d(TAG, "  Found detection: " + bestClass + " raw=" + String.format("%.6f", rawScore) + 
-                                  " sigmoid=" + String.format("%.6f", confidenceWithSigmoid) + " final=" + String.format("%.6f", confidence));
-                        }
+                    if (detection != null) {
+                        detections.add(detection);
+                        Log.d(TAG, "Detection: " + detection.toString());
+                    }
+                }
+            }
+            
+            // Debug logging for first few anchors
+            if (anchor < 10 && maxClassConf > debugThreshold) {
+                Log.d(TAG, "  Anchor " + anchor + " best: " + (bestClassIdx >= 0 ? CLASSES[bestClassIdx] : "none") + 
+                      " conf=" + String.format("%.6f", maxClassConf) + 
+                      " bbox=[" + String.format("%.3f,%.3f,%.3f,%.3f", x, y, w, h) + "]");
+                
+                // Show raw values for first few
+                if (anchor < 3 && bestClassIdx >= 0) {
+                    int channelIdx = 4 + bestClassIdx;
+                    int outputIndex = channelIdx * numAnchors + anchor;
+                    float rawScore = output[outputIndex];
+                    Log.d(TAG, "    Raw score: " + String.format("%.6f", rawScore) + " -> sigmoid: " + String.format("%.6f", sigmoid(rawScore)));
                 }
             }
         }
         
-        if (bestClass != null) {
-            Log.d(TAG, "Best detection: " + bestClass + " (conf: " + String.format("%.3f", maxConfidence) + ") at anchor " + bestAnchor);
-            return bestClass + " (conf: " + String.format("%.3f", maxConfidence) + ")";
+        // Sort detections by confidence (highest first) and limit to maxDetections
+        detections.sort((a, b) -> Float.compare(b.confidence, a.confidence));
+        if (detections.size() > maxDetections) {
+            detections = detections.subList(0, maxDetections);
         }
         
-        Log.d(TAG, "No detections above confidence threshold " + confidenceThreshold);
+        // Apply Non-Maximum Suppression to remove overlapping boxes
+        final List<DetectionOverlay.Detection> finalDetections = applyNMS(detections, 0.3f); // 30% overlap threshold
+        
+        // Update overlay with filtered detections
+        runOnUiThread(() -> {
+            if (detectionOverlay != null) {
+                detectionOverlay.updateDetections(finalDetections);
+            }
+        });
+        
+        // Return summary for TTS
+        if (!finalDetections.isEmpty()) {
+            DetectionOverlay.Detection bestDetection = finalDetections.get(0);
+            float maxConf = bestDetection.confidence;
+            
+            // Find highest confidence detection
+            for (DetectionOverlay.Detection det : finalDetections) {
+                if (det.confidence > maxConf) {
+                    maxConf = det.confidence;
+                    bestDetection = det;
+                }
+            }
+            
+            Log.d(TAG, "Found " + finalDetections.size() + " detections, best: " + bestDetection.toString());
+            return bestDetection.className + " detected (conf: " + String.format("%.3f", bestDetection.confidence) + 
+                   ") + " + (finalDetections.size() - 1) + " others";
+        }
+        
+        // Clear overlay if no detections
+        runOnUiThread(() -> {
+            if (detectionOverlay != null) {
+                detectionOverlay.clearDetections();
+            }
+        });
+        
         return null;
+    }
+    
+    private DetectionOverlay.Detection createDetection(String className, float confidence, 
+                                                      float x, float y, float w, float h, int anchor) {
+        // Get camera preview dimensions
+        if (cameraPreview == null) return null;
+        
+        int previewWidth = cameraPreview.getWidth();
+        int previewHeight = cameraPreview.getHeight();
+        
+        if (previewWidth <= 0 || previewHeight <= 0) return null;
+        
+        // Convert from normalized coordinates (0-1) to pixel coordinates
+        // YOLOv8 uses center-based coordinates
+        float centerX = x * previewWidth;
+        float centerY = y * previewHeight;
+        float width = w * previewWidth;
+        float height = h * previewHeight;
+        
+        // Convert to corner coordinates (left, top, right, bottom)
+        float left = centerX - width / 2;
+        float top = centerY - height / 2;
+        float right = centerX + width / 2;
+        float bottom = centerY + height / 2;
+        
+        // Clamp to view bounds
+        left = Math.max(0, Math.min(left, previewWidth));
+        top = Math.max(0, Math.min(top, previewHeight));
+        right = Math.max(0, Math.min(right, previewWidth));
+        bottom = Math.max(0, Math.min(bottom, previewHeight));
+        
+        RectF boundingBox = new RectF(left, top, right, bottom);
+        
+        return new DetectionOverlay.Detection(className, confidence, boundingBox, anchor);
+    }
+    
+    /**
+     * Apply Non-Maximum Suppression to remove overlapping bounding boxes
+     */
+    private List<DetectionOverlay.Detection> applyNMS(List<DetectionOverlay.Detection> detections, float iouThreshold) {
+        if (detections.isEmpty()) return detections;
+        
+        List<DetectionOverlay.Detection> result = new ArrayList<>();
+        List<DetectionOverlay.Detection> remaining = new ArrayList<>(detections);
+        
+        while (!remaining.isEmpty()) {
+            // Take the detection with highest confidence
+            DetectionOverlay.Detection best = remaining.get(0);
+            result.add(best);
+            remaining.remove(0);
+            
+            // Remove all detections that overlap significantly with the best one
+            remaining.removeIf(detection -> {
+                float iou = calculateIoU(best.boundingBox, detection.boundingBox);
+                return iou > iouThreshold;
+            });
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Calculate Intersection over Union (IoU) between two bounding boxes
+     */
+    private float calculateIoU(RectF box1, RectF box2) {
+        // Calculate intersection area
+        float intersectLeft = Math.max(box1.left, box2.left);
+        float intersectTop = Math.max(box1.top, box2.top);
+        float intersectRight = Math.min(box1.right, box2.right);
+        float intersectBottom = Math.min(box1.bottom, box2.bottom);
+        
+        if (intersectLeft >= intersectRight || intersectTop >= intersectBottom) {
+            return 0.0f; // No intersection
+        }
+        
+        float intersectionArea = (intersectRight - intersectLeft) * (intersectBottom - intersectTop);
+        
+        // Calculate union area
+        float area1 = (box1.right - box1.left) * (box1.bottom - box1.top);
+        float area2 = (box2.right - box2.left) * (box2.bottom - box2.top);
+        float unionArea = area1 + area2 - intersectionArea;
+        
+        return unionArea > 0 ? intersectionArea / unionArea : 0.0f;
     }
     
     private float sigmoid(float x) {
