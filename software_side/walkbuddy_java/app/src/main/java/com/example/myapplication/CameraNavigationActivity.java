@@ -121,7 +121,11 @@ public class CameraNavigationActivity extends AppCompatActivity {
         }
 
         // Announce activity start
+        Log.d(TAG, "Attempting to speak: Camera navigation started");
         announcer.speak("Camera navigation started. Destination: " + destinationName);
+        
+        // Also show visual feedback for debugging
+        Toast.makeText(this, "Camera navigation started for: " + destinationName, Toast.LENGTH_LONG).show();
     }
 
     private void initializeViews() {
@@ -198,6 +202,7 @@ public class CameraNavigationActivity extends AppCompatActivity {
 
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> {
+            Log.d(TAG, "Attempting to speak: Returning to search");
             announcer.speak("Returning to search");
             finish();
         });
@@ -206,12 +211,16 @@ public class CameraNavigationActivity extends AppCompatActivity {
             isDetectionPaused = !isDetectionPaused;
             String action = isDetectionPaused ? "paused" : "resumed";
             btnPauseResume.setText(isDetectionPaused ? "Resume" : "Pause");
+            Log.d(TAG, "Attempting to speak: Object detection " + action);
             announcer.speak("Object detection " + action);
+            Toast.makeText(this, "Detection " + action, Toast.LENGTH_SHORT).show();
         });
 
         btnRepeatLast.setOnClickListener(v -> {
             if (!lastAnnouncement.isEmpty()) {
+                Log.d(TAG, "Attempting to repeat: " + lastAnnouncement);
                 announcer.speak(lastAnnouncement);
+                Toast.makeText(this, "Repeating: " + lastAnnouncement, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -365,8 +374,12 @@ public class CameraNavigationActivity extends AppCompatActivity {
         // Control timing to avoid announcement spam
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastAnnouncementTime > ANNOUNCEMENT_INTERVAL) {
+            Log.d(TAG, "Attempting to speak object detection: " + announcement);
             announcer.speak(announcement);
             lastAnnouncementTime = currentTime;
+            
+            // Visual feedback for debugging (will remove later)
+            Toast.makeText(this, "TTS: " + announcement, Toast.LENGTH_SHORT).show();
         }
     }
 
