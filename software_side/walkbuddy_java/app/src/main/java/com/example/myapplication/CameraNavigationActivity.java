@@ -8,8 +8,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.util.Size;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -77,6 +79,11 @@ public class CameraNavigationActivity extends AppCompatActivity {
     private Button btnPauseResume;
     private Button btnRepeatLast;
     private ImageView btnBack;
+    private TextView txtNavigatingTo;
+    private LinearLayout statusBar;
+    
+    // Detection mode
+    private boolean isDetectionOnlyMode = false;
 
     // Camera and ML
     private ProcessCameraProvider cameraProvider;
@@ -119,12 +126,15 @@ public class CameraNavigationActivity extends AppCompatActivity {
         setContentView(R.layout.activity_camera_navigation);
 
         initializeViews();
-        getNavigationData();
-        setupLocationTracking();
-        setupClickListeners();
-
-        // Initialize TTS
+        
+        // Initialize TTS first (needed for detection mode)
         announcer = new TTSAnnouncer(this);
+        
+        getNavigationData();
+        if (!isDetectionOnlyMode) {
+            setupLocationTracking();
+        }
+        setupClickListeners();
 
         // Initialize SoLoader for PyTorch Lite
         try {
@@ -177,6 +187,7 @@ public class CameraNavigationActivity extends AppCompatActivity {
         cameraPreview = findViewById(R.id.cameraPreview);
         detectionOverlay = findViewById(R.id.detectionOverlay);
         txtDestination = findViewById(R.id.txtDestination);
+        txtNavigatingTo = findViewById(R.id.txtNavigatingTo);
         txtDistance = findViewById(R.id.txtDistance);
         txtSteps = findViewById(R.id.txtSteps);
         txtDetectedObjects = findViewById(R.id.txtDetectedObjects);
@@ -184,20 +195,49 @@ public class CameraNavigationActivity extends AppCompatActivity {
         btnPauseResume = findViewById(R.id.btnPauseResume);
         btnRepeatLast = findViewById(R.id.btnRepeatLast);
         btnBack = findViewById(R.id.btnBack);
+        statusBar = findViewById(R.id.statusBar);
     }
 
     private void getNavigationData() {
-        // Get data passed from SearchActivity
-        destinationName = getIntent().getStringExtra("destination_name");
-        destinationLat = getIntent().getDoubleExtra("destination_lat", 0.0);
-        destinationLon = getIntent().getDoubleExtra("destination_lon", 0.0);
-        currentDistance = getIntent().getDoubleExtra("current_distance", 0.0);
+        // Check if this is detection-only mode
+        isDetectionOnlyMode = getIntent().getBooleanExtra("detection_only_mode", false);
+        
+        if (isDetectionOnlyMode) {
+            Log.d(TAG, "Starting in DETECTION-ONLY mode");
+            setupDetectionOnlyMode();
+        } else {
+            // Get data passed from SearchActivity
+            destinationName = getIntent().getStringExtra("destination_name");
+            destinationLat = getIntent().getDoubleExtra("destination_lat", 0.0);
+            destinationLon = getIntent().getDoubleExtra("destination_lon", 0.0);
+            currentDistance = getIntent().getDoubleExtra("current_distance", 0.0);
 
-        // Update UI
-        if (destinationName != null) {
-            txtDestination.setText(destinationName);
+            // Update UI
+            if (destinationName != null) {
+                txtDestination.setText(destinationName);
+            }
+            updateDistanceDisplay();
         }
-        updateDistanceDisplay();
+    }
+
+    private void setupDetectionOnlyMode() {
+        Log.d(TAG, "Setting up detection-only mode");
+        
+        // Update UI for detection mode
+        txtNavigatingTo.setText("Object Detection Mode");
+        txtDestination.setText("Or go back to Home Screen");
+        
+        // Hide navigation-specific UI
+        statusBar.setVisibility(View.GONE);
+        
+        // Update announcement (with null check)
+        if (announcer != null) {
+            announcer.speak("Object detection mode activated");
+        } else {
+            Log.w(TAG, "TTSAnnouncer not initialized yet");
+        }
+        
+        Log.d(TAG, "Detection-only mode setup complete");
     }
 
     private void setupLocationTracking() {
@@ -248,8 +288,13 @@ public class CameraNavigationActivity extends AppCompatActivity {
 
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> {
-            Log.d(TAG, "Attempting to speak: Returning to search");
-            announcer.speak("Returning to search");
+            if (isDetectionOnlyMode) {
+                Log.d(TAG, "Returning to home from detection mode");
+                announcer.speak("Returning to home");
+            } else {
+                Log.d(TAG, "Attempting to speak: Returning to search");
+                announcer.speak("Returning to search");
+            }
             finish();
         });
 
