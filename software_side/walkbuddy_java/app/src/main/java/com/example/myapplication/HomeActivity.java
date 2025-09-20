@@ -98,7 +98,9 @@ public class HomeActivity extends AppCompatActivity {
         });
         
         findViewById(R.id.btnBottomCamera).setOnClickListener(v -> {
-            Toast.makeText(this, "Camera (placeholder)", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(HomeActivity.this, CameraNavigationActivity.class);
+            intent.putExtra("detection_only_mode", true);
+            startActivity(intent);
         });
         
         findViewById(R.id.btnBottomAccount).setOnClickListener(v -> {
