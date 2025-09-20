@@ -20,7 +20,7 @@
 - **Bounding Box Visualization**: Color-coded detection boxes with confidence scores
 - **Non-Maximum Suppression (NMS)**: Intelligent filtering to reduce overlapping detections
 
-### �� **Accessibility Features**
+### **Accessibility Features**
 - **Text-to-Speech (TTS)**: Audio announcements for detected objects and navigation instructions
 - **Voice-guided Navigation**: Step-by-step audio directions to destinations
 - **Repeat Functionality**: Replay last announcement on demand
@@ -115,7 +115,7 @@ implementation("org.osmdroid:osmdroid-android:6.1.17")
 - **Multi-object Tracking**: Track objects across frames for better stability
 - **Offline Mode**: Complete offline functionality for areas without internet
 
-## �� Academic Context
+## Academic Context
 
 This project was developed as part of a **SIT378 Capstone Unit** at Deakin University, demonstrating:
 - **Machine Learning Integration**: Custom YOLOv8 model implementation
@@ -149,7 +149,7 @@ This project was developed as part of a **SIT378 Capstone Unit** at Deakin Unive
 3. **Build & Run**: Use a physical device for best camera performance
 4. **Grant Permissions**: Allow camera and location access when prompted
 
-## �� Contributing
+## Contributing
 
 This is an ongoing project, thus, all interested in the project are welcome to make contributions to:
 - Model accuracy improvements
@@ -164,9 +164,5 @@ This project is developed for AI-Assisted Navigation Device project of InnovAlte
 ## 👥 Team
 
 - **Developer**: HAYES (HAYDEN) DUONG
-- **ML Team**: VIVADA THANUDARIE LOKUGAMAGE
+- **ML Team**: VIVADA THANUDARIE LOKUGAMAGE & T2/2025 ML Team
 - **Company**: InnovAlte (Deakin University)
-
----
-
-**Note**: This project represents undergraduate-level work in mobile development and machine learning integration. While functional, it serves as a learning demonstration and proof-of-concept for AI-assisted navigation systems.
