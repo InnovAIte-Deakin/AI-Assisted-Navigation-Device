@@ -4,6 +4,8 @@
 
 **WalkBuddy** is an Android application designed to assist visually impaired users with navigation through real-time object detection and audio feedback. This project integrates computer vision, machine learning, and accessibility features to create a comprehensive navigation aid.
 
+Video Demo: https://deakin.au.panopto.com/Panopto/Pages/Viewer.aspx?id=2e24e0f6-17bf-4002-960f-b35f005845bc
+
 ## ✨ Key Features
 
 ### 🗺️ **Offline Mapping System**
