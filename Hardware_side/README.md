@@ -2,6 +2,8 @@
 
 This folder contains the Android application that serves as the hardware interface for the AI-Assisted Navigation Device. The app provides real-time sensor data collection, computer vision-based obstacle detection, and multimodal feedback (haptic, audio, visual) to assist users with navigation.
 
+Video Demo: https://deakin.au.panopto.com/Panopto/Pages/Viewer.aspx?id=f66f8a41-8f5c-4a97-8859-b35f00df9ae1
+
 ## Project Overview
 
 **Purpose:** To provide a comprehensive mobile platform for testing and demonstrating AI-assisted navigation capabilities using smartphone sensors and camera.
