@@ -1,0 +1,13 @@
+path: /content/drive/MyDrive/Colab Notebooks/combined_dataset
+train: /content/drive/MyDrive/Colab Notebooks/combined_dataset/train
+val: /content/drive/MyDrive/Colab Notebooks/combined_dataset/val
+test: /content/drive/MyDrive/Colab Notebooks/combined_dataset/test
+nc: 7
+names:
+- book
+- books
+- monitor
+- office-chair
+- whiteboard
+- table
+- tv

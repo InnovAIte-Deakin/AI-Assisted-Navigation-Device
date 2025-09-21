@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Models (keep small ones, ignore large ones)
+*.pt
+!models/object_detection/best.pt
+
+# Data (if too large)
+# data/raw/
+# data/external/
+
+# OS
+.DS_Store
+Thumbs.db
