@@ -1,6 +1,0 @@
-train: dataset/train/images
-val: dataset/valid/images
-test: dataset/test/images
-
-nc: 4
-names: ['book', 'books', 'monitor', 'office-chair']
