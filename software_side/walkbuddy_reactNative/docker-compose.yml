@@ -46,17 +46,17 @@ services:
     # command: sh -c "npm install && npm run start"
     command: sh -c "npm install && npx expo start --tunnel --non-interactive=false"
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: app-ngrok
-    depends_on:
-      - backend
-    command: start --all --config /etc/ngrok.yml
-    volumes:
-      - ./ngrok/ngrok.yml:/etc/ngrok.yml:ro
-    environment:
-      #  Put your real token here (from dashboard.ngrok.com)
-      - NGROK_AUTHTOKEN="1QPH2nWR64emjgVE8zqOsC7KYEO_3nyy5EGMcKLJ9KSwuZFB"
-    ports:
-      - "4040:4040"   # ngrok web UI on your Mac (inspect URLs/requests)
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   container_name: app-ngrok
+  #   depends_on:
+  #     - backend
+  #   command: start --all --config /etc/ngrok.yml
+  #   volumes:
+  #     - ./ngrok/ngrok.yml:/etc/ngrok.yml:ro
+  #   environment:
+  #     #  Put your real token here (from dashboard.ngrok.com)
+  #     - NGROK_AUTHTOKEN="1QPH2nWR64emjgVE8zqOsC7KYEO_3nyy5EGMcKLJ9KSwuZFB"
+  #   ports:
+  #     - "4040:4040"   # ngrok web UI on your Mac (inspect URLs/requests)
 
