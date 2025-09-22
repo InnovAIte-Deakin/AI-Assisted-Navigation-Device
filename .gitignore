@@ -145,13 +145,6 @@
 **/*.ogg
 **/*.wma
 
-# Documents (if they're large)
-**/documents/
-**/*.pdf
-**/*.docx
-**/*.pptx
-**/*.xlsx
-
 # Exclude the entire Walkbuddy_reactNative directory with all its contents
 # This will prevent the 10K+ files from being tracked
 Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/
