@@ -1,0 +1,62 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: app-backend
+    working_dir: /app
+    ports:
+      - "8000:8000"               # publish so your phone can hit it
+      - "7860:7860"
+      - "8001:8000"
+    volumes:
+      - ./ML_models:/ML_models:ro
+      - ./backend:/app            # live-reload backend code
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    platform: linux/arm64/v8
+    build:
+      context: .
+      dockerfile: frontend_reactNative/Dockerfile
+    container_name: app-frontend
+    depends_on:
+      - backend
+    working_dir: /app
+    ports:
+      - "19000:19000"             # Expo dev server / manifest
+      - "19001:19001"             # Metro
+      - "19002:19002"             # Expo DevTools UI
+      - "19006:19006"             # Expo for Web (if you use it)
+      - "8081:8081"               # Metro (RN)
+  
+    volumes:
+      - ./frontend_reactNative:/app    # live code edits
+      - /app/node_modules              # keep node_modules inside container
+    environment:
+      # Set to your Mac's LAN IP so a PHONE on same Wi-Fi can reach backend
+      # (Your value from earlier was 172.20.10.12 — update if it changes)
+      - EXPO_PUBLIC_API_BASE_URL=http://172.20.10.12:8001
+      - EXPO_NO_TELEMETRY=1
+      - EXPO_NO_WEB=1                 # <-- disable web bundling to dodge lightningcss
+      - EXPO_USE_LIGHTNINGCSS=off     # <-- hard-disable lightningcss native binary
+    # Ensure deps exist when the container starts, then run the new Expo CLI
+    # command: sh -c "npm install && npm run start"
+    command: sh -c "npm install && npx expo start --tunnel --non-interactive=false"
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: app-ngrok
+    depends_on:
+      - backend
+    command: start --all --config /etc/ngrok.yml
+    volumes:
+      - ./ngrok/ngrok.yml:/etc/ngrok.yml:ro
+    environment:
+      #  Put your real token here (from dashboard.ngrok.com)
+      - NGROK_AUTHTOKEN="1QPH2nWR64emjgVE8zqOsC7KYEO_3nyy5EGMcKLJ9KSwuZFB"
+    ports:
+      - "4040:4040"   # ngrok web UI on your Mac (inspect URLs/requests)
+
