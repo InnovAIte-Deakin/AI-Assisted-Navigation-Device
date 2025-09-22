@@ -1,0 +1,9 @@
+<!doctype html>
+<html>
+  <body>
+    <button onclick="fetch('http://localhost:8000/switch/gradio').then(r=>r.json()).then(console.log).catch(console.error)">Start Gradio</button>
+    <button onclick="fetch('http://localhost:8000/switch/ocr').then(r=>r.json()).then(console.log).catch(console.error)">Start OCR</button>
+    <button onclick="fetch('http://localhost:8000/stop').then(r=>r.json()).then(console.log).catch(console.error)">Stop</button>
+    <iframe id="ui" src="http://localhost:7860" style="width:100%;height:80vh;border:1px solid #ccc"></iframe>
+  </body>
+</html>

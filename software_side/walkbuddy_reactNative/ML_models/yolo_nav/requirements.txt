@@ -1,0 +1,10 @@
+ultralytics
+gTTS
+gradio
+opencv-python
+matplotlib
+numpy
+pyyaml
+# OCR branch:
+pytesseract
+torch

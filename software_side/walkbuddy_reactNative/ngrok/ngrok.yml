@@ -1,0 +1,16 @@
+version: "2"
+
+tunnels:
+  fastapi:
+    addr: http://backend:8000
+    proto: http
+    # optional: request_header_add:
+    #   - "ngrok-tunnel: fastapi"
+  gradio:
+    addr: http://backend:7860
+    proto: http
+    # optional: request_header_add:
+    #   - "ngrok-tunnel: gradio"
+
+# Expose the inspector on 0.0.0.0 so it's reachable via Docker port 4040
+web_addr: 0.0.0.0:4040
