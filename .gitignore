@@ -145,26 +145,3 @@
 **/*.ogg
 **/*.wma
 
-# Exclude the entire Walkbuddy_reactNative directory with all its contents
-# This will prevent the 10K+ files from being tracked
-Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/
-
-# But allow specific essential files
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/README.md
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/app/
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/components/
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/src/
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/assets/
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/constants/
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/hooks/
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.json
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.js
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.ts
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.tsx
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/backend/*.py
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/backend/*.txt
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/ML_models/*.py
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/ML_models/*.yaml
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/ML_models/*.txt
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/*.yml
-!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/*.yaml
