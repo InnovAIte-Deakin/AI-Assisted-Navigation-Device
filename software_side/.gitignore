@@ -1,0 +1,170 @@
+﻿# Dependencies
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+
+# Build outputs
+**/build/
+**/dist/
+**/out/
+**/.expo/
+**/.gradle/
+**/android/app/build/
+**/ios/build/
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# IDE files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/*~
+
+# OS files
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+**/__MACOSX/
+
+# Logs
+**/logs/
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Runtime data
+**/pids/
+**/*.pid
+**/*.seed
+**/*.pid.lock
+
+# Coverage directory used by tools like istanbul
+**/coverage/
+**/.nyc_output/
+
+# Dependency directories
+**/jspm_packages/
+
+# Optional npm cache directory
+**/.npm
+
+# Optional eslint cache
+**/.eslintcache
+
+# Microbundle cache
+**/.rpt2_cache/
+**/.rts2_cache_cjs/
+**/.rts2_cache_es/
+**/.rts2_cache_umd/
+
+# Optional REPL history
+**/.node_repl_history
+
+# Output of 'npm pack'
+**/*.tgz
+
+# Yarn Integrity file
+**/.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+**/.cache
+**/.parcel-cache
+
+# Next.js build output
+**/.next
+
+# Nuxt.js build / generate output
+**/.nuxt
+**/dist
+
+# Gatsby files
+**/.cache/
+**/public
+
+# Storybook build outputs
+**/.out
+**/.storybook-out
+
+# Temporary folders
+**/tmp/
+**/temp/
+
+# Editor directories and files
+**/.vscode/*
+!**/.vscode/extensions.json
+**/.idea
+**/*.suo
+**/*.ntvs*
+**/*.njsproj
+**/*.sln
+**/*.sw?
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*.class
+**/*.so
+**/.Python
+**/env/
+**/venv/
+**/ENV/
+**/env.bak/
+**/venv.bak/
+
+# ML Models - exclude large files but keep essential
+**/ML_models/*/runs/
+**/ML_models/*/weights/*.pt
+!**/ML_models/*/weights/yolov8s.pt
+**/ML_models/*/dataset/
+**/ML_models/*/images/
+**/ML_models/*/*.mp3
+**/ML_models/*/venv/
+
+# Gradio
+**/.gradio/
+
+# Large files that shouldn't be in git
+**/*.mp4
+**/*.avi
+**/*.mov
+**/*.wmv
+**/*.flv
+**/*.webm
+**/*.mp3
+**/*.wav
+**/*.flac
+**/*.aac
+**/*.ogg
+**/*.wma
+
+# Exclude the entire Walkbuddy_reactNative directory with all its contents
+# This will prevent the 10K+ files from being tracked
+Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/
+
+# But allow specific essential files
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/README.md
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/app/
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/components/
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/src/
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/assets/
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/constants/
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/hooks/
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.json
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.js
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.ts
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/frontend_reactNative/*.tsx
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/backend/*.py
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/backend/*.txt
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/ML_models/*.py
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/ML_models/*.yaml
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/ML_models/*.txt
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/*.yml
+!Software_side/walkbuddy_reactNative/Walkbuddy_reactNative/*.yaml
