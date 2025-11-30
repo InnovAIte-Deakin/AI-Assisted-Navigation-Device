@@ -1,13 +1,13 @@
-# live_gradio.py
 import uuid, time, re, tempfile, os
 from collections import deque
 from ultralytics import YOLO
 import gradio as gr
 from gtts import gTTS
 from pathlib import Path
+import argparse
 
 THIS_DIR = Path(__file__).resolve().parent
-WEIGHTS = THIS_DIR / "runs" / "detect" / "train" / "weights" / "best.pt"
+WEIGHTS = THIS_DIR / "weights" / "yolov8s.pt"
 
 # Load model directly from weights
 model = YOLO(WEIGHTS)
@@ -150,9 +150,19 @@ with gr.Blocks() as demo:
     cam.stream(fn=_wrapper, inputs=[cam, state], outputs=[out_img, out_audio, state])
     demo.queue()
 
-demo.launch(
-    server_name="0.0.0.0",
-    server_port=7860,
-    share=True,
-    show_api=False
-)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=7860)
+    parser.add_argument("--host", type=str, default="0.0.0.0")
+    parser.add_argument("--share", action="store_true")
+    args = parser.parse_args()
+
+    demo.launch(
+        server_name=args.host,
+        server_port=args.port,
+        share=args.share,
+        show_api=False,
+    )
+if __name__ == "__main__":
+    main()
+

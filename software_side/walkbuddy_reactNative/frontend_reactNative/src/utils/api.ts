@@ -1,3 +1,4 @@
+// frontend_reactNative/src/utils/api.ts
 import { API_BASE } from "../config";
 
 export async function switchMode(mode: "gradio" | "ocr") {
