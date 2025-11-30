@@ -1,6 +1,4 @@
-//-- the starting one which works--
-
-// // src/components/ModelWebView.tsx
+// // // frontend_reactNativesrc/components/ModelWebView.tsx
 // import React, { memo } from "react";
 // import { Platform, View, ActivityIndicator, StyleSheet } from "react-native";
 // import { WebView } from "react-native-webview";
