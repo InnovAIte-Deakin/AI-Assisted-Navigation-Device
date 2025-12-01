@@ -10,7 +10,7 @@ web-build/
 expo-env.d.ts
 
 # Native
-.kotlinc/
+.kotlin/
 *.orig.*
 *.jks
 *.p8
@@ -30,40 +30,14 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files (ADDED: ensure all .env files are ignored)
-.env
-.env.*
-.env.production
-.env.development
+# local env files
+.env*.local
 
 # typescript
 *.tsbuildinfo
 
-# Tests (if generated later)
-coverage/
-jest/
+app-example
 
-# Build outputs
-build/
-android/
-ios/
-
-# Expo artifacts
-*.apk
-*.aab
-*.ipa
-
-# Logs
-*.log
-
-# zips & exported bundles
-app.zip
-*.tar.gz
-
-# VSCode
-.vscode/
-
-# Other temporary & system files
-*.swp
-*.swo
-Thumbs.db
+# generated native folders
+/ios
+/android
