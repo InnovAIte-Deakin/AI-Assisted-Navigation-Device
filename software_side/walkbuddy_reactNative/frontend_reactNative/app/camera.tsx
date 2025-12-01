@@ -21,19 +21,12 @@ import {
 } from "react-native";
 
 import ModelWebView from "../src/components/ModelWebView";
-import { GRADIO_URL } from "../src/config";
-import { switchMode, stopAll } from "../src/utils/api";
-import { fetchStatus } from "../src/api/client";
+import { API_BASE } from "../src/config";
 
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");
 
 type Mode = "idle" | "vision" | "voice" | "ocr";
-
-// helper: resolves if we can reach Gradio at all
-async function ping(url: string) {
-  await fetch(url, { cache: "no-store" });
-}
 
 export default function CameraAssistScreen() {
   // default mode = voice (camera only, no Gradio)
@@ -46,11 +39,29 @@ export default function CameraAssistScreen() {
   // WebView state
   const [loading, setLoading] = useState(false);
   const [rev, setRev] = useState(0);
-  const url = useMemo(() => `${GRADIO_URL}?v=${rev}`, [rev]);
 
-  // timers
-  const retryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const attemptsRef = useRef(0);
+  // Pick the correct mounted Gradio app
+  const url = useMemo(() => {
+    if (mode === "vision") {
+      return `${API_BASE}/vision/?v=${rev}`;
+    }
+    if (mode === "ocr") {
+      return `${API_BASE}/ocr/?v=${rev}`;
+    }
+    return "";
+  }, [mode, rev]);
+
+  // simple loading state when switching between modes
+  useEffect(() => {
+    if (mode === "vision" || mode === "ocr") {
+      setLoading(true);
+      setRev((x) => x + 1); // force WebView reload
+      const t = setTimeout(() => setLoading(false), 800);
+      return () => clearTimeout(t);
+    } else {
+      setLoading(false);
+    }
+  }, [mode]);
 
   // voice assist
   const [isListening, setIsListening] = useState(false);
@@ -88,100 +99,14 @@ export default function CameraAssistScreen() {
     }
   }, []);
 
-  // global cleanup on unmount
+  // cleanup on unmount
   useEffect(() => {
     return () => {
       try {
         Speech.stop();
       } catch {}
-      stopAll().catch(() => {});
-      stopAutoReload();
     };
   }, []);
-
-  // --------- reload helpers ----------
-
-  const stopAutoReload = () => {
-    if (retryTimerRef.current) {
-      clearInterval(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-  };
-
-  // Only reload iframe when Gradio is actually reachable
-  const kickAutoReload = (maxAttempts = 30, intervalMs = 700) => {
-    stopAutoReload();
-    attemptsRef.current = 0;
-
-    const tick = async () => {
-      attemptsRef.current += 1;
-      try {
-        await ping(GRADIO_URL); // just reachability
-        stopAutoReload();
-        setRev((x) => x + 1); // single reload
-        setLoading(false);
-      } catch (err) {
-        if (attemptsRef.current >= maxAttempts) {
-          stopAutoReload();
-          setLoading(false);
-          Alert.alert(
-            "Gradio not reachable",
-            "Could not connect to the model server on localhost:7860. Is it running?"
-          );
-        }
-      }
-    };
-
-    // run immediately, then repeat
-    tick();
-    retryTimerRef.current = setInterval(tick, intervalMs);
-  };
-
-  // --------- backend mode switching ----------
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function boot(kind: "gradio" | "ocr") {
-      setLoading(true);
-      stopAutoReload();
-      try {
-        await switchMode(kind);
-        const status = await fetchStatus();
-        console.log("Backend status:", status);
-      } catch (e) {
-        console.error("switchMode failed:", e);
-        if (!cancelled) {
-          setLoading(false);
-          Alert.alert(
-            "Error",
-            `Could not start ${
-              kind === "gradio" ? "Vision Assist" : "Scan Text"
-            }. Make sure the backend is running on localhost:8000.`
-          );
-        }
-        return;
-      }
-      if (!cancelled) {
-        // now wait for Gradio port to be reachable, then reload iframe once
-        kickAutoReload();
-      }
-    }
-
-    if (mode === "vision") {
-      boot("gradio");
-    } else if (mode === "ocr") {
-      boot("ocr");
-    } else if (mode === "voice" || mode === "idle") {
-      stopAll().catch(() => {});
-      stopAutoReload();
-      setLoading(false);
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mode]);
 
   // --------- voice assist ----------
 
@@ -299,10 +224,9 @@ export default function CameraAssistScreen() {
         <ModeBtn
           label="Voice Assist"
           active={mode === "voice"}
-          onPress={async () => {
+          onPress={() => {
             Haptics.selectionAsync();
             if (isListening) stopListening();
-            await stopAll().catch(() => {});
             setMode("voice");
           }}
         />
