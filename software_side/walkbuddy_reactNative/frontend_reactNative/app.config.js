@@ -1,4 +1,4 @@
-// app.config.js
+// frontend_reactNative/app.config.js
 export default ({ config }) => ({
   ...config,
   name: config.name || "MyApp",
@@ -27,6 +27,10 @@ export default ({ config }) => ({
   },
   web: {
     favicon: "./assets/favicon.png",
+    headers: {
+      "Content-Security-Policy":
+        "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
+    },
   },
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8000",

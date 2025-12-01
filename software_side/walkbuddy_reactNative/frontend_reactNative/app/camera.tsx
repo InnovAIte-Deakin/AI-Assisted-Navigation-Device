@@ -3,7 +3,13 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Dimensions,
@@ -13,50 +19,57 @@ import {
   Text,
   View,
 } from "react-native";
- 
+
 import ModelWebView from "../src/components/ModelWebView";
-import { GRADIO_URL } from "../src/config";
-import { switchMode, stopAll } from "../src/utils/api";
-import { fetchStatus } from "../src/api/client";
- 
+import { API_BASE } from "../src/config";
+
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");
- 
-// NOTE: keeping your timer/reload logic intact
+
 type Mode = "idle" | "vision" | "voice" | "ocr";
- 
-// --- ping helper: resolves only when the port accepts connections
-async function ping(url: string) {
-  await fetch(url, { mode: "no-cors", cache: "no-store" });
-}
- 
+
 export default function CameraAssistScreen() {
-  // ✅ Voice Assist is the default
+  // default mode = voice (camera only, no Gradio)
   const [mode, setMode] = useState<Mode>("voice");
- 
-  // Camera (for Voice Assist)
+
+  // camera for voice assist
   const [perm, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
- 
-  // WebView state (cache-buster to force iframe reload)
+
+  // WebView state
   const [loading, setLoading] = useState(false);
   const [rev, setRev] = useState(0);
-  const url = useMemo(() => `${GRADIO_URL}?v=${rev}`, [rev]);
- 
-  // manual refresh timer (KEEPING your approach)
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const REFRESH_DELAY_MS = 3000; // as you had it
- 
-  // auto-retry control (KEEPING)
-  const retryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const attemptsRef = useRef(0);
- 
-  // voice
+
+  // Pick the correct mounted Gradio app
+  const url = useMemo(() => {
+    if (mode === "vision") {
+      return `${API_BASE}/vision/?v=${rev}`;
+    }
+    if (mode === "ocr") {
+      return `${API_BASE}/ocr/?v=${rev}`;
+    }
+    return "";
+  }, [mode, rev]);
+
+  // simple loading state when switching between modes
+  useEffect(() => {
+    if (mode === "vision" || mode === "ocr") {
+      setLoading(true);
+      setRev((x) => x + 1); // force WebView reload
+      const t = setTimeout(() => setLoading(false), 800);
+      return () => clearTimeout(t);
+    } else {
+      setLoading(false);
+    }
+  }, [mode]);
+
+  // voice assist
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [sttAvailable, setSttAvailable] = useState(false);
   const recognitionRef = useRef<any>(null);
- 
+
+  // text-to-speech guard
   const speakingRef = useRef(false);
   const speak = useCallback((msg: string) => {
     if (speakingRef.current) return;
@@ -65,12 +78,19 @@ export default function CameraAssistScreen() {
     Speech.speak(msg, {
       rate: 1.0,
       pitch: 1.0,
-      onDone: () => { speakingRef.current = false; },
-      onStopped: () => { speakingRef.current = false; },
-      onError: () => { speakingRef.current = false; },
+      onDone: () => {
+        speakingRef.current = false;
+      },
+      onStopped: () => {
+        speakingRef.current = false;
+      },
+      onError: () => {
+        speakingRef.current = false;
+      },
     });
   }, []);
- 
+
+  // browser STT availability
   useEffect(() => {
     if (Platform.OS === "web") {
       const W = globalThis as any;
@@ -78,91 +98,28 @@ export default function CameraAssistScreen() {
       setSttAvailable(!!SR);
     }
   }, []);
- 
+
+  // cleanup on unmount
   useEffect(() => {
     return () => {
-      try { Speech.stop(); } catch {}
-      stopAll().catch(() => {});
-      stopAutoReload();
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      try {
+        Speech.stop();
+      } catch {}
     };
   }, []);
- 
-  // ---------- auto reload logic (UNCHANGED) ----------
-  const stopAutoReload = () => {
-    if (retryTimerRef.current) {
-      clearInterval(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-  };
- 
-  const kickAutoReload = (maxAttempts = 30, intervalMs = 700) => {
-    stopAutoReload();
-    attemptsRef.current = 0;
- 
-    const tick = async () => {
-      attemptsRef.current += 1;
-      try {
-        await ping(GRADIO_URL);          // succeeds only when server is up
-        stopAutoReload();
-        setRev((x) => x + 1);            // final clean reload
-        setLoading(false);
-      } catch {
-        // keep bumping the url so iframe tries again (like manual refresh)
-        setRev((x) => x + 1);
-        if (attemptsRef.current >= maxAttempts) {
-          stopAutoReload();
-          setLoading(false);
-          Alert.alert("Still starting…", "Could not reach the Gradio server yet.");
-        }
-      }
-    };
- 
-    // run immediately, then repeat
-    tick();
-    retryTimerRef.current = setInterval(tick, intervalMs);
-  };
- 
-  // -------- mode switching (UNCHANGED) --------
-  useEffect(() => {
-    let cancelled = false;
- 
-    async function boot(kind: "gradio" | "ocr") {
-      setLoading(true);
-      stopAutoReload();
-      try {
-        await switchMode(kind);
-        const status = await fetchStatus();
-        console.log("Backend status:", status);
-      } catch (e) {
-        console.error("switchMode failed:", e);
-        if (!cancelled) {
-          setLoading(false);
-          Alert.alert("Error", `Could not start ${kind === "gradio" ? "object detection" : "OCR"}.`);
-        }
-        return;
-      }
-      if (!cancelled) kickAutoReload(); // keep refreshing until port is ready
-    }
- 
-    if (mode === "vision") boot("gradio");
-    else if (mode === "ocr") boot("ocr");
-    else if (mode === "voice" || mode === "idle") {
-      // Voice/Idle should stop the active ML model (KEEPING)
-      stopAll().catch(() => {});
-      stopAutoReload();
-    }
- 
-    return () => { cancelled = true; };
-  }, [mode]);
- 
-  // -------- voice assist (UNCHANGED) --------
+
+  // --------- voice assist ----------
+
   const startListening = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     if (Platform.OS === "web") {
       const W = globalThis as any;
       const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
-      if (!SR) { Alert.alert("Speech recognition not available in this browser."); return; }
+      if (!SR) {
+        Alert.alert("Speech recognition not available in this browser.");
+        return;
+      }
       const rec = new SR();
       recognitionRef.current = rec;
       rec.lang = "en-US";
@@ -170,7 +127,9 @@ export default function CameraAssistScreen() {
       rec.interimResults = true;
       rec.onresult = (e: any) => {
         let text = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) text += e.results[i][0].transcript;
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          text += e.results[i][0].transcript;
+        }
         setTranscript(text.trim());
       };
       rec.onend = () => setIsListening(false);
@@ -179,31 +138,37 @@ export default function CameraAssistScreen() {
       setIsListening(true);
       rec.start();
     } else {
-      Alert.alert("Voice Assist", "Speech recognition isn’t enabled in Expo Go.");
+      Alert.alert(
+        "Voice Assist",
+        "Speech recognition isn’t enabled in Expo Go. It will work in a custom dev client / production build."
+      );
     }
   }, []);
+
   const stopListening = useCallback(() => {
     if (Platform.OS === "web" && recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
+      try {
+        recognitionRef.current.stop();
+      } catch {}
     }
     setIsListening(false);
   }, []);
+
+  // simple command: "scan text" → OCR mode
   useEffect(() => {
     const t = transcript.toLowerCase();
     if (!t) return;
     if (t.includes("help")) speak("Help opened.");
     if (t.includes("scan text")) setMode("ocr");
   }, [transcript, speak]);
- 
-  // manual refresh (KEEP)
-  const manualRefresh = () => {
-    Haptics.selectionAsync();
-    setRev((x) => x + 1);
-  };
- 
-  // —— permission gate for voice camera ——
-  if (!perm) return <View style={{ flex: 1, backgroundColor: "#1B263B" }} />;
-  if (!perm.granted)
+
+  // --------- permission gate for voice camera ----------
+
+  if (!perm) {
+    return <View style={{ flex: 1, backgroundColor: "#1B263B" }} />;
+  }
+
+  if (!perm.granted) {
     return (
       <View style={styles.centerDark}>
         <Text style={{ color: "#fff", marginBottom: 12 }}>
@@ -214,73 +179,68 @@ export default function CameraAssistScreen() {
         </Pressable>
       </View>
     );
- 
+  }
+
+  // --------- UI ----------
+
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          {mode === "ocr" ? "SCAN TEXT"
-           : mode === "voice" ? "VOICE ASSIST"
-           : mode === "vision" ? "VISION ASSIST"
-           : "ASSISTANT"}
+          {mode === "ocr"
+            ? "SCAN TEXT"
+            : mode === "voice"
+            ? "VOICE ASSIST"
+            : mode === "vision"
+            ? "VISION ASSIST"
+            : "ASSISTANT"}
         </Text>
       </View>
- 
+
       <View style={styles.previewBox}>
-        {/* Voice Assist shows the camera */}
         {mode === "voice" ? (
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
-        ) : (mode === "vision" || mode === "ocr") ? (
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            facing="back"
+          />
+        ) : mode === "vision" || mode === "ocr" ? (
           <ModelWebView url={url} loading={loading} />
         ) : (
           <View style={{ flex: 1, backgroundColor: "#1B263B" }} />
         )}
       </View>
- 
+
       <View style={styles.modeBar}>
-        {/* Vision: DO NOT stop the server; keep your timer + refresh as-is */}
         <ModeBtn
           label="Vision"
           active={mode === "vision"}
           onPress={() => {
             Haptics.selectionAsync();
-            setMode("vision"); // triggers switchMode('gradio') in effect
-            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-            refreshTimerRef.current = setTimeout(() => {
-              manualRefresh();
-              refreshTimerRef.current = null;
-            }, REFRESH_DELAY_MS);
+            setMode("vision");
           }}
         />
- 
-        {/*  Voice Assist: STOP any active ML model */}
+
         <ModeBtn
           label="Voice Assist"
           active={mode === "voice"}
-          onPress={async () => {
+          onPress={() => {
             Haptics.selectionAsync();
             if (isListening) stopListening();
-            await stopAll().catch(() => {}); // stop active ML
-            setMode("voice"); // show camera
+            setMode("voice");
           }}
         />
- 
-        {/* OCR unchanged */}
+
         <ModeBtn
           label="Scan Text"
           active={mode === "ocr"}
           onPress={() => {
             Haptics.selectionAsync();
             setMode("ocr");
-            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-            refreshTimerRef.current = setTimeout(() => {
-              manualRefresh();
-              refreshTimerRef.current = null;
-            }, REFRESH_DELAY_MS);
           }}
         />
       </View>
- 
+
       {mode === "voice" && (
         <View style={styles.voiceRow}>
           <Pressable
@@ -294,29 +254,46 @@ export default function CameraAssistScreen() {
               color={isListening ? "#1B263B" : GOLD}
             />
           </Pressable>
- 
+
           <View style={styles.voiceTextWrap}>
             <Text style={styles.voiceHint}>
               {sttAvailable || Platform.OS === "web"
-                ? isListening ? "Listening… speak now" : "Tap the mic and speak"
+                ? isListening
+                  ? "Listening… speak now"
+                  : "Tap the mic and speak"
                 : "Mic requires native STT (Dev Client)"}
             </Text>
-            {!!transcript && <Text style={styles.voiceTranscript}>{transcript}</Text>}
+            {!!transcript && (
+              <Text style={styles.voiceTranscript}>{transcript}</Text>
+            )}
           </View>
         </View>
       )}
     </View>
   );
 }
- 
-function ModeBtn({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+
+function ModeBtn({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={[styles.modeBtn, active && styles.modeBtnActive]}>
-      <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={[styles.modeBtn, active && styles.modeBtnActive]}
+    >
+      <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
- 
+
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: "#1B263B" },
   header: {
@@ -330,8 +307,6 @@ const styles = StyleSheet.create({
     borderBottomColor: GOLD,
   },
   headerTitle: { color: GOLD, fontSize: 20, fontWeight: "800" },
- 
-  // Keep iframe height where you had it so voice UI remains visible
   previewBox: {
     height: SCREEN_H * 0.55,
     margin: 12,
@@ -339,7 +314,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#1B263B",
   },
- 
   modeBar: {
     flexDirection: "row",
     gap: 10,
@@ -358,7 +332,6 @@ const styles = StyleSheet.create({
   modeBtnActive: { backgroundColor: GOLD },
   modeBtnText: { color: GOLD, fontWeight: "700" },
   modeBtnTextActive: { color: "#1B263B" },
- 
   voiceRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -379,7 +352,6 @@ const styles = StyleSheet.create({
   voiceTextWrap: { flex: 1 },
   voiceHint: { color: GOLD, fontWeight: "700" },
   voiceTranscript: { color: "#fff", marginTop: 6 },
- 
   centerDark: {
     flex: 1,
     alignItems: "center",
@@ -394,4 +366,3 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: "#1B263B", fontWeight: "800" },
 });
- 

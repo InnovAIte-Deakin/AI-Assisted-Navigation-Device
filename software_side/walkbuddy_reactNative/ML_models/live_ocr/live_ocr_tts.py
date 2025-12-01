@@ -1,7 +1,4 @@
 # ML_models/live_ocr/live_ocr_tts.py
-# Robust OpenCV camera -> EasyOCR (original logic) -> Gradio stream (auto-start)
-# Non-mirrored feed. Voice via original pyttsx3 on the server.
-
 import argparse, sys, time, threading, re, queue
 from collections import deque
 from typing import Optional
@@ -152,7 +149,6 @@ def stream_frames():
             time.sleep(0.05); continue
 
         # ---- NO FLIP (non-mirrored feed) ----
-        # frame_bgr is used as-is (like your original)
 
         # ---- ORIGINAL EasyOCR call ----
         results = reader.readtext(frame_bgr)  # [(bbox, text, prob), ...]
@@ -223,56 +219,24 @@ def reset_seen():
     return "", "Cleared history."
 
 # ------------------ Gradio UI (auto-start; no flip/audio controls) ------------------
-def build_ui():
-    with gr.Blocks(title="Live OCR — Robust Camera (Auto-Start, Non-Mirrored)") as demo:
-        gr.Markdown("### 📷 Live OCR (Robust Camera) — **auto-start**, **non-mirrored**, **server TTS**")
+def build_ocr_app():
+    with gr.Blocks(title="Live OCR — Robust Camera") as demo:
+        gr.Markdown("### 📷 Live OCR (Auto-Start, Non-Mirrored)")
 
         img    = gr.Image(label="Camera Stream", height=560)
         spoken = gr.Textbox(label="Detected Text (history)", lines=10, interactive=False)
         debug  = gr.Markdown("")
 
-        # Auto-start the generator on page load
         demo.load(fn=stream_frames, inputs=None, outputs=[img, spoken, debug])
 
         with gr.Row():
-            gr.Button("Reset Seen Texts", variant="secondary", size="sm").click(
+            gr.Button("Reset Seen Texts").click(
                 fn=reset_seen, inputs=None, outputs=[spoken, debug]
             )
-            gr.Button("Stop", variant="secondary", size="sm").click(
+            gr.Button("Stop").click(
                 fn=stop_stream, inputs=None, outputs=debug
             )
 
+        demo.queue()
+
     return demo
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=7860)
-    parser.add_argument("--host", type=str, default="0.0.0.0")
-    parser.add_argument("--share", action="store_true")
-    args = parser.parse_args()
-
-    app = build_ui()
-    try: app.queue()
-    except: pass
-    app.launch(
-        server_name=args.host,
-        server_port=args.port,
-        share=args.share,
-        show_error=True,
-        inbrowser=False,
-        prevent_thread_lock=False,
-    )
-
-if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        # clean-up on exit
-        try:
-            set_running(False)
-            if SPEECH_Q is not None:
-                SPEECH_Q.put(None)
-            if TTS is not None:
-                TTS.close()
-        except Exception:
-            pass
