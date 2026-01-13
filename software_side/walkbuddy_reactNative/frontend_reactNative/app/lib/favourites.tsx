@@ -49,3 +49,9 @@ export async function removeFavourite(id: string) {
 export async function clearFavourites() {
   await write([]);
 }
+
+// Placeholder default export for expo-router (this file is a utility module, not a route)
+// This prevents the "missing default export" warning
+export default function FavouritesLibPlaceholder() {
+  return null;
+}
