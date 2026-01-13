@@ -14,3 +14,5 @@ gradio==3.50.2
 scipy==1.13.1
 pandas==2.2.2
 python-dotenv
+faster-whisper>=1.0.0
+pydub>=0.25.1

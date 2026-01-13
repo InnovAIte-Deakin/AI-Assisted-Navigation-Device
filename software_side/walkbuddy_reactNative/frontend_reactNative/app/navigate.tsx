@@ -1,12 +1,27 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
+import { getTTSService, RiskLevel } from '../src/services/TTSService';
  
 const GOLD = '#f9b233';
  
 export default function NavigateScreen() {
   const router = useRouter();
+  const tts = getTTSService({ cooldownSeconds: 3.0 });
+
+  const handleTTSTest = async (message: string, riskLevel: RiskLevel) => {
+    try {
+      const result = await tts.speak(message, riskLevel);
+      if (result) {
+        Alert.alert('TTS', `Spoke: "${message}"`);
+      } else {
+        Alert.alert('TTS', `Suppressed: "${message}" (anti-spam)`);
+      }
+    } catch (error) {
+      Alert.alert('Error', `TTS failed: ${error}`);
+    }
+  };
  
   return (
     <View style={styles.wrap}>
@@ -24,8 +39,31 @@ export default function NavigateScreen() {
         <Text style={styles.text}>From: Your current location</Text>
         <Text style={styles.text}>To: Finance Sections</Text>
         <Text style={[styles.text, { marginTop: 16 }]}>ETA: 2 minutes</Text>
-        <Text style={styles.text}>Walk 3 ft, 2 o’clock</Text>
+        <Text style={styles.text}>Walk 3 ft, 2 o'clock</Text>
         <Text style={[styles.text, { marginTop: 24 }]}>2% completed</Text>
+        
+        {/* TTS Test Buttons */}
+        <View style={styles.ttsTestContainer}>
+          <Text style={[styles.text, { marginTop: 32, marginBottom: 12 }]}>TTS Test</Text>
+          <Pressable 
+            style={styles.ttsButton} 
+            onPress={() => handleTTSTest('Path ahead is clear', RiskLevel.CLEAR)}
+          >
+            <Text style={styles.ttsButtonText}>Test: "Path ahead is clear"</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.ttsButton} 
+            onPress={() => handleTTSTest('Chair on your left, nearby', RiskLevel.MEDIUM)}
+          >
+            <Text style={styles.ttsButtonText}>Test: "Chair on your left"</Text>
+          </Pressable>
+          <Pressable 
+            style={styles.ttsButton} 
+            onPress={() => handleTTSTest('Obstacle detected ahead', RiskLevel.HIGH)}
+          >
+            <Text style={styles.ttsButtonText}>Test: "Obstacle ahead"</Text>
+          </Pressable>
+        </View>
       </View>
  
       {/* Bottom bar */}
@@ -72,5 +110,24 @@ const styles = StyleSheet.create({
   accountText: {
     position: 'absolute', bottom: -26, width: 60,
     textAlign: 'center', fontSize: 11, fontWeight: '800', color: GOLD,
+  },
+  ttsTestContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+    width: '100%',
+  },
+  ttsButton: {
+    backgroundColor: GOLD,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginVertical: 6,
+    minWidth: 250,
+    alignItems: 'center',
+  },
+  ttsButtonText: {
+    color: '#1B263B',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

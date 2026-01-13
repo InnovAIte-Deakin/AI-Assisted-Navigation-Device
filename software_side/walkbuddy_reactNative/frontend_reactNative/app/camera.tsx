@@ -6,6 +6,7 @@ import * as Speech from "expo-speech";
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -20,105 +21,100 @@ import {
   ActivityIndicator,
 } from "react-native";
 
-import { askTwoBrain, detectObject } from "../src/api/client";
+import ModelWebView from "../src/components/ModelWebView";
+import { API_BASE } from "../src/config";
 
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");
 
+// Auto Scan configuration constants
+const AUTO_SCAN_INTERVAL_MS = 8000;
+const AUTO_SCAN_TIMEOUT_MS = 25000;
+
 type Mode = "idle" | "vision" | "voice" | "ocr";
 
 export default function CameraAssistScreen() {
-  const [mode, setMode] = useState<Mode>("vision");
+  // default mode = voice (camera only, no Gradio)
+  const [mode, setMode] = useState<Mode>("voice");
+
+  // camera for voice assist
   const [perm, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
-  // Thinking state
-  const [processing, setProcessing] = useState(false);
-  const [lastSpoken, setLastSpoken] = useState<string>("");
+  // WebView state
+  const [loading, setLoading] = useState(false);
+  const [rev, setRev] = useState(0);
 
-  // Voice Assist State
+  // Pick the correct mounted Gradio app
+  const url = useMemo(() => {
+    if (mode === "vision") {
+      return `${API_BASE}/vision/?v=${rev}`;
+    }
+    if (mode === "ocr") {
+      return `${API_BASE}/ocr/?v=${rev}`;
+    }
+    return "";
+  }, [mode, rev]);
+
+  // simple loading state when switching between modes
+  useEffect(() => {
+    if (mode === "vision" || mode === "ocr") {
+      setLoading(true);
+      setRev((x) => x + 1); // force WebView reload
+      const t = setTimeout(() => setLoading(false), 800);
+      return () => clearTimeout(t);
+    } else {
+      setLoading(false);
+    }
+  }, [mode]);
+
+  // voice assist
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [sttAvailable, setSttAvailable] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // --- TTS Helper ---
+  // text-to-speech guard
+  const speakingRef = useRef(false);
   const speak = useCallback((msg: string) => {
+    if (speakingRef.current) return;
+    speakingRef.current = true;
     Speech.stop();
-    Speech.speak(msg, { rate: 1.0 });
+    Speech.speak(msg, {
+      rate: 1.0,
+      pitch: 1.0,
+      onDone: () => {
+        speakingRef.current = false;
+      },
+      onStopped: () => {
+        speakingRef.current = false;
+      },
+      onError: () => {
+        speakingRef.current = false;
+      },
+    });
   }, []);
 
-  // --- API Functions ---
-
-  const processFrame = async (blob: Blob) => {
-    try {
-      if (mode === "vision") {
-        const res = await detectObject(blob);
-        // Basic logic: Find highest confidence object close by
-        // Filter repeats
-        const best = res.events
-          .filter(e => e.confidence > 0.5)
-          .sort((a, b) => b.confidence - a.confidence)[0];
-
-        if (best) {
-          const msg = `${best.label} ${best.direction}`;
-          if (msg !== lastSpoken) {
-            speak(msg);
-            setLastSpoken(msg);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Vision error:", e);
-    }
-  };
-
-  const processQuery = async (blob: Blob, question: string) => {
-    try {
-      setProcessing(true);
-      speak("Thinking...");
-      const res = await askTwoBrain(blob, question);
-      setProcessing(false);
-
-      if (!res.safe) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        speak(res.answer || "Unsafe to proceed.");
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        speak(res.answer || "I see nothing notable.");
-      }
-    } catch (e) {
-      console.error("TwoBrain error:", e);
-      setProcessing(false);
-      speak("Sorry, I had trouble thinking.");
-    }
-  };
-
-  // --- Vision Loop ---
+  // browser STT availability
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (mode === "vision" && !processing) {
-      interval = setInterval(async () => {
-        if (cameraRef.current) {
-          try {
-            // Take picture
-            const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, skipProcessing: true });
-            if (photo?.uri) {
-              // Convert to Blob
-              const response = await fetch(photo.uri);
-              const blob = await response.blob();
-              await processFrame(blob);
-            }
-          } catch (err) {
-            console.log("Vision loop err", err);
-          }
-        }
-      }, 2000); // Every 2 seconds
+    if (Platform.OS === "web") {
+      const W = globalThis as any;
+      const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
+      setSttAvailable(!!SR);
     }
-    return () => clearInterval(interval);
-  }, [mode, processing, lastSpoken]);
+  }, []);
 
-  // --- Voice Logic ---
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      try {
+        Speech.stop();
+      } catch {}
+    };
+  }, []);
+
+  // --------- voice assist ----------
+
   const startListening = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTranscript("");
@@ -127,57 +123,59 @@ export default function CameraAssistScreen() {
     if (Platform.OS === "web") {
       const W = globalThis as any;
       const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
-      if (!SR) return alert("No Speech API");
-
+      if (!SR) {
+        Alert.alert("Speech recognition not available in this browser.");
+        return;
+      }
       const rec = new SR();
       recognitionRef.current = rec;
       rec.lang = "en-US";
+      rec.continuous = false;
+      rec.interimResults = true;
       rec.onresult = (e: any) => {
-        const t = e.results[0][0].transcript;
-        setTranscript(t);
+        let text = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          text += e.results[i][0].transcript;
+        }
+        setTranscript(text.trim());
       };
-      rec.onend = () => {
-        setIsListening(false);
-        // Auto-send on end
-        if (transcript) handleSendQuery(transcript);
-      };
+      rec.onend = () => setIsListening(false);
+      rec.onerror = () => setIsListening(false);
+      setTranscript("");
+      setIsListening(true);
       rec.start();
-      setIsListening(true);
     } else {
-      // Native would use expo-speech-recognition or similar libs not installed.
-      // Retaining original "alert" behavior or assuming dev client.
-      // For MVP, we simulated with "Stop" button trigger.
-      Alert.alert("Native STT", "Not fully implemented in this demo code. Use Web or tap 'Scan Text' for simulation.");
-      // Simulating a query for testing
-      setTranscript("What is ahead?");
-      setIsListening(true);
-      setTimeout(() => {
-        setIsListening(false);
-        handleSendQuery("What is in front of me?");
-      }, 1500);
+      Alert.alert(
+        "Voice Assist",
+        "Speech recognition isn’t enabled in Expo Go. It will work in a custom dev client / production build."
+      );
     }
+  }, [sttService, processQuery]);
+
+  const stopListening = useCallback(() => {
+    if (Platform.OS === "web" && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsListening(false);
   }, []);
 
-  const handleSendQuery = async (text: string) => {
-    if (!text) return;
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
-      if (photo?.uri) {
-        const response = await fetch(photo.uri);
-        const blob = await response.blob();
-        await processQuery(blob, text);
-      }
-    }
-  };
+  // simple command: "scan text" → OCR mode
+  useEffect(() => {
+    const t = transcript.toLowerCase();
+    if (!t) return;
+    if (t.includes("help")) speak("Help opened.");
+    if (t.includes("scan text")) setMode("ocr");
+  }, [transcript, speak]);
 
-  const stopListening = () => {
-    if (recognitionRef.current) recognitionRef.current.stop();
-    setIsListening(false);
-    if (transcript) handleSendQuery(transcript);
-  };
+  // --------- permission gate for voice camera ----------
 
-  // --- Permissions ---
-  if (!perm || !perm.granted) {
+  if (!perm) {
+    return <View style={{ flex: 1, backgroundColor: "#1B263B" }} />;
+  }
+
+  if (!perm.granted) {
     return (
       <View style={styles.centerDark}>
         <Text style={{ color: "white" }}>Camera Permission Required</Text>
@@ -185,6 +183,8 @@ export default function CameraAssistScreen() {
       </View>
     );
   }
+
+  // --------- UI ----------
 
   return (
     <View style={styles.wrap}>
@@ -204,18 +204,61 @@ export default function CameraAssistScreen() {
       </View>
 
       <View style={styles.modeBar}>
-        <ModeBtn label="Vision" active={mode === "vision"} onPress={() => { setMode("vision"); Haptics.selectionAsync(); }} />
-        <ModeBtn label="Voice" active={mode === "voice"} onPress={() => { setMode("voice"); Haptics.selectionAsync(); }} />
+        <ModeBtn
+          label="Vision"
+          active={mode === "vision"}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setMode("vision");
+          }}
+        />
+
+        <ModeBtn
+          label="Voice Assist"
+          active={mode === "voice"}
+          onPress={() => {
+            Haptics.selectionAsync();
+            if (isListening) stopListening();
+            setMode("voice");
+          }}
+        />
+
+        <ModeBtn
+          label="Scan Text"
+          active={mode === "ocr"}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setMode("ocr");
+          }}
+        />
       </View>
 
       {mode === "voice" && (
         <View style={styles.voiceRow}>
-          <Pressable onPress={isListening ? stopListening : startListening} style={[styles.micBtn, isListening && styles.micBtnActive]}>
-            <MaterialIcons name={isListening ? "mic" : "mic-none"} size={28} color={isListening ? "#1B263B" : GOLD} />
+          <Pressable
+            onPress={isListening ? stopListening : startListening}
+            style={[styles.micBtn, isListening && styles.micBtnActive]}
+            disabled={!sttAvailable && Platform.OS !== "web"}
+          >
+            <MaterialIcons
+              name={isListening ? "mic" : "mic-none"}
+              size={28}
+              color={isListening ? "#1B263B" : GOLD}
+            />
           </Pressable>
-          <Text style={{ color: "white", flex: 1, marginLeft: 10 }}>
-            {transcript || (processing ? "Processing..." : "Tap mic to ask")}
-          </Text>
+
+          <View style={styles.voiceTextWrap}>
+            <Text style={styles.voiceHint}>
+              {sttAvailable || Platform.OS === "web"
+                ? isListening
+                  ? "Listening… speak now"
+                  : "Tap the mic and speak"
+                : "Mic requires native STT (Dev Client)"}
+            </Text>
+            {!!transcript && (
+              <Text style={styles.voiceTranscript}>{transcript}</Text>
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -288,6 +331,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center'
   },
   micBtnActive: { backgroundColor: GOLD },
-  centerDark: { flex: 1, backgroundColor: "#1B263B", alignItems: 'center', justifyContent: 'center' },
-  primaryBtn: { marginTop: 20, backgroundColor: GOLD, padding: 10, borderRadius: 5 }
+  voiceTextWrap: { flex: 1 },
+  voiceHint: { color: GOLD, fontWeight: "700" },
+  voiceTranscript: { color: "#fff", marginTop: 6 },
+  centerDark: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1B263B",
+  },
+  primaryBtn: {
+    backgroundColor: GOLD,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+  },
+  primaryBtnText: { color: "#1B263B", fontWeight: "800" },
 });

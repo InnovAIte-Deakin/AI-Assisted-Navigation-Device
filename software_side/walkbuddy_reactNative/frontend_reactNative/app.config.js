@@ -5,7 +5,7 @@ export default ({ config }) => ({
   slug: config.slug || "my-app",
   version: config.version || "1.0.0",
   orientation: "portrait",
-  icon: "./assets/icon.png",
+  icon: "./assets/images/icon.png", // Fixed: use correct path to match app.json
   userInterfaceStyle: "light",
   splash: {
     image: "./assets/splash.png",
@@ -33,6 +33,7 @@ export default ({ config }) => ({
     },
   },
   extra: {
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8000",
+    apiBaseUrl: "http://192.168.1.122:8000",
+
   },
 });
