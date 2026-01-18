@@ -19,9 +19,12 @@ import { useLocalSearchParams } from "expo-router";
 import ModelWebView from "../src/components/ModelWebView";
 import { API_BASE } from "../src/config";
 import { getTTSService, RiskLevel } from "../src/services/TTSService";
+<<<<<<< HEAD
 import { getSTTService } from "../src/services/STTService";
 import HomeHeader from "./HomeHeader";
 import Footer from "./Footer";
+=======
+>>>>>>> 0f34563 (WIP: save camera STT/TTS changes before rebase)
 
 const tokens = {
   bg: "#0D1B2A",
@@ -29,10 +32,6 @@ const tokens = {
   gold: "#FCA311",
   text: "#E0E1DD",
 };
-
-// Auto Scan configuration constants
-const AUTO_SCAN_INTERVAL_MS = 8000;
-const AUTO_SCAN_TIMEOUT_MS = 25000;
 
 type Mode = "idle" | "vision" | "voice" | "ocr";
 
@@ -50,9 +49,7 @@ export default function CameraAssistScreen() {
   const [mode, setMode] = useState<Mode>("voice");
 
   // TTS service (force speak in autoscan)
-  // FIX: Store TTS in useMemo to prevent recreation on every render
-  // Auto-scan only ran once because tts was recreated, causing captureAndProcess to be recreated, breaking the interval
-  const tts = useMemo(() => getTTSService({ cooldownSeconds: 0 }), []);
+  const tts = getTTSService({ cooldownSeconds: 0 });
 
   // camera for voice assist
   const [perm, requestPermission] = useCameraPermissions();
@@ -84,170 +81,73 @@ export default function CameraAssistScreen() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [sttAvailable, setSttAvailable] = useState(false);
-  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false); // Separate from scan state
-  const sttService = getSTTService({ language: "en-US" });
+  const recognitionRef = useRef<any>(null);
 
   // auto scan state
   const [isAutoScanning, setIsAutoScanning] = useState(false);
   const isRequestInFlight = useRef(false);
   const scanIntervalRef = useRef<number | null>(null);
-  // Deduplication: track last spoken message to avoid repeating same announcements
-  const lastSpokenMessage = useRef<string>("");
-  const lastSpokenTime = useRef<number>(0);
 
-  // STT availability check
+  // browser STT availability
   useEffect(() => {
-    setSttAvailable(sttService.isAvailable());
+    if (Platform.OS === "web") {
+      const W = globalThis as any;
+      const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
+      setSttAvailable(!!SR);
+    }
   }, []);
 
   // --------- voice assist ----------
-  const processQuery = useCallback(async (queryText: string) => {
-    if (!queryText.trim()) return;
-
-    setIsVoiceProcessing(true);
-    try {
-      // Add timeout to prevent voice commands from hanging
-      // Auto-scan broke because network calls could hang indefinitely, blocking the scan loop
-      // Fix: Use AbortController with 9-second timeout to ensure voice processing never blocks scanning
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-      let response: Response;
-      try {
-        response = await fetch(`${API_BASE}/query`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query: queryText }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          throw new Error("Request timed out. Please check your network connection.");
-        }
-        throw fetchError;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Query failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const ttsMessage = data.tts_message || data.response || "Query processed";
-
-      // Speak the response using TTS
-      await tts.speak(ttsMessage, RiskLevel.LOW, true);
-    } catch (error) {
-      console.error("[STT] Query error:", error);
-      const errorMsg = error instanceof Error ? error.message : "Failed to process query";
-      Alert.alert("Query Error", errorMsg);
-    } finally {
-      // CRITICAL: Always reset voice processing state, even on timeout/error
-      // This prevents "Processing..." from getting stuck
-      setIsVoiceProcessing(false);
-    }
-  }, [tts]);
-
-  const startListening = useCallback(async () => {
+  const startListening = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (Platform.OS === "web") {
-      // Use STT service for Web Speech API
-      const success = sttService.startListening(
-        (text, isFinal) => {
-          setTranscript(text);
-          if (isFinal && text.trim()) {
-            setIsListening(false);
-            processQuery(text.trim());
-          }
-        },
-        (error) => {
-          Alert.alert("Speech Recognition Error", error);
-          setIsListening(false);
+      const W = globalThis as any;
+      const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
+      if (!SR) {
+        Alert.alert("Speech recognition not available in this browser.");
+        return;
+      }
+      const rec = new SR();
+      recognitionRef.current = rec;
+      rec.lang = "en-US";
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.onresult = (e: any) => {
+        let text = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          text += e.results[i][0].transcript;
         }
+        setTranscript(text.trim());
+      };
+      rec.onend = () => setIsListening(false);
+      rec.onerror = () => setIsListening(false);
+      setTranscript("");
+      setIsListening(true);
+      rec.start();
+    } else {
+      Alert.alert(
+        "Voice Assist",
+        "Speech recognition isn’t enabled in Expo Go. It will work in a custom dev client / production build."
       );
-
-      if (success) {
-        setIsListening(true);
-        setTranscript("");
-      }
-    } else {
-      // Use expo-av for native recording
-      const success = await sttService.startRecordingNative();
-      if (success) {
-        setIsListening(true);
-        setTranscript("Recording...");
-      } else {
-        Alert.alert("Recording Error", "Failed to start audio recording");
-      }
     }
-  }, [sttService, processQuery]);
+  }, []);
 
-  const stopListening = useCallback(async () => {
-    if (Platform.OS === "web") {
-      sttService.stopListening();
-      setIsListening(false);
-    } else {
-      // Stop recording and transcribe
-      setIsVoiceProcessing(true);
+  const stopListening = useCallback(() => {
+    if (Platform.OS === "web" && recognitionRef.current) {
       try {
-        const result = await sttService.stopRecordingNative();
-        
-        if (result.error) {
-          Alert.alert("Transcription Error", result.error);
-        } else if (result.text && result.text.trim()) {
-          // Log exact STT transcription result
-          console.log("[STT] Transcribed text =", result.text);
-          
-          // Check for placeholder text from backend
-          const placeholderPatterns = [
-            "placeholder",
-            "not configured",
-            "whisper",
-            "transcription not available"
-          ];
-          const isPlaceholder = placeholderPatterns.some(pattern => 
-            result.text.toLowerCase().includes(pattern)
-          );
-          
-          if (isPlaceholder || !result.text.trim()) {
-            Alert.alert(
-              "STT not configured",
-              "Backend /stt/transcribe returns placeholder. Use web STT or integrate Whisper."
-            );
-          } else {
-            setTranscript(result.text);
-            await processQuery(result.text);
-            // processQuery will reset isVoiceProcessing in its finally block
-          }
-        } else {
-          // FIX: Handle empty/placeholder text - still reset state and show alert
-          // Voice got stuck on "Processing..." because empty text didn't reset state
-          // Error message from STTService is already helpful, use it directly
-          const errorMsg = result.error || "No speech detected. Please try again.";
-          Alert.alert("Transcription", errorMsg);
-        }
-      } catch (error) {
-        console.error("[STT] stopListening error:", error);
-        Alert.alert("Recording Error", "Failed to process recording");
-      } finally {
-        // FIX: Always reset voice processing state, even on errors/timeouts
-        // Voice got stuck on "Processing..." because state wasn't reset in all error paths
-        setIsVoiceProcessing(false);
-        setIsListening(false);
-      }
+        recognitionRef.current.stop();
+      } catch {}
     }
-  }, [sttService, processQuery]);
+    setIsListening(false);
+  }, []);
 
   // simple command: "scan text" → OCR mode
   useEffect(() => {
     const t = transcript.toLowerCase();
     if (!t) return;
     if (t.includes("scan text")) setMode("ocr");
-  }, [transcript, mode]);
+  }, [transcript]);
 
   // --------- auto vision scan ----------
 
@@ -272,38 +172,21 @@ export default function CameraAssistScreen() {
   };
 
   // Capture photo and send to vision/tts endpoint
-  // REGRESSION FIX: Auto-scan broke because network calls could hang indefinitely
-  // Solution: Add timeout using AbortController, ensure loop never gets stuck
-  // Auto-scan is NOT gated by voice state (isVoiceProcessing) - they run independently
   const captureAndProcess = useCallback(async () => {
-    // Only gate by request-in-flight flag and camera readiness - NOT by voice state
-    if (isRequestInFlight.current || !cameraRef.current) {
-      console.log("[Auto Scan] Skipping - request in flight or camera not ready");
-      return;
-    }
+    if (isRequestInFlight.current || !cameraRef.current) return;
 
     isRequestInFlight.current = true;
-    let timeoutId: NodeJS.Timeout | null = null;
 
     try {
-      // FIX: Add hard timeout to takePictureAsync to prevent scan loop from freezing
-      // Auto-scan only ran once because takePictureAsync could hang, blocking the loop
-      const photoPromise = cameraRef.current.takePictureAsync({
+      const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
         base64: false,
       });
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error("takePictureAsync timeout after 7s")), 7000)
-      );
-      
-      const photo = await Promise.race([photoPromise, timeoutPromise]);
 
       if (!photo?.uri) {
         console.log("[Auto Scan] Failed to capture photo");
-        return; // finally block will reset flag
+        return;
       }
-
-      console.log("[Auto Scan] Photo captured:", photo.uri);
 
       const formData = new FormData();
       formData.append(
@@ -315,40 +198,13 @@ export default function CameraAssistScreen() {
         } as any
       );
 
-      const url = `${API_BASE}/vision/tts`;
-      console.log("[Auto Scan] Fetching URL:", url);
-
-      // Add timeout to prevent auto-scan from hanging on network issues
-      // This restores reliable continuous scanning even when backend is slow/unreachable
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => {
-        controller.abort();
-        console.log(`[Auto Scan] Request timed out after ${AUTO_SCAN_TIMEOUT_MS}ms, continuing to next scan cycle`);
-      }, AUTO_SCAN_TIMEOUT_MS);
-
-      let response: Response;
-      try {
-        response = await fetch(url, {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        });
-      } catch (fetchError: any) {
-        const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        console.log("[Auto Scan] Fetch error:", errorMessage);
-        
-        // Don't show alert on timeout - just log and continue scanning
-        // This prevents UI spam and keeps auto-scan running
-        if (fetchError.name !== 'AbortError') {
-          // Only alert on non-timeout errors (e.g., network unreachable)
-          Alert.alert("Auto Scan Error", `Network error: ${errorMessage}`);
-        }
-        return; // Exit early, but ensure finally block runs to reset flag
-      }
+      const response = await fetch(`${API_BASE}/vision/tts`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.log(`[Auto Scan] API error ${response.status}:`, errorText);
+        console.log(`[Auto Scan] API error: ${response.status}`);
         return;
       }
 
@@ -356,7 +212,7 @@ export default function CameraAssistScreen() {
       console.log("[Auto Scan] vision/tts response:", data);
 
       // Determine message to speak
-      let messageToSpeak: string;
+      let messageToSpeak: string | null = null;
 
       if (
         data?.spoken_message &&
@@ -372,43 +228,23 @@ export default function CameraAssistScreen() {
       ) {
         messageToSpeak = data.guidance_messages[0].message.trim();
       } else {
-        messageToSpeak = "No hazards detected";
+        messageToSpeak = "Scanning surroundings";
       }
 
       const riskLevel = data?.guidance_messages?.[0]?.risk_level
         ? mapRiskLevel(data.guidance_messages[0].risk_level)
         : RiskLevel.MEDIUM;
 
-      // Filter out placeholder/empty messages and deduplicate
-      const now = Date.now();
-      const timeSinceLastSpoken = now - lastSpokenTime.current;
-      const isPlaceholder = 
-        !messageToSpeak || 
-        messageToSpeak === "Test audio works" || 
-        messageToSpeak === "No hazards detected";
-      const isDuplicate = messageToSpeak === lastSpokenMessage.current && timeSinceLastSpoken < 5000;
+      // KEY FIX: stop previous speech before speaking (prevents “silent” overlap issues)
+      try {
+        await tts.stop?.();
+      } catch {}
 
-      if (isPlaceholder || isDuplicate) {
-        console.log(`[Auto Scan] Skipping speech - ${isPlaceholder ? 'placeholder/empty message' : 'duplicate within 5s'}: "${messageToSpeak}"`);
-        return; // Skip speaking but continue scan loop
-      }
-
-      // FIX: Removed tts.stop() - it was causing silence. Let force=true handle overlap
-      // Auto-scan only ran once because stopping TTS before every speak caused silent failures
-      // Speak (force=true) - TTS announcements restored
+      // Speak (force=true)
       await tts.speak(messageToSpeak, riskLevel, true);
-      
-      // Update deduplication refs
-      lastSpokenMessage.current = messageToSpeak;
-      lastSpokenTime.current = now;
     } catch (error) {
       console.log("[Auto Scan] Error:", error);
     } finally {
-      // CRITICAL: Always reset flag and clear timeout, even on timeout/error
-      // This ensures auto-scan loop continues reliably
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
       isRequestInFlight.current = false;
     }
   }, [tts]);
@@ -416,13 +252,11 @@ export default function CameraAssistScreen() {
   // Auto scan interval effect
   useEffect(() => {
     if (isAutoScanning && mode === "voice") {
-      console.log(`[Auto Scan] Starting interval loop (${AUTO_SCAN_INTERVAL_MS}ms interval)`);
       scanIntervalRef.current = setInterval(() => {
         captureAndProcess();
-      }, AUTO_SCAN_INTERVAL_MS) as unknown as number;
+      }, 1500) as unknown as number;
     } else {
       if (scanIntervalRef.current) {
-        console.log("[Auto Scan] Stopping interval loop");
         clearInterval(scanIntervalRef.current);
         scanIntervalRef.current = null;
       }
@@ -565,17 +399,13 @@ export default function CameraAssistScreen() {
 
             <View style={styles.voiceTextWrap}>
               <Text style={styles.voiceHint}>
-                {isVoiceProcessing
-                  ? "Processing..."
-                  : sttAvailable || Platform.OS === "web"
+                {sttAvailable || Platform.OS === "web"
                   ? isListening
-                    ? Platform.OS === "web"
-                      ? "Listening… speak now"
-                      : "Recording... tap to stop"
+                    ? "Listening… speak now"
                     : "Tap the mic and speak"
                   : "Mic requires native STT (Dev Client)"}
               </Text>
-              {!!transcript && !isVoiceProcessing && (
+              {!!transcript && (
                 <Text style={styles.voiceTranscript}>{transcript}</Text>
               )}
             </View>
