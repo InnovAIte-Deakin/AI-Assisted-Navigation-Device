@@ -19,12 +19,11 @@ import { useLocalSearchParams } from "expo-router";
 import ModelWebView from "../src/components/ModelWebView";
 import { API_BASE } from "../src/config";
 import { getTTSService, RiskLevel } from "../src/services/TTSService";
-<<<<<<< HEAD
+
 import { getSTTService } from "../src/services/STTService";
 import HomeHeader from "./HomeHeader";
 import Footer from "./Footer";
-=======
->>>>>>> 0f34563 (WIP: save camera STT/TTS changes before rebase)
+
 
 const tokens = {
   bg: "#0D1B2A",
@@ -44,6 +43,8 @@ export default function CameraAssistScreen() {
     const max = 720;
     return Math.min(max, Math.max(320, width - padding * 2));
   }, [width]);
+
+  const previewHeight = Math.min(520, Math.max(260, Math.floor(height * 0.45)));
 
   // default mode = voice (camera only, no Gradio)
   const [mode, setMode] = useState<Mode>("voice");
@@ -241,7 +242,7 @@ export default function CameraAssistScreen() {
       } catch {}
 
       // Speak (force=true)
-      await tts.speak(messageToSpeak, riskLevel, true);
+      await tts.speak(messageToSpeak || "Scanning surroundings", riskLevel, true);
     } catch (error) {
       console.log("[Auto Scan] Error:", error);
     } finally {
@@ -353,34 +354,24 @@ export default function CameraAssistScreen() {
               setMode("vision");
             }}
           />
-
-      <View style={styles.modeBar}>
-        <ModeBtn
-          label="Vision"
-          active={mode === "vision"}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setMode("vision");
-          }}
-        />
-        <ModeBtn
-          label="Voice Assist"
-          active={mode === "voice"}
-          onPress={() => {
-            Haptics.selectionAsync();
-            if (isListening) stopListening();
-            setMode("voice");
-          }}
-        />
-        <ModeBtn
-          label="Scan Text"
-          active={mode === "ocr"}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setMode("ocr");
-          }}
-        />
-      </View>
+          <ModeBtn
+            label="Voice Assist"
+            active={mode === "voice"}
+            onPress={() => {
+              Haptics.selectionAsync();
+              if (isListening) stopListening();
+              setMode("voice");
+            }}
+          />
+          <ModeBtn
+            label="Scan Text"
+            active={mode === "ocr"}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setMode("ocr");
+            }}
+          />
+        </View>
 
       {mode === "voice" && (
         <>
@@ -393,7 +384,7 @@ export default function CameraAssistScreen() {
               <MaterialIcons
                 name={isListening ? "mic" : "mic-none"}
                 size={28}
-                color={isListening ? "#1B263B" : GOLD}
+                color={isListening ? "#1B263B" : tokens.gold}
               />
             </Pressable>
 
@@ -442,19 +433,18 @@ export default function CameraAssistScreen() {
           </View>
         </>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
-function ModeBtn({
-  label,
-  active,
-  onPress,
-}: {
+type ModeBtnProps = {
   label: string;
   active: boolean;
   onPress: () => void;
-}) {
+};
+
+function ModeBtn({ label, active, onPress }: ModeBtnProps) {
   return (
     <Pressable
       onPress={onPress}
@@ -575,7 +565,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   testTTSButton: {
-    backgroundColor: GOLD,
+    backgroundColor: tokens.gold,
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderRadius: 12,
