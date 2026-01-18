@@ -60,6 +60,7 @@ The model is trained to detect 7 different object classes:
 - `whiteboard` - Whiteboards and writing surfaces
 - `table` - Tables and work surfaces
 - `tv` - Television screens and displays
+- `couch` - Couches, sofas, and lounge chairs
 
 ### Dataset Structure
 - **Training Set**: 675 images with corresponding YOLO format labels
