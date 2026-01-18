@@ -1,0 +1,15 @@
+path: ML_side/data/processed
+
+train: train_dataset/train/images
+val:   val_dataset/val/images
+
+nc: 8
+names:
+  - book
+  - books
+  - monitor
+  - office-chair
+  - whiteboard
+  - table
+  - tv
+  - couch
