@@ -2,12 +2,24 @@ path: /content/drive/MyDrive/Colab Notebooks/combined_dataset
 train: /content/drive/MyDrive/Colab Notebooks/combined_dataset/train
 val: /content/drive/MyDrive/Colab Notebooks/combined_dataset/val
 test: /content/drive/MyDrive/Colab Notebooks/combined_dataset/test
-nc: 7
+
+# Sprint 2: Expanded from 7 to 15 classes for comprehensive navigation
+nc: 15
 names:
-- book
-- books
-- monitor
-- office-chair
-- whiteboard
-- table
-- tv
+  # Sprint 1 classes (library objects)
+  - book
+  - books
+  - monitor
+  - office-chair
+  - whiteboard
+  - table
+  - tv
+  # Sprint 2 new classes (navigation & safety)
+  - door              # Entry/exit detection
+  - stairs            # Vertical navigation
+  - elevator          # Multi-floor access
+  - person            # Dynamic obstacle avoidance
+  - handrail          # Safety guidance
+  - signage           # Wayfinding landmarks
+  - fire-extinguisher # Safety equipment
+  - emergency-exit    # Safety routing

@@ -1,0 +1,71 @@
+# System Configuration - Feature Flags
+# Controls Sprint 1 vs Sprint 2 feature activation
+
+# Sprint Version
+sprint_version: 2  # 1 = Sprint 1 features only, 2 = All Sprint 2 features
+
+# Sprint 2 Feature Flags
+sprint2_features:
+  # Object Detection
+  use_15_classes: true          # false = Sprint 1 (6 classes), true = Sprint 2 (15 classes)
+  model_path: "models/object_detection/best.pt"  # Update to sprint2_best.pt when trained
+
+  # LLM Integration
+  use_offline_llm: true         # false = OpenAI only, true = Ollama with hybrid fallback
+  llm_mode: "hybrid"            # "ollama", "openai", "hybrid", "fallback"
+
+  # Multi-Floor Navigation
+  enable_multifloor: true       # false = 2D navigation only, true = 3D multi-floor
+  max_floors: 3                 # Maximum number of floors to support
+  default_floor: "floor_0"      # Starting floor (ground floor)
+
+  # Real-World Calibration
+  use_calibration: true         # false = pixel-based estimates, true = calibrated distances
+  calibration_file: "config/calibration.json"
+  auto_calibration: false       # Automatically recalibrate if accuracy degrades
+
+# Performance Settings
+performance:
+  # Object Detection
+  detection_confidence: 0.5     # YOLO confidence threshold (0.0-1.0)
+  max_detections: 20            # Maximum objects to process per frame
+  inference_device: "cuda"      # "cuda" for GPU, "cpu" for CPU
+
+  # Pathfinding
+  pathfinding_timeout: 5.0      # seconds
+  max_path_length: 1000         # Maximum waypoints in a path
+  grid_resolution: 20.0         # pixels per grid cell
+
+  # Real-time Processing
+  max_fps: 30                   # Maximum frames per second
+  skip_frames: 0                # Process every Nth frame (0 = process all)
+
+# Safety Settings
+safety:
+  min_obstacle_distance: 1.0    # meters (with calibration)
+  safety_margin: 0.5            # meters (additional buffer)
+  emergency_stop_enabled: true
+  collision_warning: true
+
+# Logging & Debugging
+logging:
+  level: "INFO"                 # "DEBUG", "INFO", "WARNING", "ERROR"
+  log_detections: true
+  log_navigation_decisions: true
+  log_llm_responses: false      # Can be verbose
+  save_processed_frames: false  # Save frames with overlays (for debugging)
+  output_dir: "logs/"
+
+# Model Paths
+models:
+  sprint1:
+    object_detection: "models/object_detection/sprint1_best.pt"
+    classes: 6
+  sprint2:
+    object_detection: "models/object_detection/best.pt"  # Update when sprint2 model trained
+    classes: 15
+
+# Backward Compatibility
+compatibility:
+  maintain_sprint1_api: true    # Keep Sprint 1 function signatures
+  deprecation_warnings: true    # Warn about deprecated features

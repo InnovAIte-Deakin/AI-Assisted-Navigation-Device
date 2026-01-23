@@ -1,0 +1,55 @@
+# LLM Configuration for Sprint 2
+# Supports offline (Ollama), online (OpenAI), and hybrid modes
+
+# Default operation mode
+# Options: "ollama" (offline only), "openai" (online only), "hybrid" (try offline first, fallback to online), "fallback" (rules only)
+default_mode: "hybrid"
+
+# Ollama Configuration (Offline LLM)
+ollama:
+  endpoint: "http://localhost:11434/api/generate"
+
+  # Model selection (priority order)
+  primary_model: "llama3.2:3b"      # Fast, 2GB RAM, good balance
+  secondary_model: "mistral:7b"     # Slower, 4GB RAM, better reasoning
+  fallback_model: "llama3.2:1b"     # Emergency fallback, 700MB
+
+  # Performance tuning
+  timeout: 10.0           # seconds
+  max_retries: 2
+  temperature: 0.3        # Low = more deterministic (safer for navigation)
+  top_p: 0.9
+  num_predict: 200        # Max tokens per response
+
+  # Response validation
+  validate_response: true
+  required_fields: ["DIRECTION", "OBSTACLES", "SAFETY_LEVEL"]
+
+# OpenAI Configuration (Online LLM - Fallback)
+openai:
+  model: "gpt-3.5-turbo"
+  max_tokens: 300
+  temperature: 0.3
+  timeout: 30.0
+  enabled: true           # Set false for fully offline operation
+
+  # API key (set via environment variable OPENAI_API_KEY)
+  # Never commit API keys to git!
+
+# Performance Monitoring
+performance:
+  max_latency_ms: 500        # Switch to faster model if exceeded
+  monitoring_window: 10      # Track last N requests
+  log_slow_requests: true    # Log requests exceeding max_latency_ms
+
+# Prompt Templates
+prompts:
+  system_template: "You are an expert navigation assistant for visually impaired users in a library environment. Provide clear, concise navigation guidance based on detected objects."
+  max_prompt_length: 2000
+  include_history: false     # Include previous navigation decisions in context
+  history_length: 3          # Number of previous decisions to include
+
+# Fallback Rules Configuration
+fallback:
+  enabled: true              # Always available as last resort
+  confidence_threshold: 0.5  # Minimum detection confidence for rule-based decisions

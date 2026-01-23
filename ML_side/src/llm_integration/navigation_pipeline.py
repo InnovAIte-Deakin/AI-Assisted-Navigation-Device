@@ -15,9 +15,25 @@ class BasicNavigationPipeline:
     def __init__(self, model_path, use_llm=True, llm_model_type="openai"):
         """Initialize with your trained YOLO model and LLM reasoner"""
         self.yolo_model = YOLO(model_path)
+        # Sprint 2: Expanded to 15 classes for comprehensive navigation
         self.class_names = {
-            1: "books", 2: "monitor", 3: "office-chair", 
-            4: "whiteboard", 5: "table", 6: "tv"
+            # Sprint 1 classes (library objects)
+            0: "book",
+            1: "books",
+            2: "monitor",
+            3: "office-chair",
+            4: "whiteboard",
+            5: "table",
+            6: "tv",
+            # Sprint 2 new classes (navigation & safety)
+            7: "door",
+            8: "stairs",
+            9: "elevator",
+            10: "person",
+            11: "handrail",
+            12: "signage",
+            13: "fire-extinguisher",
+            14: "emergency-exit"
         }
         
         # Initialize LLM reasoner
