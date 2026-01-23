@@ -7,4 +7,4 @@ type Extra = {
 
 const extra = (Constants.expoConfig?.extra || {}) as Extra;
 
-export const API_BASE = extra.apiBaseUrl ?? "http://localhost:8000";
+export const API_BASE = extra.apiBaseUrl ?? "http://192.168.1.114:8000";
