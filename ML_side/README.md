@@ -60,12 +60,12 @@ The model is trained to detect 7 different object classes:
 - `whiteboard` - Whiteboards and writing surfaces
 - `table` - Tables and work surfaces
 - `tv` - Television screens and displays
-- `couch` - Couches, sofas, and lounge chairs
-
+- `couch` - Sofa lounges and couches
+  
 ### Dataset Structure
-- **Training Set**: 675 images with corresponding YOLO format labels
-- **Validation Set**: 80 images with corresponding YOLO format labels
-- **Combined Dataset**: Merged custom dataset with Roboflow dataset (684 train, 82 val, 42 test images)
+- **Training Set**: 3285 images with corresponding YOLO format labels
+- **Validation Set**: 202 images with corresponding YOLO format labels
+- **Combined Dataset**: Merged custom dataset with Roboflow dataset (3285 train, 202 val, 42 test images)
 
 ### Data Format
 - **Images**: JPG format, various resolutions
@@ -92,18 +92,18 @@ The model is trained to detect 7 different object classes:
 ## Performance Metrics
 
 ### Best Model Results (YOLOv8s)
-- **mAP50**: 0.857 (85.7%)
-- **mAP50-95**: 0.612 (61.2%)
-- **Precision**: 0.826
-- **Recall**: 0.823
+- **mAP50**: 0.921 (92.1%)
+- **mAP50-95**: 0.784 (78.4%)
+- **Precision**: 0.986
+- **Recall**: 0.892
 
 ### Per-Class Performance
-- **Books**: 73.2% mAP50-95
-- **Monitor**: 89.5% mAP50-95
-- **Office-chair**: 53.7% mAP50-95
-- **Whiteboard**: 50.5% mAP50-95
-- **Table**: 25.4% mAP50-95
-- **TV**: 74.8% mAP50-95
+- **Books**: 77.7% mAP50-95
+- **Monitor**: 88.1% mAP50-95
+- **Office-chair**: 51.1% mAP50-95
+- **Whiteboard**: 75.8% mAP50-95
+- **Table**: 82.3% mAP50-95
+- **TV**: 91.6% mAP50-95
 
 ## File Structure
 
@@ -186,8 +186,8 @@ ML_side/
 
 ### Training a New Model
 1. Prepare your dataset in YOLO format
-2. Update `data.yaml` with your dataset paths
-3. Run the training cells in `objectdetection_yolo.ipynb`
+2. Update `newdata.yaml` with your dataset paths
+3. Run the training cells in `04_training_and_depth_estimation.ipynb`
 4. Monitor training progress and adjust hyperparameters
 
 ### Using the Trained Model
