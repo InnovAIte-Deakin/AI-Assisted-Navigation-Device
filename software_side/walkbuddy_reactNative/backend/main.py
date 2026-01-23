@@ -1,5 +1,8 @@
 import sys
 from pathlib import Path
+import os
+from typing import List, Optional
+import httpx
 
 # 1. Fix Python path so ML_models/ imports work reliably
 CURRENT_FILE = Path(__file__).resolve()
