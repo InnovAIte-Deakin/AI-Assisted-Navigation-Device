@@ -46,15 +46,35 @@ export async function fetchRoute(options: RoutingOptions): Promise<Route> {
     });
 
     if (!response.ok) {
-      throw new Error(`Routing API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`Routing API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    return parseRouteResponse(data);
+    
+    // Check for warning flags in response
+    const isMockRoute = data.properties?._warning === "STRAIGHT_LINE_MOCK_ROUTE - NOT SUITABLE FOR NAVIGATION";
+    if (isMockRoute) {
+      console.warn("[Routing] WARNING: Received straight-line mock route. This will cut through buildings!");
+      console.warn("[Routing] Set ORS_API_KEY or ensure internet connectivity for real road-following routes.");
+    }
+    
+    const route = parseRouteResponse(data);
+    
+    // Add warning flag to route object so UI can detect it
+    if (isMockRoute) {
+      (route as any)._isMockRoute = true;
+    }
+    
+    return route;
   } catch (error) {
     console.error('Failed to fetch route:', error);
-    // Fallback to mock route if API fails
-    return generateFallbackRoute(options);
+    // DO NOT generate fallback route - it creates straight lines through buildings
+    // Instead, throw error so UI can show proper message
+    throw new Error(
+      'Failed to fetch route. Please check your internet connection and try again. ' +
+      'For real road-following routes, ensure ORS_API_KEY is set or OSM routing is available.'
+    );
   }
 }
 
@@ -293,54 +313,7 @@ function generateInstructionText(maneuver: any, step: any, isLast: boolean): str
   return instruction;
 }
 
-// Fallback route generator (mock) if API fails
-function generateFallbackRoute(options: RoutingOptions): Route {
-  const steps: RouteStep[] = [
-    {
-      instructionText: 'Head towards destination',
-      maneuverType: 'depart',
-      distanceToNext: 100,
-      lat: options.originLat,
-      lng: options.originLng,
-      endLat: options.originLat + (options.destLat - options.originLat) * 0.3,
-      endLng: options.originLng + (options.destLng - options.originLng) * 0.3,
-    },
-    {
-      instructionText: 'Continue straight',
-      maneuverType: 'straight',
-      distanceToNext: 150,
-      lat: options.originLat + (options.destLat - options.originLat) * 0.3,
-      lng: options.originLng + (options.destLng - options.originLng) * 0.3,
-      endLat: options.originLat + (options.destLat - options.originLat) * 0.6,
-      endLng: options.originLng + (options.destLng - options.originLng) * 0.6,
-    },
-    {
-      instructionText: 'You have arrived at your destination',
-      maneuverType: 'arrive',
-      distanceToNext: 0,
-      lat: options.destLat,
-      lng: options.destLng,
-    },
-  ];
-
-  const totalDistance = steps.reduce((sum, s) => sum + s.distanceToNext, 0);
-  const estimatedTime = Math.round((totalDistance / 1.4) * 60);
-
-  // Generate simple geometry for mock route
-  const numPoints = 10;
-  const geometry: number[][] = [];
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints;
-    geometry.push([
-      options.originLat + (options.destLat - options.originLat) * t,
-      options.originLng + (options.destLng - options.originLng) * t,
-    ]);
-  }
-
-  return {
-    steps,
-    totalDistance,
-    estimatedTime,
-    geometry, // Mock route geometry
-  };
-}
+// DEPRECATED: Fallback route generator removed
+// This function created straight-line routes that cut through buildings.
+// Routes should always come from backend API (OpenRouteService or OSM Routing).
+// If API fails, throw error instead of generating unrealistic routes.

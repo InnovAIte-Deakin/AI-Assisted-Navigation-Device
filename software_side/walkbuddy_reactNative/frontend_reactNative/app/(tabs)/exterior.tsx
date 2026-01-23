@@ -41,6 +41,8 @@ import { getAutocompleteSuggestions, formatSuggestion, AutocompleteSuggestion } 
 import {
   metersBetween,
   updateStepIndex,
+  snapToRoute,
+  calculateRemainingDistance,
 } from "../../src/utils/navigationHelpers";
 
 const GOLD = "#f9b233";
@@ -84,6 +86,8 @@ export default function ExteriorNavigationScreen() {
   const fromAutocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const recognitionRef = useRef<any>(null);
   const nativeRecognitionResultRef = useRef<string>("");
+  const routeSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const routeCacheRef = useRef<Map<string, Route>>(new Map());
   const [route, setRoute] = useState<Route | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [locationPermission, setLocationPermission] = useState(false);
@@ -105,8 +109,12 @@ export default function ExteriorNavigationScreen() {
   const lastLocationRef = useRef<LocationType | null>(null);
   const lastRouteUpdateRef = useRef<number>(0);
 
-  // Navigation constants
-  const ARRIVAL_THRESHOLD_M = 20; // meters - when to advance to next step
+  // Navigation constants - thresholds for route following
+  const ARRIVAL_THRESHOLD_M = 20; // meters - when to advance to next step (maneuver reached)
+  const MANEUVER_REACHED_THRESHOLD_M = 20; // meters - distance to consider maneuver reached
+  const SNAP_TO_ROUTE_THRESHOLD_M = 100; // meters - max distance to snap user to route
+  const MIN_ROUTE_START_DISTANCE_M = 50; // meters - min distance from route start to begin navigation
+  const DESTINATION_ARRIVAL_THRESHOLD_M = 15; // meters - distance to destination to show "arrived"
   const PRE_SPEAK_M = 80; // meters - speak early warning
   const VOICE_COOLDOWN_MS = 2500; // milliseconds - prevent spam
   const ROUTE_UPDATE_INTERVAL_MS = 2000; // Update route state every 2 seconds
@@ -139,19 +147,38 @@ export default function ExteriorNavigationScreen() {
     })();
   }, []);
 
-  // Update ETA based on remaining distance
+  // Update ETA based on actual remaining distance along route
   useEffect(() => {
-    if (isNavigating && route && currentStepIndex < route.steps.length) {
-      const remainingSteps = route.steps.slice(currentStepIndex);
-      const remainingDistance = remainingSteps.reduce(
-        (sum, step) => sum + step.distanceToNext,
-        0
-      );
+    if (isNavigating && route && currentLocation && destination) {
+      // Calculate actual remaining distance along route geometry
+      let remainingDistance: number;
+      
+      if (route.geometry && route.geometry.length > 0) {
+        // Use route geometry for accurate distance calculation
+        remainingDistance = calculateRemainingDistance(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          route.geometry,
+          destination.lat,
+          destination.lng,
+          SNAP_TO_ROUTE_THRESHOLD_M
+        );
+      } else {
+        // Fallback: use step distances if no geometry
+        const remainingSteps = route.steps.slice(currentStepIndex);
+        remainingDistance = remainingSteps.reduce(
+          (sum, step) => sum + step.distanceToNext,
+          0
+        );
+      }
+      
       const walkingSpeed = 1.4; // m/s
       const remainingTime = Math.round(remainingDistance / walkingSpeed);
       setEta(remainingTime);
+    } else if (!isNavigating) {
+      setEta(null);
     }
-  }, [isNavigating, route, currentStepIndex]);
+  }, [isNavigating, route, currentLocation, destination, currentStepIndex]);
 
   // Voice instruction hook
   const speakInstruction = useCallback(
@@ -376,28 +403,91 @@ export default function ExteriorNavigationScreen() {
           let currentIdx = currentStepIndexRef.current;
 
           if (currentRoute && currentRoute.steps.length > 0) {
-            // Update step index based on GPS position
-            const newStepIndex = updateStepIndex(
-              newLocation.latitude,
-              newLocation.longitude,
-              currentRoute.steps,
-              currentIdx,
-              ARRIVAL_THRESHOLD_M
-            );
+            // Check if user has actually arrived at destination
+            if (destination) {
+              const distanceToDestination = metersBetween(
+                newLocation.latitude,
+                newLocation.longitude,
+                destination.lat,
+                destination.lng
+              );
+              
+              // If within arrival threshold, ensure we're on the "arrive" step
+              if (distanceToDestination <= DESTINATION_ARRIVAL_THRESHOLD_M) {
+                const arriveStepIndex = currentRoute.steps.length - 1;
+                if (currentIdx !== arriveStepIndex) {
+                  currentIdx = arriveStepIndex;
+                  setCurrentStepIndex(arriveStepIndex);
+                  currentStepIndexRef.current = arriveStepIndex;
+                }
+              } else {
+                // Update step index based on GPS position and route progression
+                const newStepIndex = updateStepIndex(
+                  newLocation.latitude,
+                  newLocation.longitude,
+                  currentRoute.steps,
+                  currentIdx,
+                  MANEUVER_REACHED_THRESHOLD_M,
+                  currentRoute.geometry // Pass route geometry for accurate progression check
+                );
 
-            // If step advanced, update state
-            if (newStepIndex !== currentIdx) {
-              currentIdx = newStepIndex;
-              setCurrentStepIndex(newStepIndex);
-              currentStepIndexRef.current = newStepIndex;
-              lastMilestoneRef.current = null; // Reset milestone on step change
-              spokeApproachRef.current = false; // Reset approach flag for new step
+                // If step advanced, update state
+                if (newStepIndex !== currentIdx) {
+                  currentIdx = newStepIndex;
+                  setCurrentStepIndex(newStepIndex);
+                  currentStepIndexRef.current = newStepIndex;
+                  lastMilestoneRef.current = null; // Reset milestone on step change
+                  spokeApproachRef.current = false; // Reset approach flag for new step
+                }
+              }
+            } else {
+              // No destination set, use simple step advancement
+              const newStepIndex = updateStepIndex(
+                newLocation.latitude,
+                newLocation.longitude,
+                currentRoute.steps,
+                currentIdx,
+                MANEUVER_REACHED_THRESHOLD_M,
+                currentRoute.geometry
+              );
+
+              if (newStepIndex !== currentIdx) {
+                currentIdx = newStepIndex;
+                setCurrentStepIndex(newStepIndex);
+                currentStepIndexRef.current = newStepIndex;
+                lastMilestoneRef.current = null;
+                spokeApproachRef.current = false;
+              }
             }
 
             const currentStep = currentRoute.steps[currentIdx];
             if (!currentStep) {
               lastLocationRef.current = newLocation;
               return;
+            }
+            
+            // Don't show "arrived" unless actually at destination
+            if (currentStep.maneuverType === 'arrive' && destination) {
+              const distanceToDest = metersBetween(
+                newLocation.latitude,
+                newLocation.longitude,
+                destination.lat,
+                destination.lng
+              );
+              
+              // If not actually at destination, don't treat as arrived
+              if (distanceToDest > DESTINATION_ARRIVAL_THRESHOLD_M) {
+                // Go back to previous step
+                const prevStepIndex = Math.max(0, currentIdx - 1);
+                currentIdx = prevStepIndex;
+                setCurrentStepIndex(prevStepIndex);
+                currentStepIndexRef.current = prevStepIndex;
+                const prevStep = currentRoute.steps[prevStepIndex];
+                if (prevStep) {
+                  lastLocationRef.current = newLocation;
+                  return;
+                }
+              }
             }
 
             // Calculate distance to next maneuver
@@ -417,6 +507,11 @@ export default function ExteriorNavigationScreen() {
                 currentStep.endLat,
                 currentStep.endLng
               );
+            }
+
+            // Check for milestone announcements (200m, 100m, 50m)
+            if (distanceToManeuver > 0 && currentStep.maneuverType !== 'arrive' && currentStep.maneuverType !== 'depart') {
+              checkMilestones(distanceToManeuver);
             }
 
             // Update step distance (for UI display) - update state periodically
@@ -453,10 +548,11 @@ export default function ExteriorNavigationScreen() {
               spokeApproachRef.current = false; // Reset approach flag for new step
             }
 
-            // Approach callout (speak early warning)
+            // Approach callout (speak final warning after milestones, < 50m)
+            // Only triggers after all milestones (200m, 100m, 50m) have been announced
             if (
               !spokeApproachRef.current &&
-              distanceToManeuver < PRE_SPEAK_M &&
+              distanceToManeuver < 50 && // After all milestones
               distanceToManeuver > ARRIVAL_THRESHOLD_M &&
               now - lastSpokenTimeRef.current > VOICE_COOLDOWN_MS &&
               settings.voiceEnabled &&
@@ -534,21 +630,43 @@ export default function ExteriorNavigationScreen() {
       if (autocompleteTimeoutRef.current) {
         clearTimeout(autocompleteTimeoutRef.current);
       }
+      if (fromAutocompleteTimeoutRef.current) {
+        clearTimeout(fromAutocompleteTimeoutRef.current);
+      }
+      if (routeSearchTimeoutRef.current) {
+        clearTimeout(routeSearchTimeoutRef.current);
+      }
       Speech.stop();
     };
   }, []);
 
-  // Handle geocoding search for both From and To
+  // Handle geocoding search for both From and To (with debouncing and caching)
   const handleSearchRoute = useCallback(async () => {
     if (!toInput.trim()) {
       Alert.alert("Error", "Please enter a destination name");
       return;
     }
 
+    // Clear any pending route search
+    if (routeSearchTimeoutRef.current) {
+      clearTimeout(routeSearchTimeoutRef.current);
+      routeSearchTimeoutRef.current = null;
+    }
+
+    // Debounce route search (400ms delay) - but show loading immediately
     setIsGeocoding(true);
-    try {
-      // 1) Always geocode destination
+    
+    routeSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        console.log("[Exterior] Starting route search...");
+        console.log("[Exterior] To input:", toInput.trim());
+        console.log("[Exterior] From input:", fromInput.trim());
+        console.log("[Exterior] Use current location:", useCurrentLocation);
+
+        // 1) Always geocode destination
+        console.log("[Exterior] Geocoding destination:", toInput.trim());
       const destResult = await geocodePlaceName(toInput.trim());
+      console.log("[Exterior] Destination geocoded:", destResult);
       const destCoords = {
         lat: destResult.lat,
         lng: destResult.lng,
@@ -611,6 +729,7 @@ export default function ExteriorNavigationScreen() {
       }
 
       // 3) Fetch route using the determined origin and destination
+      console.log("[Exterior] Fetching route from:", originLatLng, "to:", destCoords);
       const options: RoutingOptions = {
         originLat: originLatLng.lat,
         originLng: originLatLng.lng,
@@ -619,7 +738,46 @@ export default function ExteriorNavigationScreen() {
         profile: "foot-walking",
       };
 
-      const newRoute = await fetchRoute(options);
+      // Check cache first
+      const cacheKey = `${options.originLat.toFixed(4)},${options.originLng.toFixed(4)}_${options.destLat.toFixed(4)},${options.destLng.toFixed(4)}_${options.profile}`;
+      let newRoute = routeCacheRef.current.get(cacheKey);
+      
+      if (!newRoute) {
+        console.log("[Exterior] Route options:", options);
+        newRoute = await fetchRoute(options);
+        console.log("[Exterior] Route fetched successfully:", newRoute);
+        console.log("[Exterior] Route steps:", newRoute.steps?.length || 0);
+        
+        // Cache the route
+        routeCacheRef.current.set(cacheKey, newRoute);
+        
+        // Limit cache size (keep last 10 routes)
+        if (routeCacheRef.current.size > 10) {
+          const firstKey = routeCacheRef.current.keys().next().value;
+          routeCacheRef.current.delete(firstKey);
+        }
+      } else {
+        console.log("[Exterior] Using cached route");
+      }
+      
+      if (!newRoute || !newRoute.steps || newRoute.steps.length === 0) {
+        throw new Error("No route found. Please try different locations.");
+      }
+
+      // Check if this is a mock route (straight-line, cuts through buildings)
+      const isMockRoute = (newRoute as any)._isMockRoute === true;
+      if (isMockRoute) {
+        Alert.alert(
+          "⚠️ Mock Route Warning",
+          "This route uses a straight-line path that may cut through buildings.\n\n" +
+          "For real road-following routes:\n" +
+          "• Set ORS_API_KEY environment variable, or\n" +
+          "• Ensure internet connectivity for OSM routing\n\n" +
+          "This route is NOT suitable for actual navigation.",
+          [{ text: "OK" }]
+        );
+      }
+
       setRoute(newRoute);
       routeRef.current = newRoute;
       setCurrentStepIndex(0);
@@ -634,11 +792,20 @@ export default function ExteriorNavigationScreen() {
       if (isNavigating) {
         stopNavigation();
       }
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to find location. Please try again.");
-    } finally {
-      setIsGeocoding(false);
-    }
+      
+      // Show success message (unless it's a mock route, which already showed warning)
+      if (!isMockRoute) {
+        Alert.alert("Success", `Route found! ${newRoute.steps.length} steps, ${Math.round(newRoute.totalDistance)}m total.`);
+      }
+      } catch (error: any) {
+        console.error("[Exterior] Route search error:", error);
+        const errorMessage = error.message || "Failed to find route. Please check your internet connection and try again.";
+        Alert.alert("Error", errorMessage);
+      } finally {
+        setIsGeocoding(false);
+        routeSearchTimeoutRef.current = null;
+      }
+    }, 400); // 400ms debounce
   }, [fromInput, toInput, useCurrentLocation, currentLocation, isNavigating, stopNavigation]);
 
   // Autocomplete handler for "To" input
@@ -889,16 +1056,41 @@ export default function ExteriorNavigationScreen() {
   };
 
   const currentStep = route?.steps[currentStepIndex];
-  const progress =
-    route && currentStepIndex > 0
-      ? Math.round(
-          ((route.steps
-            .slice(0, currentStepIndex)
-            .reduce((sum, s) => sum + s.distanceToNext, 0) /
-            route.totalDistance) *
-            100)
-        )
-      : 0;
+  
+  // Calculate progress based on actual distance traveled along route
+  const progress = (() => {
+    if (!route || !currentLocation || !destination) return 0;
+    
+    if (route.geometry && route.geometry.length > 0) {
+      // Use route geometry for accurate progress calculation
+      const remainingDistance = calculateRemainingDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        route.geometry,
+        destination.lat,
+        destination.lng,
+        SNAP_TO_ROUTE_THRESHOLD_M
+      );
+      
+      const totalDistance = route.totalDistance || 0;
+      if (totalDistance > 0) {
+        const traveledDistance = totalDistance - remainingDistance;
+        return Math.max(0, Math.min(100, Math.round((traveledDistance / totalDistance) * 100)));
+      }
+    }
+    
+    // Fallback: use step-based calculation
+    if (currentStepIndex > 0 && route.steps.length > 0) {
+      const traveledSteps = route.steps.slice(0, currentStepIndex);
+      const traveledDistance = traveledSteps.reduce((sum, s) => sum + s.distanceToNext, 0);
+      const totalDistance = route.totalDistance || traveledDistance;
+      if (totalDistance > 0) {
+        return Math.max(0, Math.min(100, Math.round((traveledDistance / totalDistance) * 100)));
+      }
+    }
+    
+    return 0;
+  })();
 
   return (
     <View style={styles.wrap}>
@@ -1153,11 +1345,30 @@ export default function ExteriorNavigationScreen() {
           )}
           <View style={styles.statsRow}>
             <Text style={styles.distanceText}>
-              {currentStep.distanceToNext > 0
-                ? `${Math.round(currentStep.distanceToNext)}m to ${currentStep.maneuverType === 'arrive' ? 'destination' : 'turn'}`
-                : "Arriving"}
+              {(() => {
+                // Check if actually at destination
+                if (currentStep.maneuverType === 'arrive' && destination && currentLocation) {
+                  const distanceToDest = metersBetween(
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                    destination.lat,
+                    destination.lng
+                  );
+                  
+                  if (distanceToDest <= DESTINATION_ARRIVAL_THRESHOLD_M) {
+                    return "You have arrived at your destination";
+                  }
+                }
+                
+                // Show distance to next maneuver
+                if (currentStep.distanceToNext > 0) {
+                  return `${Math.round(currentStep.distanceToNext)}m to ${currentStep.maneuverType === 'arrive' ? 'destination' : 'turn'}`;
+                }
+                
+                return "Calculating distance...";
+              })()}
             </Text>
-            {eta !== null && (
+            {eta !== null && eta > 0 && (
               <Text style={styles.etaText}>ETA: {formatETA(eta)}</Text>
             )}
           </View>
