@@ -1,20 +1,19 @@
 // MapPanel component for native platforms (iOS/Android)
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { Location, RouteStep } from '../types/navigation';
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import { WebView } from "react-native-webview";
+import { Location, RouteStep } from "../types/navigation";
 
 interface MapPanelProps {
   currentLocation?: Location;
   routeSteps?: RouteStep[];
-  routeGeometry?: number[][]; // Full route polyline [[lat, lng], ...]
+  routeGeometry?: number[][];
   destination?: { lat: number; lng: number; name?: string };
   showMap: boolean;
 }
 
 export default function MapPanel({
   currentLocation,
-  routeSteps,
   routeGeometry,
   destination,
   showMap,
@@ -23,14 +22,13 @@ export default function MapPanel({
     return <MinimalVisualPanel />;
   }
 
-  // For native platforms, use WebView
   return (
     <WebView
       source={{ html: generateMapHTML(currentLocation, routeGeometry, destination) }}
       style={styles.webview}
       javaScriptEnabled
       domStorageEnabled
-      originWhitelist={['*']}
+      originWhitelist={["*"]}
     />
   );
 }
@@ -50,12 +48,10 @@ function generateMapHTML(
   routeGeometry?: number[][],
   destination?: { lat: number; lng: number; name?: string }
 ): string {
-  const lat = currentLocation?.latitude ?? (destination?.lat ?? 0);
-  const lng = currentLocation?.longitude ?? (destination?.lng ?? 0);
+  const lat = currentLocation?.latitude ?? destination?.lat ?? 0;
+  const lng = currentLocation?.longitude ?? destination?.lng ?? 0;
 
-  // Use route geometry if available, otherwise fall back to destination
-  const hasRoute = routeGeometry && routeGeometry.length > 0;
-  const boundsCoords = hasRoute ? routeGeometry : (destination ? [[destination.lat, destination.lng]] : []);
+  const hasRoute = !!routeGeometry && routeGeometry.length > 0;
 
   return `
 <!DOCTYPE html>
@@ -86,8 +82,7 @@ function generateMapHTML(
         iconAnchor: [8, 8]
       })
     }).addTo(map);
-    currentMarker.bindPopup('Your Location');
-    ` : ''}
+    ` : ""}
 
     ${destination ? `
     const destMarker = L.marker([${destination.lat}, ${destination.lng}], {
@@ -98,23 +93,21 @@ function generateMapHTML(
         iconAnchor: [10, 10]
       })
     }).addTo(map);
-    destMarker.bindPopup('${destination.name || 'Destination'}');
-    ` : ''}
+    ` : ""}
 
     ${hasRoute ? `
     const routeCoords = ${JSON.stringify(routeGeometry)};
-    const polyline = L.polyline(routeCoords, { 
-      color: '#f9b233', 
+    const polyline = L.polyline(routeCoords, {
+      color: '#f9b233',
       weight: 5,
       opacity: 0.8,
       lineJoin: 'round',
       lineCap: 'round'
     }).addTo(map);
-    
-    // Fit map to show entire route with padding
+
     const bounds = polyline.getBounds();
     map.fitBounds(bounds, { padding: [50, 50] });
-    ` : ''}
+    ` : ""}
   </script>
 </body>
 </html>
@@ -122,21 +115,18 @@ function generateMapHTML(
 }
 
 const styles = StyleSheet.create({
-  webview: {
-    flex: 1,
-    backgroundColor: '#1B263B',
-  },
+  webview: { flex: 1, backgroundColor: "#1B263B" },
   minimalPanel: {
     flex: 1,
-    backgroundColor: '#1B263B',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1B263B",
+    alignItems: "center",
+    justifyContent: "center",
   },
   arrowContainer: {
     width: 120,
     height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   arrow: {
     width: 0,
@@ -144,8 +134,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 30,
     borderRightWidth: 30,
     borderBottomWidth: 60,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#f9b233',
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#f9b233",
   },
 });

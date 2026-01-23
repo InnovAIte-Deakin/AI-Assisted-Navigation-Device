@@ -9,6 +9,7 @@ import {
   TextInput,
   useWindowDimensions,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -20,7 +21,8 @@ import Footer from "./Footer";
   This screen was originally UI-first.
   Now it also includes basic mode handoff (Interior / Maps) once a destination is entered.
 
-  Real destination resolution (geocoding / indoor lookup) is still handled elsewhere later.
+  Real destination resolution (geocoding / indoor lookup) is handled in Exterior / Interior screens,
+  not here.
 */
 
 const tokens = {
@@ -50,13 +52,19 @@ export default function SearchPage() {
   }, [width]);
 
   const [query, setQuery] = useState("");
-  const [destinationType, setDestinationType] = useState<DestinationType | null>(null);
+  const [destinationType, setDestinationType] = useState<DestinationType | null>(
+    null
+  );
+
   const hasDestination = query.trim().length > 0;
 
   // Prefill search field when coming from Places
   useEffect(() => {
     if (typeof presetDestination !== "string") return;
-    setQuery(presetDestination);
+
+    const trimmed = presetDestination.trim();
+    setQuery(trimmed);
+
     if (presetType === "I" || presetType === "E") {
       setDestinationType(presetType);
     } else {
@@ -64,10 +72,9 @@ export default function SearchPage() {
     }
   }, [presetDestination, presetType]);
 
-  // Trigger interior mode when a valid destination is entered
   function onPressInterior() {
-    // Prevent navigation if no destination is entered
     if (!hasDestination) return;
+
     if (destinationType === "E") {
       Alert.alert("Error!!", "This is an External destination");
       return;
@@ -76,22 +83,34 @@ export default function SearchPage() {
     router.push({
       pathname: "/interiorNav",
       params: { targetedDestination: query.trim() },
-    });
+    } as any);
   }
 
-  // Trigger map based mode when a valid destination is entered
   function onPressMaps() {
-    // Prevent navigation if no destination is provided
+    console.log("[Search] MAPS pressed", { hasDestination, destinationType, query });
+
     if (!hasDestination) return;
+
     if (destinationType === "I") {
       Alert.alert("Error!!", "This is an Internal destination");
       return;
     }
 
+    const destinationText = query.trim();
+    const encoded = encodeURIComponent(destinationText);
+
+    // Web: open exterior in a new empty window/tab
+    if (Platform.OS === "web") {
+      const url = `/exterior?presetDestination=${encoded}&presetType=E`;
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Mobile: navigate normally
     router.push({
-      pathname: "/navigate",
-      params: { targetedDestination: query.trim() },
-    });
+      pathname: "/exterior",
+      params: { presetDestination: destinationText, presetType: "E" },
+    } as any);
   }
 
   return (
@@ -105,14 +124,15 @@ export default function SearchPage() {
         />
 
         {/* Spacer below header (visual breathing room) */}
-        <View style={{ height: 2 }}/>
-        <View style={{ height: 2 }}/>
+        <View style={{ height: 2 }} />
+        <View style={{ height: 2 }} />
+
         <View style={styles.mainArea}>
           <Text style={styles.sectionTitle}>Enter Your Search</Text>
 
           {/* Search input */}
           <View style={styles.searchBar}>
-            <Icon name="search" size={18} color={tokens.muted}/>
+            <Icon name="search" size={18} color={tokens.muted} />
             <TextInput
               value={query}
               onChangeText={(text) => {
@@ -149,10 +169,7 @@ export default function SearchPage() {
           {/* Navigation mode buttons */}
           <View style={styles.buttonRow}>
             <Pressable
-              style={[
-                styles.modeBtn,
-                !hasDestination && styles.modeBtnDisabled,
-              ]}
+              style={[styles.modeBtn, !hasDestination && styles.modeBtnDisabled]}
               onPress={onPressInterior}
               disabled={!hasDestination}
               accessibilityLabel="Interior navigation"
@@ -167,11 +184,9 @@ export default function SearchPage() {
                 INTERIOR
               </Text>
             </Pressable>
+
             <Pressable
-              style={[
-                styles.modeBtn,
-                !hasDestination && styles.modeBtnDisabled,
-              ]}
+              style={[styles.modeBtn, !hasDestination && styles.modeBtnDisabled]}
               onPress={onPressMaps}
               disabled={!hasDestination}
               accessibilityLabel="Outdoor maps navigation"
@@ -187,10 +202,12 @@ export default function SearchPage() {
               </Text>
             </Pressable>
           </View>
-          <View style={{ height: 1 }}/>
-          <View style={{ height: 1 }}/>
+
+          <View style={{ height: 1 }} />
+          <View style={{ height: 1 }} />
         </View>
-        <Footer/>
+
+        <Footer />
       </View>
     </SafeAreaView>
   );
