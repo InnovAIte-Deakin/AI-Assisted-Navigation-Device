@@ -1,16 +1,16 @@
+// app/(tabs)/exterior.tsx
+
 // Exterior Navigation Screen with Production Features
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
-import { useFocusEffect } from "expo-router";
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -26,24 +26,23 @@ import {
 
 import MapPanel from "../../src/components/MapPanel";
 import { loadSettings, NavigationSettings } from "../../src/utils/settings";
-import {
-  Location as LocationType,
-  Route,
-  RouteStep,
-} from "../../src/types/navigation";
-import {
-  calculateDistance,
-  shouldAdvanceStep,
-} from "../../src/utils/routing";
+import { Location as LocationType, Route } from "../../src/types/navigation";
+import { calculateDistance } from "../../src/utils/routing";
 import { fetchRoute, RoutingOptions } from "../../src/utils/routingApi";
-import { geocodePlaceName, GeocodeResult } from "../../src/utils/geocoding";
-import { getAutocompleteSuggestions, formatSuggestion, AutocompleteSuggestion } from "../../src/utils/autocomplete";
+import { geocodePlaceName } from "../../src/utils/geocoding";
+import {
+  getAutocompleteSuggestions,
+  formatSuggestion,
+  AutocompleteSuggestion,
+} from "../../src/utils/autocomplete";
+
 import {
   metersBetween,
   updateStepIndex,
   snapToRoute,
   calculateRemainingDistance,
 } from "../../src/utils/navigationHelpers";
+
 
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -52,6 +51,11 @@ const { height: SCREEN_H } = Dimensions.get("window");
 const MILESTONES = [200, 100, 50];
 
 export default function ExteriorNavigationScreen() {
+  const params = useLocalSearchParams<{
+    presetDestination?: string;
+    presetType?: string;
+  }>();
+
   const [isNavigating, setIsNavigating] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [settings, setSettings] = useState<NavigationSettings>({
@@ -119,12 +123,26 @@ export default function ExteriorNavigationScreen() {
   const VOICE_COOLDOWN_MS = 2500; // milliseconds - prevent spam
   const ROUTE_UPDATE_INTERVAL_MS = 2000; // Update route state every 2 seconds
 
+    // Debug: confirm map gating + state on every relevant change
+  useEffect(() => {
+    console.log("[Exterior] render state", {
+      showMapVisuals: settings.showMapVisuals,
+      hasRoute: !!route?.geometry,
+      hasDestination: !!destination,
+      platform: Platform.OS,
+    });
+  }, [settings.showMapVisuals, route?.geometry, destination]);
+
   // Load settings when screen comes into focus
   useFocusEffect(
-    useCallback(() => {
-      loadSettings().then(setSettings);
-    }, [])
-  );
+  useCallback(() => {
+    loadSettings().then((loaded) => {
+      console.log("[Exterior] settings loaded:", loaded);
+      setSettings(loaded);
+    });
+  }, [])
+);
+
 
   // Request location permission with high accuracy
   useEffect(() => {
@@ -147,6 +165,52 @@ export default function ExteriorNavigationScreen() {
     })();
   }, []);
 
+  /*
+    PRESET HANDOFF (Search -> Exterior)
+    Search passes presetDestination in the URL/params.
+    Exterior owns geocoding + setting destination state (Search should not do this).
+  */
+  useEffect(() => {
+    const raw = params?.presetDestination;
+    const preset = typeof raw === "string" ? raw.trim() : "";
+
+    if (!preset) return;
+
+    console.log("[Exterior] presetDestination received:", preset);
+
+    // Put it in the UI immediately
+    setToInput(preset);
+
+    (async () => {
+      try {
+        setIsGeocoding(true);
+
+        const destResult = await geocodePlaceName(preset);
+
+        const destCoords = {
+          lat: destResult.lat,
+          lng: destResult.lng,
+          name: destResult.name || preset,
+        };
+
+        setDestination(destCoords);
+
+        // Keep modal closed unless something fails
+        setShowDestinationModal(false);
+
+        console.log("[Exterior] destination set:", destCoords);
+      } catch (e: any) {
+        console.log("[Exterior] preset geocode failed:", e?.message || e);
+
+        // If it fails, open the modal so user can correct it
+        setShowDestinationModal(true);
+      } finally {
+        setIsGeocoding(false);
+      }
+    })();
+  }, [params?.presetDestination]);
+
+  // Update ETA based on remaining distance
   // Update ETA based on actual remaining distance along route
   useEffect(() => {
     if (isNavigating && route && currentLocation && destination) {
@@ -214,7 +278,11 @@ export default function ExteriorNavigationScreen() {
           distanceToNext > milestone - 10 &&
           lastMilestoneRef.current !== milestone
         ) {
-          speakInstruction(`In ${milestone} meters, ${milestone === 50 ? 'prepare to' : ''} ${milestone === 50 ? 'turn' : 'continue'}`);
+          speakInstruction(
+            `In ${milestone} meters, ${
+              milestone === 50 ? "prepare to" : "continue"
+            }`
+          );
           lastMilestoneRef.current = milestone;
           break;
         }
@@ -231,7 +299,10 @@ export default function ExteriorNavigationScreen() {
   // Check if user has deviated from route
   const checkDeviation = useCallback(
     async (location: LocationType) => {
-      if (!routeRef.current || currentStepIndexRef.current >= routeRef.current.steps.length) {
+      if (
+        !routeRef.current ||
+        currentStepIndexRef.current >= routeRef.current.steps.length
+      ) {
         return;
       }
 
@@ -247,16 +318,17 @@ export default function ExteriorNavigationScreen() {
       );
 
       // If user is more than 50m away from expected path, recalculate
-      if (distanceToStepEnd > 50 && deviationCheckRef.current < Date.now() - 10000) {
+      if (
+        distanceToStepEnd > 50 &&
+        deviationCheckRef.current < Date.now() - 10000
+      ) {
         deviationCheckRef.current = Date.now();
-        
+
         if (destination) {
-          Alert.alert(
-            "Route Deviation",
-            "Recalculating route...",
-            [{ text: "OK" }]
-          );
-          
+          Alert.alert("Route Deviation", "Recalculating route...", [
+            { text: "OK" },
+          ]);
+
           await recalculateRoute(location, destination);
         }
       }
@@ -291,7 +363,10 @@ export default function ExteriorNavigationScreen() {
         }
       } catch (error) {
         console.error("Failed to recalculate route:", error);
-        Alert.alert("Error", "Failed to recalculate route. Continuing with current route.");
+        Alert.alert(
+          "Error",
+          "Failed to recalculate route. Continuing with current route."
+        );
       } finally {
         setIsLoadingRoute(false);
       }
@@ -309,9 +384,9 @@ export default function ExteriorNavigationScreen() {
 
     // Determine the origin to use for navigation
     let startOrigin: { lat: number; lng: number; name?: string };
-    
+
     if (originMode === "custom" && originCoords) {
-      // Use planned custom origin (e.g., Melbourne Uni)
+      // Use planned custom origin
       startOrigin = {
         lat: originCoords.lat,
         lng: originCoords.lng,
@@ -320,7 +395,10 @@ export default function ExteriorNavigationScreen() {
     } else {
       // Use current GPS location
       if (!currentLocation) {
-        Alert.alert("Error", "Location not available. Please enable location services.");
+        Alert.alert(
+          "Error",
+          "Location not available. Please enable location services."
+        );
         return;
       }
       if (!locationPermission) {
@@ -379,12 +457,11 @@ export default function ExteriorNavigationScreen() {
       // Start location tracking with high accuracy
       locationSubscriptionRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.BestForNavigation, // Highest accuracy
-          timeInterval: 2000, // 2 seconds
-          distanceInterval: 5, // 5 meters
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 2000,
+          distanceInterval: 5,
         },
         async (loc) => {
-          // ✅ MUST be first - define now at the very top before any use
           const now = Date.now();
 
           const newLocation: LocationType = {
@@ -398,7 +475,6 @@ export default function ExteriorNavigationScreen() {
           // Check for deviation
           await checkDeviation(newLocation);
 
-          // Check step progression using refs to avoid stale closures
           const currentRoute = routeRef.current;
           let currentIdx = currentStepIndexRef.current;
 
@@ -490,7 +566,6 @@ export default function ExteriorNavigationScreen() {
               }
             }
 
-            // Calculate distance to next maneuver
             let distanceToManeuver = 0;
             if (currentStep.maneuverLocation) {
               const [maneuverLat, maneuverLng] = currentStep.maneuverLocation;
@@ -517,7 +592,6 @@ export default function ExteriorNavigationScreen() {
             // Update step distance (for UI display) - update state periodically
             const roundedDistance = Math.round(distanceToManeuver);
             if (Math.abs(currentStep.distanceToNext - roundedDistance) > 5) {
-              // Only update if difference is significant (5m) to avoid excessive re-renders
               const updatedSteps = [...currentRoute.steps];
               updatedSteps[currentIdx] = {
                 ...currentStep,
@@ -525,8 +599,7 @@ export default function ExteriorNavigationScreen() {
               };
               const updatedRoute = { ...currentRoute, steps: updatedSteps };
               routeRef.current = updatedRoute;
-              
-              // Update state (throttled to avoid excessive re-renders)
+
               if (now - lastRouteUpdateRef.current > ROUTE_UPDATE_INTERVAL_MS) {
                 setRoute(updatedRoute);
                 lastRouteUpdateRef.current = now;
@@ -576,22 +649,21 @@ export default function ExteriorNavigationScreen() {
       setIsLoadingRoute(false);
     }
   }, [
-    currentLocation,
-    locationPermission,
     destination,
     originMode,
     originCoords,
     origin,
-    speakInstruction,
+    currentLocation,
+    locationPermission,
     checkDeviation,
     checkMilestones,
+    speakInstruction,
   ]);
 
   // Stop navigation
   const stopNavigation = useCallback(() => {
     setIsNavigating(false);
-    
-    // Safely remove location subscription
+
     if (locationSubscriptionRef.current) {
       try {
         locationSubscriptionRef.current.remove();
@@ -600,7 +672,7 @@ export default function ExteriorNavigationScreen() {
       }
       locationSubscriptionRef.current = null;
     }
-    
+
     Speech.stop();
     setRoute(null);
     routeRef.current = null;
@@ -617,7 +689,6 @@ export default function ExteriorNavigationScreen() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Safely remove location subscription on unmount
       if (locationSubscriptionRef.current) {
         try {
           locationSubscriptionRef.current.remove();
@@ -626,7 +697,6 @@ export default function ExteriorNavigationScreen() {
         }
         locationSubscriptionRef.current = null;
       }
-      // Clear autocomplete timeout
       if (autocompleteTimeoutRef.current) {
         clearTimeout(autocompleteTimeoutRef.current);
       }
@@ -674,12 +744,11 @@ export default function ExteriorNavigationScreen() {
       };
       setDestination(destCoords);
 
-      // 2) Determine origin based on mode
+      // Determine origin based on mode
       let originLatLng: { lat: number; lng: number };
       let originName: string;
 
       if (useCurrentLocation && currentLocation) {
-        // Use current GPS location
         originLatLng = {
           lat: currentLocation.latitude,
           lng: currentLocation.longitude,
@@ -692,8 +761,10 @@ export default function ExteriorNavigationScreen() {
           lng: originLatLng.lng,
           name: originName,
         });
-      } else if (fromInput.trim() && fromInput.trim().toLowerCase() !== "current location") {
-        // Geocode custom origin
+      } else if (
+        fromInput.trim() &&
+        fromInput.trim().toLowerCase() !== "current location"
+      ) {
         const fromResult = await geocodePlaceName(fromInput.trim());
         originLatLng = {
           lat: fromResult.lat,
@@ -708,9 +779,11 @@ export default function ExteriorNavigationScreen() {
           name: originName,
         });
       } else {
-        // Fallback to current location if available
         if (!currentLocation) {
-          Alert.alert("Error", "Current location not available. Please enable location services or enter a starting point.");
+          Alert.alert(
+            "Error",
+            "Current location not available. Please enable location services or enter a starting point."
+          );
           setIsGeocoding(false);
           return;
         }
@@ -787,8 +860,7 @@ export default function ExteriorNavigationScreen() {
       setFromInput("Current Location");
       setToInput("");
       setUseCurrentLocation(true);
-      
-      // If already navigating, stop and let user restart with new route
+
       if (isNavigating) {
         stopNavigation();
       }
@@ -808,53 +880,53 @@ export default function ExteriorNavigationScreen() {
     }, 400); // 400ms debounce
   }, [fromInput, toInput, useCurrentLocation, currentLocation, isNavigating, stopNavigation]);
 
-  // Autocomplete handler for "To" input
+  // Autocomplete handlers (kept as-is)
   const handleToInputChange = useCallback((text: string) => {
     setToInput(text);
     setShowSuggestions(true);
 
-    // Clear previous timeout
     if (autocompleteTimeoutRef.current) {
       clearTimeout(autocompleteTimeoutRef.current);
     }
 
-    // Debounce autocomplete search
     if (text.trim().length >= 2) {
       autocompleteTimeoutRef.current = setTimeout(async () => {
         try {
           const suggestions = await getAutocompleteSuggestions(text.trim());
           setAutocompleteSuggestions(suggestions);
         } catch (error) {
-          console.error('Autocomplete error:', error);
+          console.error("Autocomplete error:", error);
           setAutocompleteSuggestions([]);
         }
-      }, 300); // 300ms delay
+      }, 300);
     } else {
       setAutocompleteSuggestions([]);
     }
   }, []);
 
-  // Handle suggestion selection for "To" field
-  const handleSelectSuggestion = useCallback((suggestion: AutocompleteSuggestion) => {
-    const displayText = formatSuggestion(suggestion);
-    setToInput(displayText);
-    setShowSuggestions(false);
-    setAutocompleteSuggestions([]);
-    
-    // Auto-set destination when suggestion is selected
-    setDestination({
-      lat: suggestion.lat,
-      lng: suggestion.lng,
-      name: suggestion.displayName,
-    });
-  }, []);
+  const handleSelectSuggestion = useCallback(
+    (suggestion: AutocompleteSuggestion) => {
+      const displayText = formatSuggestion(suggestion);
+      setToInput(displayText);
+      setShowSuggestions(false);
+      setAutocompleteSuggestions([]);
 
-  // Autocomplete handler for "From" input
+      setDestination({
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        name: suggestion.displayName,
+      });
+    },
+    []
+  );
+
   const handleFromInputChange = useCallback((text: string) => {
     setFromInput(text);
-    
-    // Don't show suggestions if it's "Current Location"
-    if (text.trim().toLowerCase() === "current location" || text.trim() === "") {
+
+    if (
+      text.trim().toLowerCase() === "current location" ||
+      text.trim() === ""
+    ) {
       setShowFromSuggestions(false);
       setFromAutocompleteSuggestions([]);
       setUseCurrentLocation(true);
@@ -864,88 +936,103 @@ export default function ExteriorNavigationScreen() {
     setUseCurrentLocation(false);
     setShowFromSuggestions(true);
 
-    // Clear previous timeout
     if (fromAutocompleteTimeoutRef.current) {
       clearTimeout(fromAutocompleteTimeoutRef.current);
     }
 
-    // Debounce autocomplete search
     if (text.trim().length >= 2) {
       fromAutocompleteTimeoutRef.current = setTimeout(async () => {
         try {
           const suggestions = await getAutocompleteSuggestions(text.trim());
           setFromAutocompleteSuggestions(suggestions);
         } catch (error) {
-          console.error('From autocomplete error:', error);
+          console.error("From autocomplete error:", error);
           setFromAutocompleteSuggestions([]);
         }
-      }, 300); // 300ms delay
+      }, 300);
     } else {
       setFromAutocompleteSuggestions([]);
     }
   }, []);
 
-  // Handle suggestion selection for "From" field
-  const handleSelectFromSuggestion = useCallback((suggestion: AutocompleteSuggestion) => {
-    const displayText = formatSuggestion(suggestion);
-    setFromInput(displayText);
-    setShowFromSuggestions(false);
-    setFromAutocompleteSuggestions([]);
-    setUseCurrentLocation(false);
-    
-    // Auto-set origin when suggestion is selected
-    setOrigin({
-      lat: suggestion.lat,
-      lng: suggestion.lng,
-      name: suggestion.displayName,
-    });
-    setOriginMode("custom");
-    setOriginCoords({
-      lat: suggestion.lat,
-      lng: suggestion.lng,
-    });
-  }, []);
+  const handleSelectFromSuggestion = useCallback(
+    (suggestion: AutocompleteSuggestion) => {
+      const displayText = formatSuggestion(suggestion);
+      setFromInput(displayText);
+      setShowFromSuggestions(false);
+      setFromAutocompleteSuggestions([]);
+      setUseCurrentLocation(false);
 
-  // Handle speech recognition results for native platforms
-  useSpeechRecognitionEvent('result', useCallback((event: any) => {
-    if (isListeningDestination && event.results && event.results.length > 0) {
-      const transcript = event.results[0]?.transcript || "";
-      if (transcript.trim()) {
-        nativeRecognitionResultRef.current = transcript.trim();
-        setToInput(transcript.trim());
+      setOrigin({
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+        name: suggestion.displayName,
+      });
+      setOriginMode("custom");
+      setOriginCoords({
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+      });
+    },
+    []
+  );
+
+  // Speech recognition hooks (kept as-is)
+  useSpeechRecognitionEvent(
+    "result",
+    useCallback(
+      (event: any) => {
+        if (
+          isListeningDestination &&
+          event.results &&
+          event.results.length > 0
+        ) {
+          const transcript = event.results[0]?.transcript || "";
+          if (transcript.trim()) {
+            nativeRecognitionResultRef.current = transcript.trim();
+            setToInput(transcript.trim());
+          }
+        }
+      },
+      [isListeningDestination]
+    )
+  );
+
+  useSpeechRecognitionEvent(
+    "end",
+    useCallback(() => {
+      if (isListeningDestination) {
+        setIsListeningDestination(false);
+        const finalText = nativeRecognitionResultRef.current;
+        if (finalText) {
+          setTimeout(() => {
+            handleSearchRoute();
+          }, 500);
+        }
+        nativeRecognitionResultRef.current = "";
       }
-    }
-  }, [isListeningDestination]));
+    }, [isListeningDestination, handleSearchRoute])
+  );
 
-  useSpeechRecognitionEvent('end', useCallback(() => {
-    if (isListeningDestination) {
-      setIsListeningDestination(false);
-      const finalText = nativeRecognitionResultRef.current;
-      if (finalText) {
-        // Auto-trigger search after a short delay if destination is set
-        setTimeout(() => {
-          handleSearchRoute();
-        }, 500);
-      }
-      nativeRecognitionResultRef.current = "";
-    }
-  }, [isListeningDestination, handleSearchRoute]));
+  useSpeechRecognitionEvent(
+    "error",
+    useCallback(
+      (event: any) => {
+        if (isListeningDestination) {
+          setIsListeningDestination(false);
+          const errorMsg = event?.error || "Speech recognition failed";
+          Alert.alert("Error", `${errorMsg}. Please try typing instead.`);
+          nativeRecognitionResultRef.current = "";
+        }
+      },
+      [isListeningDestination]
+    )
+  );
 
-  useSpeechRecognitionEvent('error', useCallback((event: any) => {
-    if (isListeningDestination) {
-      setIsListeningDestination(false);
-      const errorMsg = event?.error || "Speech recognition failed";
-      Alert.alert("Error", `${errorMsg}. Please try typing instead.`);
-      nativeRecognitionResultRef.current = "";
-    }
-  }, [isListeningDestination]));
-
-  // Handle voice input for destination
   const handleVoiceInput = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     if (isListeningDestination) {
-      // Stop listening
       if (Platform.OS === "web") {
         if (recognitionRef.current) {
           try {
@@ -964,9 +1051,7 @@ export default function ExteriorNavigationScreen() {
       return;
     }
 
-    // Start listening
     if (Platform.OS === "web") {
-      // Web implementation using Web Speech API
       const W = globalThis as any;
       const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
       if (!SR) {
@@ -983,7 +1068,7 @@ export default function ExteriorNavigationScreen() {
         rec.lang = "en-US";
         rec.continuous = false;
         rec.interimResults = false;
-        
+
         rec.onresult = async (e: any) => {
           let text = "";
           for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -992,15 +1077,14 @@ export default function ExteriorNavigationScreen() {
           const destinationText = text.trim();
           setToInput(destinationText);
           setIsListeningDestination(false);
-          
-          // Auto-trigger search after a short delay if destination is set
+
           if (destinationText) {
             setTimeout(() => {
               handleSearchRoute();
             }, 500);
           }
         };
-        
+
         rec.onend = () => setIsListeningDestination(false);
         rec.onerror = (error: any) => {
           setIsListeningDestination(false);
@@ -1008,21 +1092,24 @@ export default function ExteriorNavigationScreen() {
           if (error.error === "no-speech") {
             errorMsg = "No speech detected. Please try again.";
           } else if (error.error === "not-allowed") {
-            errorMsg = "Microphone permission denied. Please allow microphone access and try again.";
+            errorMsg =
+              "Microphone permission denied. Please allow microphone access and try again.";
           }
           Alert.alert("Error", errorMsg);
         };
-        
+
         setIsListeningDestination(true);
         rec.start();
       } catch (error) {
-        Alert.alert("Error", "Failed to start speech recognition. Please try typing instead.");
+        Alert.alert(
+          "Error",
+          "Failed to start speech recognition. Please try typing instead."
+        );
       }
     } else {
-      // Native implementation using expo-speech-recognition
       try {
-        // Request permissions
-        const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        const permission =
+          await ExpoSpeechRecognitionModule.requestPermissionsAsync();
         if (!permission.granted) {
           Alert.alert(
             "Permission Required",
@@ -1031,7 +1118,6 @@ export default function ExteriorNavigationScreen() {
           return;
         }
 
-        // Start recognition
         nativeRecognitionResultRef.current = "";
         setIsListeningDestination(true);
         await ExpoSpeechRecognitionModule.start({
@@ -1105,9 +1191,10 @@ export default function ExteriorNavigationScreen() {
           </Pressable>
         )}
       </View>
-
+        
       {/* Visual Panel - Map or Minimal */}
       <View style={styles.previewBox}>
+        
         <MapPanel
           currentLocation={currentLocation || undefined}
           routeSteps={route?.steps}
@@ -1130,186 +1217,179 @@ export default function ExteriorNavigationScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Plan Route</Text>
-            
-            <ScrollView 
+
+            <ScrollView
               style={styles.modalScrollView}
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
             >
               {/* FROM Field */}
-            <View style={[
-              styles.inputGroup,
-              showFromSuggestions && fromAutocompleteSuggestions.length > 0 && styles.inputGroupWithSuggestions
-            ]}>
-              <Text style={styles.inputLabel}>From</Text>
-              <View style={styles.inputWithMic}>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={[styles.input, styles.inputFlex]}
-                    placeholder="e.g., Monash University"
-                    placeholderTextColor="#8fa3bf"
-                    value={fromInput}
-                    onChangeText={handleFromInputChange}
-                    onFocus={() => {
-                      if (fromInput.trim().length >= 2 && 
+              <View
+                style={[
+                  styles.inputGroup,
+                  showFromSuggestions &&
+                    fromAutocompleteSuggestions.length > 0 &&
+                    styles.inputGroupWithSuggestions,
+                ]}
+              >
+                <Text style={styles.inputLabel}>From</Text>
+                <View style={styles.inputWithMic}>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={[styles.input, styles.inputFlex]}
+                      placeholder="e.g., Monash University"
+                      placeholderTextColor="#8fa3bf"
+                      value={fromInput}
+                      onChangeText={handleFromInputChange}
+                      onFocus={() => {
+                        if (
+                          fromInput.trim().length >= 2 &&
                           fromInput.trim().toLowerCase() !== "current location" &&
-                          fromAutocompleteSuggestions.length > 0) {
-                        setShowFromSuggestions(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      // Delay hiding suggestions to allow click
-                      setTimeout(() => setShowFromSuggestions(false), 200);
-                    }}
-                    autoCapitalize="words"
-                  />
-                  {/* Autocomplete Dropdown for From */}
-                  {showFromSuggestions && fromAutocompleteSuggestions.length > 0 && (
-                    <View style={styles.suggestionsContainer}>
-                      <ScrollView 
-                        nestedScrollEnabled
-                        keyboardShouldPersistTaps="handled"
-                        style={styles.suggestionsScrollView}
-                      >
-                        {fromAutocompleteSuggestions.map((suggestion, index) => (
-                          <Pressable
-                            key={`from-${suggestion.lat}-${suggestion.lng}-${index}`}
-                            style={styles.suggestionItem}
-                            onPress={() => handleSelectFromSuggestion(suggestion)}
-                          >
-                            <MaterialIcons name="place" size={18} color={GOLD} />
-                            <View style={styles.suggestionTextContainer}>
-                              <Text style={styles.suggestionName}>
-                                {formatSuggestion(suggestion)}
-                              </Text>
-                              <Text style={styles.suggestionAddress} numberOfLines={1}>
-                                {suggestion.displayName}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-                <Pressable
-                  style={styles.iconButton}
-                  onPress={() => {
-                    setFromInput("Current Location");
-                    setUseCurrentLocation(true);
-                    setShowFromSuggestions(false);
-                    setFromAutocompleteSuggestions([]);
-                  }}
-                >
-                  <MaterialIcons name="my-location" size={20} color={GOLD} />
-                </Pressable>
-              </View>
-              <Text style={styles.hintText}>Tap 📍 to use Current Location</Text>
-            </View>
+                          fromAutocompleteSuggestions.length > 0
+                        ) {
+                          setShowFromSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowFromSuggestions(false), 200);
+                      }}
+                      autoCapitalize="words"
+                    />
 
-            {/* TO Field */}
-            <View style={[
-              styles.inputGroup,
-              showSuggestions && autocompleteSuggestions.length > 0 && styles.inputGroupWithSuggestions
-            ]}>
-              <Text style={styles.inputLabel}>To</Text>
-              <View style={styles.inputWithMic}>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={[styles.input, styles.inputFlex]}
-                    placeholder="e.g., Monash University"
-                    placeholderTextColor="#8fa3bf"
-                    value={toInput}
-                    onChangeText={handleToInputChange}
-                    onFocus={() => {
-                      if (toInput.trim().length >= 2 && autocompleteSuggestions.length > 0) {
-                        setShowSuggestions(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      // Delay hiding suggestions to allow click
-                      setTimeout(() => setShowSuggestions(false), 200);
-                    }}
-                    autoCapitalize="words"
-                  />
-                  {/* Autocomplete Dropdown */}
-                  {showSuggestions && autocompleteSuggestions.length > 0 && (
-                    <View style={styles.suggestionsContainer}>
-                      <ScrollView 
-                        nestedScrollEnabled
-                        keyboardShouldPersistTaps="handled"
-                        style={styles.suggestionsScrollView}
-                      >
-                        {autocompleteSuggestions.map((suggestion, index) => (
-                          <Pressable
-                            key={`${suggestion.lat}-${suggestion.lng}-${index}`}
-                            style={styles.suggestionItem}
-                            onPress={() => handleSelectSuggestion(suggestion)}
+                    {showFromSuggestions &&
+                      fromAutocompleteSuggestions.length > 0 && (
+                        <View style={styles.suggestionsContainer}>
+                          <ScrollView
+                            nestedScrollEnabled
+                            keyboardShouldPersistTaps="handled"
+                            style={styles.suggestionsScrollView}
                           >
-                            <MaterialIcons name="place" size={18} color={GOLD} />
-                            <View style={styles.suggestionTextContainer}>
-                              <Text style={styles.suggestionName}>
-                                {formatSuggestion(suggestion)}
-                              </Text>
-                              <Text style={styles.suggestionAddress} numberOfLines={1}>
-                                {suggestion.displayName}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-                <Pressable
-                  style={[styles.iconButton, isListeningDestination && styles.iconButtonActive]}
-                  onPress={handleVoiceInput}
-                >
-                  <MaterialIcons
-                    name={isListeningDestination ? "mic" : "mic-none"}
-                    size={20}
-                    color={isListeningDestination ? "#1B263B" : GOLD}
-                  />
-                </Pressable>
-              </View>
-              {isListeningDestination && (
-                <Text style={styles.listeningHint}>Listening... speak the destination name</Text>
-              )}
-              <Text style={styles.hintText}>Tap 🎤 to speak destination (optional)</Text>
-            </View>
-
-            {/* Preview */}
-            {(origin || destination) && (
-              <View style={styles.previewContainer}>
-                {origin && (
-                  <View style={styles.previewRow}>
-                    <MaterialIcons name="radio-button-checked" size={16} color={GOLD} />
-                    <Text style={styles.previewText}>
-                      {origin.name || `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}
-                      {originMode === "custom" && (
-                        <Text style={styles.previewModeText}> (custom)</Text>
+                            {fromAutocompleteSuggestions.map((suggestion, index) => (
+                              <Pressable
+                                key={`from-${suggestion.lat}-${suggestion.lng}-${index}`}
+                                style={styles.suggestionItem}
+                                onPress={() => handleSelectFromSuggestion(suggestion)}
+                              >
+                                <MaterialIcons name="place" size={18} color={GOLD} />
+                                <View style={styles.suggestionTextContainer}>
+                                  <Text style={styles.suggestionName}>
+                                    {formatSuggestion(suggestion)}
+                                  </Text>
+                                  <Text
+                                    style={styles.suggestionAddress}
+                                    numberOfLines={1}
+                                  >
+                                    {suggestion.displayName}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        </View>
                       )}
-                    </Text>
                   </View>
-                )}
-                {destination && (
-                  <View style={styles.previewRow}>
-                    <MaterialIcons name="place" size={16} color={GOLD} />
-                    <Text style={styles.previewText}>
-                      {destination.name || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
 
-            {/* Error Message */}
-            {!toInput.trim() && (
-              <Text style={styles.errorText}>Destination is required.</Text>
-            )}
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => {
+                      setFromInput("Current Location");
+                      setUseCurrentLocation(true);
+                      setShowFromSuggestions(false);
+                      setFromAutocompleteSuggestions([]);
+                    }}
+                  >
+                    <MaterialIcons name="my-location" size={20} color={GOLD} />
+                  </Pressable>
+                </View>
+                <Text style={styles.hintText}>Tap 📍 to use Current Location</Text>
+              </View>
+
+              {/* TO Field */}
+              <View
+                style={[
+                  styles.inputGroup,
+                  showSuggestions &&
+                    autocompleteSuggestions.length > 0 &&
+                    styles.inputGroupWithSuggestions,
+                ]}
+              >
+                <Text style={styles.inputLabel}>To</Text>
+                <View style={styles.inputWithMic}>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={[styles.input, styles.inputFlex]}
+                      placeholder="e.g., Monash University"
+                      placeholderTextColor="#8fa3bf"
+                      value={toInput}
+                      onChangeText={handleToInputChange}
+                      onFocus={() => {
+                        if (toInput.trim().length >= 2 && autocompleteSuggestions.length > 0) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      autoCapitalize="words"
+                    />
+
+                    {showSuggestions && autocompleteSuggestions.length > 0 && (
+                      <View style={styles.suggestionsContainer}>
+                        <ScrollView
+                          nestedScrollEnabled
+                          keyboardShouldPersistTaps="handled"
+                          style={styles.suggestionsScrollView}
+                        >
+                          {autocompleteSuggestions.map((suggestion, index) => (
+                            <Pressable
+                              key={`${suggestion.lat}-${suggestion.lng}-${index}`}
+                              style={styles.suggestionItem}
+                              onPress={() => handleSelectSuggestion(suggestion)}
+                            >
+                              <MaterialIcons name="place" size={18} color={GOLD} />
+                              <View style={styles.suggestionTextContainer}>
+                                <Text style={styles.suggestionName}>
+                                  {formatSuggestion(suggestion)}
+                                </Text>
+                                <Text style={styles.suggestionAddress} numberOfLines={1}>
+                                  {suggestion.displayName}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
+
+                  <Pressable
+                    style={[
+                      styles.iconButton,
+                      isListeningDestination && styles.iconButtonActive,
+                    ]}
+                    onPress={handleVoiceInput}
+                  >
+                    <MaterialIcons
+                      name={isListeningDestination ? "mic" : "mic-none"}
+                      size={20}
+                      color={isListeningDestination ? "#1B263B" : GOLD}
+                    />
+                  </Pressable>
+                </View>
+
+                {isListeningDestination && (
+                  <Text style={styles.listeningHint}>
+                    Listening... speak the destination name
+                  </Text>
+                )}
+                <Text style={styles.hintText}>Tap 🎤 to speak destination (optional)</Text>
+              </View>
+
+              {!toInput.trim() && (
+                <Text style={styles.errorText}>Destination is required.</Text>
+              )}
             </ScrollView>
 
-            {/* Action Buttons - Outside ScrollView so they stay fixed */}
             <View style={styles.modalButtons}>
               <Pressable
                 style={[styles.modalButton, styles.cancelButton]}
@@ -1337,9 +1417,7 @@ export default function ExteriorNavigationScreen() {
       {/* Instruction Card */}
       {isNavigating && currentStep ? (
         <View style={styles.instructionCard}>
-          <Text style={styles.instructionText}>
-            {currentStep.instructionText}
-          </Text>
+          <Text style={styles.instructionText}>{currentStep.instructionText}</Text>
           {currentStep.roadName && (
             <Text style={styles.roadNameText}>{currentStep.roadName}</Text>
           )}
@@ -1372,41 +1450,19 @@ export default function ExteriorNavigationScreen() {
               <Text style={styles.etaText}>ETA: {formatETA(eta)}</Text>
             )}
           </View>
-          {route && (
-            <Text style={styles.progressText}>{progress}% completed</Text>
-          )}
+          {route && <Text style={styles.progressText}>{progress}% completed</Text>}
         </View>
       ) : (
         <View style={styles.instructionCard}>
           <Text style={styles.instructionText}>
             {destination
-              ? `Ready to navigate${origin && origin.name !== "Current Location" ? ` from ${origin.name}` : ""} to ${destination.name || "destination"}. Tap Start to begin.`
+              ? `Ready to navigate${
+                  origin && origin.name !== "Current Location"
+                    ? ` from ${origin.name}`
+                    : ""
+                } to ${destination.name || "destination"}. Tap Start to begin.`
               : "Set a destination to begin navigation."}
           </Text>
-          {destination && (
-            <>
-              <View style={styles.navOriginIndicator}>
-                <MaterialIcons 
-                  name={originMode === "custom" ? "place" : "my-location"} 
-                  size={14} 
-                  color={GOLD} 
-                />
-                <Text style={styles.navOriginText}>
-                  Nav Origin: {originMode === "custom" && originCoords 
-                    ? `Planned (${origin?.name || "Custom"})` 
-                    : "Live GPS"}
-                </Text>
-              </View>
-              {origin && origin.name !== "Current Location" && (
-                <Text style={styles.destinationInfo}>
-                  From: {origin.name || `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}
-                </Text>
-              )}
-              <Text style={styles.destinationInfo}>
-                To: {destination.name || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}
-              </Text>
-            </>
-          )}
         </View>
       )}
 
@@ -1472,12 +1528,7 @@ const styles = StyleSheet.create({
     borderBottomColor: GOLD,
   },
   headerTitle: { color: GOLD, fontSize: 20, fontWeight: "800", flex: 1 },
-  destinationBtn: {
-    padding: 8,
-  },
-  headerDestinationBtn: {
-    padding: 8,
-  },
+  headerDestinationBtn: { padding: 8 },
   previewBox: {
     height: SCREEN_H * 0.55,
     margin: 12,
@@ -1505,22 +1556,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  distanceText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  etaText: {
-    color: GOLD,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  progressText: {
-    color: GOLD,
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 8,
-  },
+  distanceText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  etaText: { color: GOLD, fontSize: 16, fontWeight: "600" },
+  progressText: { color: GOLD, fontSize: 14, fontWeight: "600", marginTop: 8 },
   roadNameText: {
     color: "#fff",
     fontSize: 14,
@@ -1528,30 +1566,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontStyle: "italic",
   },
-  destinationInfo: {
-    color: "#aaa",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  navOriginIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  navOriginText: {
-    color: GOLD,
-    fontSize: 12,
-    fontWeight: "600",
-    fontStyle: "italic",
-  },
-  controlBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-    flexDirection: "row",
-    gap: 12,
-  },
+  controlBar: { paddingHorizontal: 16, paddingBottom: 20, flexDirection: "row", gap: 12 },
   controlBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1561,30 +1576,13 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
   },
-  startBtn: {
-    backgroundColor: GOLD,
-    flex: 2,
-  },
-  startBtnText: {
-    color: "#1B263B",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  stopBtn: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: GOLD,
-  },
-  stopBtnText: {
-    color: GOLD,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  destinationBtnText: {
-    color: GOLD,
-    fontSize: 14,
-    fontWeight: "700",
-  },
+  startBtn: { backgroundColor: GOLD, flex: 2 },
+  startBtnText: { color: "#1B263B", fontSize: 18, fontWeight: "800" },
+  stopBtn: { backgroundColor: "transparent", borderWidth: 2, borderColor: GOLD },
+  stopBtnText: { color: GOLD, fontSize: 18, fontWeight: "800" },
+  destinationBtn: { padding: 8 },
+  destinationBtnText: { color: GOLD, fontSize: 14, fontWeight: "700" },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -1601,15 +1599,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: GOLD,
   },
-  modalScrollView: {
-    maxHeight: 500,
-  },
-  modalScrollContent: {
-    paddingBottom: 10,
-  },
-  inputGroupWithSuggestions: {
-    marginBottom: 160,
-  },
+  modalScrollView: { maxHeight: 500 },
+  modalScrollContent: { paddingBottom: 10 },
+  inputGroupWithSuggestions: { marginBottom: 160 },
   modalTitle: {
     color: GOLD,
     fontSize: 22,
@@ -1617,15 +1609,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
   },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    color: GOLD,
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { color: GOLD, fontSize: 14, fontWeight: "600", marginBottom: 8 },
   input: {
     backgroundColor: "#242424",
     borderWidth: 1,
@@ -1635,18 +1620,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
   },
-  inputWithMic: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  inputFlex: {
-    flex: 1,
-  },
-  inputContainer: {
-    position: "relative",
-    flex: 1,
-  },
+  inputWithMic: { flexDirection: "row", alignItems: "center", gap: 8 },
+  inputFlex: { flex: 1 },
+  inputContainer: { position: "relative", flex: 1 },
+
   suggestionsContainer: {
     position: "absolute",
     top: "100%",
@@ -1666,9 +1643,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     overflow: "hidden",
   },
-  suggestionsScrollView: {
-    maxHeight: 200,
-  },
+  suggestionsScrollView: { maxHeight: 200 },
   suggestionItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1677,19 +1652,10 @@ const styles = StyleSheet.create({
     borderBottomColor: "#333",
     gap: 12,
   },
-  suggestionTextContainer: {
-    flex: 1,
-  },
-  suggestionName: {
-    color: GOLD,
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  suggestionAddress: {
-    color: "#8fa3bf",
-    fontSize: 12,
-  },
+  suggestionTextContainer: { flex: 1 },
+  suggestionName: { color: GOLD, fontSize: 15, fontWeight: "600", marginBottom: 2 },
+  suggestionAddress: { color: "#8fa3bf", fontSize: 12 },
+
   iconButton: {
     width: 44,
     height: 44,
@@ -1700,91 +1666,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#242424",
   },
-  iconButtonActive: {
-    backgroundColor: GOLD,
-  },
-  micButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "transparent",
-  },
-  micButtonActive: {
-    backgroundColor: GOLD,
-  },
-  hintText: {
-    color: "#9bb0cc",
-    fontSize: 12,
-    marginTop: 6,
-  },
-  listeningHint: {
-    color: GOLD,
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: "italic",
-  },
-  previewContainer: {
-    backgroundColor: "#242424",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: GOLD,
-    gap: 8,
-  },
-  previewRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  previewText: {
-    color: GOLD,
-    fontSize: 14,
-    fontWeight: "600",
-    flex: 1,
-  },
-  previewModeText: {
-    color: "#9bb0cc",
-    fontSize: 12,
-    fontStyle: "italic",
-  },
-  errorText: {
-    color: "#ff6b6b",
-    fontSize: 12,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  cancelButton: {
-    backgroundColor: "#333",
-    borderWidth: 1,
-    borderColor: GOLD,
-  },
-  cancelButtonText: {
-    color: GOLD,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  confirmButton: {
-    backgroundColor: GOLD,
-  },
-  confirmButtonText: {
-    color: "#1B263B",
-    fontSize: 16,
-    fontWeight: "800",
-  },
+  iconButtonActive: { backgroundColor: GOLD },
+
+  hintText: { color: "#9bb0cc", fontSize: 12, marginTop: 6 },
+  listeningHint: { color: GOLD, fontSize: 12, marginTop: 4, fontStyle: "italic" },
+
+  errorText: { color: "#ff6b6b", fontSize: 12, marginTop: 8, textAlign: "center" },
+
+  modalButtons: { flexDirection: "row", gap: 12, marginTop: 8 },
+  modalButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: "center" },
+  cancelButton: { backgroundColor: "#333", borderWidth: 1, borderColor: GOLD },
+  cancelButtonText: { color: GOLD, fontSize: 16, fontWeight: "700" },
+  confirmButton: { backgroundColor: GOLD },
+  confirmButtonText: { color: "#1B263B", fontSize: 16, fontWeight: "800" },
 });
