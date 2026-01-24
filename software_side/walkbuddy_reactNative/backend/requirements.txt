@@ -10,9 +10,10 @@ ultralytics>=8.0
 numpy==1.26.4
 scikit-image<0.22
 gTTs
-gradio==3.50.2
+gradio>=4.0.0
 scipy==1.13.1
 pandas==2.2.2
 python-dotenv
 faster-whisper>=1.0.0
 pydub>=0.25.1
+httpx==0.27.0
