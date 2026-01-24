@@ -71,6 +71,61 @@ export default function CameraAssistScreen() {
     });
   }, []);
  
+// --- Reusable accessibility feedback (haptics + voice) ---
+const lastAlertAtRef = useRef(0);
+const lastLabelRef = useRef<string>("");
+const lastLabelAtRef = useRef(0);
+
+type FeedbackOptions = {
+  enableHaptics?: boolean;
+  enableSpeech?: boolean;
+  minIntervalMs?: number;
+  dedupeLabelMs?: number;
+
+  confidence?: number;
+  minConfidence?: number;
+};
+
+const triggerAccessibilityFeedback = useCallback(
+  async (label: string, opts: FeedbackOptions = {}) => {
+    const {
+      enableHaptics = true,
+      enableSpeech = true,
+      minIntervalMs = 800,
+      dedupeLabelMs = 1500,
+      // confidence, minConfidence  // keep unused for now (mentor wants finalize only)
+    } = opts;
+
+    const now = Date.now();
+
+    // global throttle
+    if (now - lastAlertAtRef.current < minIntervalMs) return;
+
+    // dedupe same label
+    if (label === lastLabelRef.current && now - lastLabelAtRef.current < dedupeLabelMs) {
+      return;
+    }
+
+    // update refs
+    lastAlertAtRef.current = now;
+    lastLabelRef.current = label;
+    lastLabelAtRef.current = now;
+
+    // haptics
+    if (enableHaptics) {
+      try {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } catch {}
+    }
+
+    // speech
+    if (enableSpeech) {
+      speak(label);
+    }
+  },
+  [speak]
+);
+
   useEffect(() => {
     if (Platform.OS === "web") {
       const W = globalThis as any;
@@ -231,7 +286,15 @@ export default function CameraAssistScreen() {
         {mode === "voice" ? (
           <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
         ) : (mode === "vision" || mode === "ocr") ? (
-          <ModelWebView url={url} loading={loading} />
+       
+       <ModelWebView
+      url={url}
+      loading={loading}
+      onObjectDetected={(label: string, confidence?: number) => {
+       triggerAccessibilityFeedback(label, { confidence });
+  }}
+/>
+
         ) : (
           <View style={{ flex: 1, backgroundColor: "#1B263B" }} />
         )}

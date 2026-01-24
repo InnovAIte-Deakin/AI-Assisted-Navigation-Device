@@ -159,9 +159,13 @@ import React, { memo, useState } from "react";
 import { Platform, View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { WebView } from "react-native-webview";
 
-type Props = { url: string; loading?: boolean };
+type Props = {
+  url: string;
+  loading?: boolean;
+  onObjectDetected?: (label: string, confidence?: number) => void;  
+};
 
-function ModelWebView({ url, loading }: Props) {
+function ModelWebView({ url, loading, onObjectDetected }: Props) {
   const [err, setErr] = useState<string | null>(null);
 
   if (Platform.OS === "web") {
@@ -240,7 +244,38 @@ function ModelWebView({ url, loading }: Props) {
         mediaCapturePermissionGrantType="grant"
         onHttpError={(e) => setErr(`HTTP ${e.nativeEvent.statusCode} loading ${url}`)}
         onError={(e) => setErr(`WebView error: ${e.nativeEvent.description}`)}
+
+          onMessage={(event) => {
+       const raw = event.nativeEvent.data;
+
+       // Ignore if callback not provided
+       if (typeof onObjectDetected !== "function") return;
+
+       // Only handle string messages
+       if (typeof raw !== "string" || raw.length === 0) return;
+
+       try {
+       const msg = JSON.parse(raw);
+
+       // Expected structured message
+       if (msg?.type === "DETECTION" && typeof msg?.label === "string") {
+       onObjectDetected(msg.label, msg.confidence);
+       return;
+    }
+
+       // Backward-compatible fallback (some send only {label: "..."} )
+       if (typeof msg?.label === "string") {
+      onObjectDetected(msg.label);
+      return;
+    }
+  } catch {
+    // Backward-compatible fallback (plain string label)
+    onObjectDetected(raw);
+  }
+}}
+
       />
+      
     </View>
   );
 }
