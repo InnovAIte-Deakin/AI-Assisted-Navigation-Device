@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-    <!-- Top yellow line -->
+
     <View
         android:id="@+id/topLine"
         android:layout_width="0dp"
@@ -16,7 +16,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Header with icons -->
+
 
     <ImageView
         android:id="@+id/btnMicrophone"
@@ -43,7 +43,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topLine" />
 
-    <!-- Header divider line with icons -->
+
     <ImageView
         android:id="@+id/btnProfile"
         android:layout_width="45dp"
@@ -269,6 +269,22 @@
                 android:textSize="14sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAskAssistant"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="32dp"
+        android:text="Ask Assistant"
+        android:textAllCaps="false"
+        android:textSize="18sp"
+        android:textColor="@color/bg_dark"
+        android:backgroundTint="@color/accent_amber"
+        app:cornerRadius="16dp"
+        app:layout_constraintTop_toBottomOf="@id/cardSearch"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Bottom navigation bar -->
     <LinearLayout

@@ -35,4 +35,6 @@
     <string name="destination_not_selected">Destination: Not selected</string>
     <string name="distance_unknown">Distance: --</string>
     <string name="duration_unknown">Time: --</string>
+    <string name="gemini_api_key">AIzaSyD3X-HBNQfn9JrIn7RRHSALMjy2eLUev3E</string>
+
 </resources>

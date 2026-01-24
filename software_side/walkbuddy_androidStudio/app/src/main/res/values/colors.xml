@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="accent_amber">#FFC107</color>
+    <color name="accent_amber" tools:ignore="DuplicateDefinition">#FFC107</color>
     <color name="accent_amber_pressed">#FFA000</color>
-    <color name="bg_dark">#000000</color>
+    <color name="bg_dark">#1a1a1a</color>
+
 </resources>

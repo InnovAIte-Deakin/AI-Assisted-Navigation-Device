@@ -1,5 +1,7 @@
 package com.example.myapplication;
 
+import static androidx.camera.core.CameraXThreads.TAG;
+
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -8,6 +10,7 @@ import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,6 +27,9 @@ import com.google.android.gms.location.LocationServices;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+
+
+
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -47,6 +53,15 @@ public class HomeActivity extends AppCompatActivity {
         handler = new Handler(Looper.getMainLooper());
 
         addressText = findViewById(R.id.txtAddress);
+
+        findViewById(R.id.btnAskAssistant).setOnClickListener(v -> {
+            Log.d(TAG, "Ask Assistant button clicked - Starting Voice Assistant");
+
+            // Start Voice Assistant Activity with camera and voice
+            Intent intent = new Intent(HomeActivity.this, VoiceAssistantActivity.class);
+            startActivity(intent);
+        });
+
 
         findViewById(R.id.cardNavigation).setOnClickListener(v -> {
             // Immediate refresh when user taps Navigation
