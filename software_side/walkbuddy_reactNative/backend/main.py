@@ -80,6 +80,9 @@ import easyocr
 import cv2
 import numpy as np
 
+# Routers
+from routers import audiobooks as audiobooks_router
+
 # 3. Create FastAPI app
 app = FastAPI(title="AI Assist Backend")
 
