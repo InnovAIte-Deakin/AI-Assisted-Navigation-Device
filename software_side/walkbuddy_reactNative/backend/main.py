@@ -24,6 +24,9 @@ import gradio as gr
 from ML_models.yolo_nav.live_gradio import build_yolo_app
 from ML_models.live_ocr.live_ocr_tts import build_ocr_app
 
+# Routers
+from routers import audiobooks as audiobooks_router
+
 # 3. Create FastAPI app
 app = FastAPI(title="AI Assist Backend")
 
@@ -394,6 +397,10 @@ async def get_route(request: RoutingRequest):
         mock_route["properties"]["_warning"] = "STRAIGHT_LINE_MOCK_ROUTE - NOT SUITABLE FOR NAVIGATION"
     
     return mock_route
+
+
+# 6.7. Include routers
+app.include_router(audiobooks_router.router)
 
 
 # 7. Mount YOLO Vision at /vision
