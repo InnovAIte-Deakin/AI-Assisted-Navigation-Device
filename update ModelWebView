@@ -1,0 +1,28 @@
+onMessage={(event) => {
+       const raw = event.nativeEvent.data;
+
+       // Ignore if callback not provided
+       if (typeof onObjectDetected !== "function") return;
+
+       // Only handle string messages
+       if (typeof raw !== "string" || raw.length === 0) return;
+
+       try {
+       const msg = JSON.parse(raw);
+
+       // Expected structured message
+       if (msg?.type === "DETECTION" && typeof msg?.label === "string") {
+       onObjectDetected(msg.label, msg.confidence);
+       return;
+    }
+
+       // Backward-compatible fallback (some send only {label: "..."} )
+       if (typeof msg?.label === "string") {
+      onObjectDetected(msg.label);
+      return;
+    }
+  } catch {
+    // Backward-compatible fallback (plain string label)
+    onObjectDetected(raw);
+  }
+}}

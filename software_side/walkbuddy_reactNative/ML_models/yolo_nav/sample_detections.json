@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-12-02T01:35:43.206699000Z",
+  "frame_id": "1f9241bd-003c-4979-9564-0c4067625abb",
+  "source": "yolov8s_indoor_v1_trained",
+  "detections": [
+    {
+      "id": 0,
+      "label": "monitor",
+      "confidence": 0.9648943543434143,
+      "bbox_norm": {
+        "cx": 0.5,
+        "cy": 0.46237497329711913,
+        "w": 1.0,
+        "h": 0.23695821762084962
+      },
+      "severity": "near",
+      "side": "center",
+      "distance_m": null
+    },
+    {
+      "id": 1,
+      "label": "monitor",
+      "confidence": 0.9642506837844849,
+      "bbox_norm": {
+        "cx": 0.501218605041504,
+        "cy": 0.5766101837158203,
+        "w": 0.9975627899169922,
+        "h": 0.48798675537109376
+      },
+      "severity": "near",
+      "side": "center",
+      "distance_m": null
+    }
+  ]
+}
