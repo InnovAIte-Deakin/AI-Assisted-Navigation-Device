@@ -17,9 +17,10 @@ import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Speech from "expo-speech";
-import { API_BASE } from "@/src/config";
+// import { API_BASE } from "@/src/config";
 import { addToHistory } from "@/src/utils/audiobookStorage";
 import { speakWeb, stopWebSpeech } from "@/src/utils/webTTS";
+const API_BASE = "http://127.0.0.1:8003";
 
 interface Chapter {
   id: string;
@@ -51,14 +52,26 @@ export default function AudiobookPlayerScreen() {
     author: string;
     coverUrl: string;
   }>();
-  
-  // Extract params with proper handling for arrays (expo-router sometimes returns arrays)
-  const bookId = Array.isArray(params.bookId) ? params.bookId[0] : params.bookId;
-  const paramTitle = Array.isArray(params.title) ? params.title[0] : params.title;
-  const paramAuthor = Array.isArray(params.author) ? params.author[0] : params.author;
-  const coverUrl = Array.isArray(params.coverUrl) ? params.coverUrl[0] : params.coverUrl;
 
-  console.log("Player params:", { bookId, title: paramTitle, author: paramAuthor });
+  // Extract params with proper handling for arrays (expo-router sometimes returns arrays)
+  const bookId = Array.isArray(params.bookId)
+    ? params.bookId[0]
+    : params.bookId;
+  const paramTitle = Array.isArray(params.title)
+    ? params.title[0]
+    : params.title;
+  const paramAuthor = Array.isArray(params.author)
+    ? params.author[0]
+    : params.author;
+  const coverUrl = Array.isArray(params.coverUrl)
+    ? params.coverUrl[0]
+    : params.coverUrl;
+
+  console.log("Player params:", {
+    bookId,
+    title: paramTitle,
+    author: paramAuthor,
+  });
 
   const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +88,9 @@ export default function AudiobookPlayerScreen() {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [coverLoadError, setCoverLoadError] = useState(false);
 
-  const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
   const soundRef = useRef<Audio.Sound | null>(null);
   const titleAnnouncedRef = useRef<string | null>(null); // Track which title was already announced
 
@@ -83,7 +98,9 @@ export default function AudiobookPlayerScreen() {
   useEffect(() => {
     if (!bookId) {
       console.error("No bookId provided in params");
-      setError("No book ID provided. Please select a book from the search results.");
+      setError(
+        "No book ID provided. Please select a book from the search results.",
+      );
       setLoading(false);
       return;
     }
@@ -142,22 +159,22 @@ export default function AudiobookPlayerScreen() {
     // Clean title: remove extra spaces
     const cleanTitle = title.trim().replace(/\s+/g, " ");
     const cleanAuthor = author ? author.trim().replace(/\s+/g, " ") : "";
-    
+
     // Create announcement text: "You are listening to Title by Author" format
     const announcementText = cleanAuthor
       ? `You are listening to ${cleanTitle} by ${cleanAuthor}`
       : `You are listening to ${cleanTitle}`;
-    
+
     if (Platform.OS === "web") {
       // Web: Use webTTS
       stopWebSpeech(); // Stop any current speech
-      
+
       // Announce the book title and author
       speakWeb(announcementText, { rate: 0.9 });
     } else {
       // Native: Use expo-speech
       Speech.stop(); // Stop any current speech
-      
+
       // Announce the book title and author
       Speech.speak(announcementText, {
         rate: 0.9,
@@ -181,12 +198,12 @@ export default function AudiobookPlayerScreen() {
       // Only announce if this is a new title (not already announced)
       if (titleAnnouncedRef.current !== bookDetails.title) {
         titleAnnouncedRef.current = bookDetails.title;
-        
+
         // Small delay to ensure screen is ready
         const timer = setTimeout(() => {
           spellOutTitle(bookDetails.title, bookDetails.author);
         }, 800); // Slightly longer delay for better UX
-        
+
         return () => clearTimeout(timer);
       }
     }
@@ -210,7 +227,7 @@ export default function AudiobookPlayerScreen() {
         }
         setIsPlaying(false);
       };
-    }, [])
+    }, []),
   );
 
   // Cleanup audio on unmount only (not on every sound change)
@@ -234,7 +251,7 @@ export default function AudiobookPlayerScreen() {
   const loadBookDetails = async (currentBookId?: string) => {
     // Use provided bookId or fall back to state bookId
     const idToLoad = currentBookId || bookId;
-    
+
     // Validate bookId before fetching
     if (!idToLoad) {
       console.error("loadBookDetails called without bookId");
@@ -249,7 +266,7 @@ export default function AudiobookPlayerScreen() {
       setError(null);
       setPlaybackError(null);
       setLoading(true);
-      
+
       // Stop any currently playing audio
       const currentSound = soundRef.current || sound;
       if (currentSound) {
@@ -262,7 +279,7 @@ export default function AudiobookPlayerScreen() {
           console.warn("Error unloading previous sound:", unloadErr);
         }
       }
-      
+
       // Reset playback state
       setCurrentChapterIndex(0);
       setPosition(0);
@@ -286,25 +303,33 @@ export default function AudiobookPlayerScreen() {
       }
 
       const data: BookDetails = await response.json();
-      console.log(`Loaded book details: ${data.title} by ${data.author} (ID: ${data.id})`);
-      
+      console.log(
+        `Loaded book details: ${data.title} by ${data.author} (ID: ${data.id})`,
+      );
+
       // Verify the loaded book matches the requested bookId
       if (data.id !== idToLoad && String(data.id) !== String(idToLoad)) {
-        console.warn(`Book ID mismatch! Requested: ${idToLoad}, Got: ${data.id}`);
+        console.warn(
+          `Book ID mismatch! Requested: ${idToLoad}, Got: ${data.id}`,
+        );
         // Still set the data, but log the warning
       }
-      
+
       // Only set state if bookId hasn't changed during fetch
       if (bookId === idToLoad) {
         setBookDetails(data);
       } else {
-        console.log(`BookId changed during fetch. Ignoring response for ${idToLoad}`);
+        console.log(
+          `BookId changed during fetch. Ignoring response for ${idToLoad}`,
+        );
       }
     } catch (err) {
       console.error("Error loading book details:", err);
       // Only set error if bookId hasn't changed
       if (bookId === idToLoad) {
-        setError(err instanceof Error ? err.message : "Failed to load audiobook");
+        setError(
+          err instanceof Error ? err.message : "Failed to load audiobook",
+        );
       }
     } finally {
       // Only update loading state if bookId hasn't changed
@@ -320,7 +345,10 @@ export default function AudiobookPlayerScreen() {
       const saved = await AsyncStorage.getItem(storageKey);
       if (saved) {
         const progress = JSON.parse(saved);
-        if (progress.chapterIndex !== undefined && progress.position !== undefined) {
+        if (
+          progress.chapterIndex !== undefined &&
+          progress.position !== undefined
+        ) {
           setCurrentChapterIndex(progress.chapterIndex);
           // Position is stored in seconds, convert to milliseconds
           setPosition(progress.position * 1000);
@@ -336,14 +364,17 @@ export default function AudiobookPlayerScreen() {
       const storageKey = `${STORAGE_KEY_PREFIX}${bookId}`;
       await AsyncStorage.setItem(
         storageKey,
-        JSON.stringify({ chapterIndex, position, timestamp: Date.now() })
+        JSON.stringify({ chapterIndex, position, timestamp: Date.now() }),
       );
     } catch (err) {
       console.error("Error saving progress:", err);
     }
   };
 
-  const loadAudio = async (chapterIndex: number, startPosition: number = 0): Promise<Audio.Sound | null> => {
+  const loadAudio = async (
+    chapterIndex: number,
+    startPosition: number = 0,
+  ): Promise<Audio.Sound | null> => {
     if (!bookDetails || !bookDetails.chapters[chapterIndex]) {
       console.error("No book details or chapter not found");
       return null;
@@ -373,30 +404,33 @@ export default function AudiobookPlayerScreen() {
       const chapter = bookDetails.chapters[chapterIndex];
       let audioUrl = chapter.audio_url;
 
-      if (!audioUrl || audioUrl.trim() === '') {
+      if (!audioUrl || audioUrl.trim() === "") {
         console.error("No audio URL for chapter:", chapter);
-        setPlaybackError("No audio URL available for this chapter. Please try selecting a different chapter.");
+        setPlaybackError(
+          "No audio URL available for this chapter. Please try selecting a different chapter.",
+        );
         return null;
       }
 
       // Clean up the URL
       audioUrl = audioUrl.trim();
-      
+
       console.log("Original audio URL:", audioUrl);
-      
+
       // Try direct URL first (expo-av supports MP3 URLs directly)
       // Only use proxy if direct fails (for CORS issues on web) or if URL doesn't look like a direct audio file
       let finalUrl = audioUrl;
       let useProxy = false;
-      
+
       // Check if URL looks like it might need proxy (not a direct MP3 link)
       // LibriVox URLs from archive.org should work directly, but use proxy for web CORS issues
-      const isDirectAudioUrl = audioUrl.toLowerCase().endsWith('.mp3') || 
-                               audioUrl.includes('archive.org/download') ||
-                               audioUrl.includes('archive.org/stream');
-      
+      const isDirectAudioUrl =
+        audioUrl.toLowerCase().endsWith(".mp3") ||
+        audioUrl.includes("archive.org/download") ||
+        audioUrl.includes("archive.org/stream");
+
       // On web, always use proxy for CORS issues
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         useProxy = true;
         finalUrl = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(audioUrl)}`;
       } else if (!isDirectAudioUrl) {
@@ -404,7 +438,7 @@ export default function AudiobookPlayerScreen() {
         useProxy = true;
         finalUrl = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(audioUrl)}`;
       }
-      
+
       console.log("Attempting to load from:", finalUrl.substring(0, 200));
       console.log("Using proxy:", useProxy);
 
@@ -412,9 +446,9 @@ export default function AudiobookPlayerScreen() {
       let newSound: Audio.Sound;
       try {
         const result = await Audio.Sound.createAsync(
-          { 
+          {
             uri: finalUrl,
-            overrideFileExtensionAndroid: 'mp3',
+            overrideFileExtensionAndroid: "mp3",
           },
           {
             shouldPlay: false,
@@ -438,22 +472,22 @@ export default function AudiobookPlayerScreen() {
               console.error("Audio status error:", status.error);
               setPlaybackError(`Audio error: ${status.error}`);
             }
-          }
+          },
         );
         newSound = result.sound;
       } catch (directError) {
         console.error("Direct URL failed, trying proxy:", directError);
-        
+
         // If direct URL failed and we didn't use proxy, try proxy now
         if (!useProxy) {
           try {
             const proxyUrl = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(audioUrl)}`;
             console.log("Trying proxy URL:", proxyUrl.substring(0, 200));
-            
+
             const proxyResult = await Audio.Sound.createAsync(
-              { 
+              {
                 uri: proxyUrl,
-                overrideFileExtensionAndroid: 'mp3',
+                overrideFileExtensionAndroid: "mp3",
               },
               {
                 shouldPlay: false,
@@ -475,7 +509,7 @@ export default function AudiobookPlayerScreen() {
                   console.error("Proxy audio error:", status.error);
                   setPlaybackError(`Audio error: ${status.error}`);
                 }
-              }
+              },
             );
             newSound = proxyResult.sound;
             useProxy = true;
@@ -491,55 +525,84 @@ export default function AudiobookPlayerScreen() {
 
       // Check status immediately - no delay needed for streaming
       const status = await newSound.getStatusAsync();
-      
+
       if (!status.isLoaded) {
         console.error("Sound not loaded after creation:", status);
         const errorMsg = status.error || "Unknown error";
-        setPlaybackError(`Failed to load audio: ${errorMsg}. URL: ${finalUrl.substring(0, 100)}...`);
+        setPlaybackError(
+          `Failed to load audio: ${errorMsg}. URL: ${finalUrl.substring(0, 100)}...`,
+        );
         await newSound.unloadAsync();
         return null;
       }
-      
+
       // Clear any previous playback errors on successful load
       setPlaybackError(null);
 
-      console.log("Audio loaded successfully. Duration:", status.durationMillis, "ms");
-      
+      console.log(
+        "Audio loaded successfully. Duration:",
+        status.durationMillis,
+        "ms",
+      );
+
       // Set sound state AFTER ensuring it's loaded (prevents cleanup race conditions)
       setSound(newSound);
       soundRef.current = newSound; // Also update ref for cleanup
       setCurrentChapterIndex(chapterIndex);
       setDuration(status.durationMillis || 0);
       setPosition(startPosition * 1000);
-      
+
       return newSound;
     } catch (err) {
       console.error("Error loading audio:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      
+
       // Provide more helpful error messages
       let userFriendlyError = "Failed to load audio. ";
       if (errorMessage.includes("Network") || errorMessage.includes("fetch")) {
         userFriendlyError += "Please check your internet connection.";
-      } else if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
-        userFriendlyError += "Audio file not found. The chapter URL may be invalid.";
-      } else if (errorMessage.includes("CORS") || errorMessage.includes("cross-origin")) {
+      } else if (
+        errorMessage.includes("404") ||
+        errorMessage.includes("Not Found")
+      ) {
+        userFriendlyError +=
+          "Audio file not found. The chapter URL may be invalid.";
+      } else if (
+        errorMessage.includes("CORS") ||
+        errorMessage.includes("cross-origin")
+      ) {
         userFriendlyError += "CORS error. Trying proxy...";
       } else {
         userFriendlyError += `Error: ${errorMessage}. Please try selecting a different chapter.`;
       }
-      
+
       // Provide more specific error messages
-      if (errorMessage.includes("503") || errorMessage.includes("Service Unavailable")) {
-        userFriendlyError = "Archive.org service is temporarily unavailable. Please try again in a few moments.";
-      } else if (errorMessage.includes("502") || errorMessage.includes("Bad Gateway")) {
-        userFriendlyError = "Unable to connect to audio server. The file may be temporarily unavailable. Please try again.";
-      } else if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
-        userFriendlyError = "Audio file not found. The chapter may have been removed or the URL is incorrect.";
-      } else if (errorMessage.includes("Network") || errorMessage.includes("fetch")) {
-        userFriendlyError = "Network error. Please check your internet connection and try again.";
+      if (
+        errorMessage.includes("503") ||
+        errorMessage.includes("Service Unavailable")
+      ) {
+        userFriendlyError =
+          "Archive.org service is temporarily unavailable. Please try again in a few moments.";
+      } else if (
+        errorMessage.includes("502") ||
+        errorMessage.includes("Bad Gateway")
+      ) {
+        userFriendlyError =
+          "Unable to connect to audio server. The file may be temporarily unavailable. Please try again.";
+      } else if (
+        errorMessage.includes("404") ||
+        errorMessage.includes("Not Found")
+      ) {
+        userFriendlyError =
+          "Audio file not found. The chapter may have been removed or the URL is incorrect.";
+      } else if (
+        errorMessage.includes("Network") ||
+        errorMessage.includes("fetch")
+      ) {
+        userFriendlyError =
+          "Network error. Please check your internet connection and try again.";
       }
-      
+
       setPlaybackError(userFriendlyError);
       return null;
     } finally {
@@ -547,10 +610,13 @@ export default function AudiobookPlayerScreen() {
     }
   };
 
-  const playChapter = async (chapterIndex: number, startPosition: number = 0) => {
+  const playChapter = async (
+    chapterIndex: number,
+    startPosition: number = 0,
+  ) => {
     try {
       setPlaybackError(null);
-      
+
       // Atomic chapter switch: unload previous, load new, play immediately
       // loadAudio handles setIsLoadingAudio state
       const loadedSound = await loadAudio(chapterIndex, startPosition);
@@ -565,7 +631,7 @@ export default function AudiobookPlayerScreen() {
             startPositionUpdates();
             setIsLoadingAudio(false);
             console.log("Playback started immediately");
-            
+
             // Add to history asynchronously (don't block playback)
             if (bookDetails) {
               addToHistory({
@@ -583,7 +649,10 @@ export default function AudiobookPlayerScreen() {
             }
           } catch (playError: any) {
             // If play fails, try once more immediately (no delay)
-            if (playError?.message?.includes("interrupted") || playError?.message?.includes("pause")) {
+            if (
+              playError?.message?.includes("interrupted") ||
+              playError?.message?.includes("pause")
+            ) {
               console.warn("Play was interrupted, retrying immediately...");
               try {
                 await loadedSound.playAsync();
@@ -591,7 +660,7 @@ export default function AudiobookPlayerScreen() {
                 startPositionUpdates();
                 setIsLoadingAudio(false);
                 console.log("Playback started on retry");
-                
+
                 // Add to history asynchronously
                 if (bookDetails) {
                   addToHistory({
@@ -630,7 +699,9 @@ export default function AudiobookPlayerScreen() {
       }
     } catch (err) {
       console.error("Error in playChapter:", err);
-      setPlaybackError(err instanceof Error ? err.message : "Failed to play audio");
+      setPlaybackError(
+        err instanceof Error ? err.message : "Failed to play audio",
+      );
       setIsLoadingAudio(false);
     }
   };
@@ -664,7 +735,7 @@ export default function AudiobookPlayerScreen() {
           await sound.playAsync();
           setIsPlaying(true);
           startPositionUpdates();
-          
+
           // Add to history asynchronously (don't block playback)
           if (bookDetails) {
             addToHistory({
@@ -682,13 +753,16 @@ export default function AudiobookPlayerScreen() {
           }
         } catch (playError: any) {
           // Handle "play() interrupted by pause()" error - retry immediately
-          if (playError?.message?.includes("interrupted") || playError?.message?.includes("pause")) {
+          if (
+            playError?.message?.includes("interrupted") ||
+            playError?.message?.includes("pause")
+          ) {
             console.warn("Play was interrupted, retrying immediately...");
             try {
               await sound.playAsync();
               setIsPlaying(true);
               startPositionUpdates();
-              
+
               // Add to history asynchronously
               if (bookDetails) {
                 addToHistory({
@@ -715,7 +789,9 @@ export default function AudiobookPlayerScreen() {
       }
     } catch (err) {
       console.error("Error toggling play/pause:", err);
-      setPlaybackError(err instanceof Error ? err.message : "Failed to play/pause audio");
+      setPlaybackError(
+        err instanceof Error ? err.message : "Failed to play/pause audio",
+      );
       // Try to reload if there's an error
       if (bookDetails && bookDetails.chapters.length > 0) {
         await playChapter(currentChapterIndex, position / 1000);
@@ -757,7 +833,10 @@ export default function AudiobookPlayerScreen() {
           const status = await sound.getStatusAsync();
           if (status.isLoaded) {
             setPosition(status.positionMillis || 0);
-            await saveProgress(currentChapterIndex, (status.positionMillis || 0) / 1000);
+            await saveProgress(
+              currentChapterIndex,
+              (status.positionMillis || 0) / 1000,
+            );
           }
         } catch (err) {
           console.error("Error updating position:", err);
@@ -807,18 +886,18 @@ export default function AudiobookPlayerScreen() {
     if (!coverUrl || !coverUrl.trim()) {
       return null;
     }
-    
+
     // Convert http to https for web compatibility
     let url = coverUrl.trim();
     if (url.startsWith("http://")) {
       url = url.replace("http://", "https://", 1);
     }
-    
+
     // If cover failed to load and not already using proxy, use proxy
     if (coverLoadError && !url.includes("/audiobooks/cover-proxy?")) {
       return `${API_BASE}/audiobooks/cover-proxy?url=${encodeURIComponent(url)}`;
     }
-    
+
     return url;
   };
 
@@ -828,36 +907,50 @@ export default function AudiobookPlayerScreen() {
 
   useEffect(() => {
     // Only fetch if no LibriVox cover and haven't fetched yet
-    if (!coverUrl && bookDetails && !openLibraryCover && !loadingOpenLibraryCover) {
+    if (
+      !coverUrl &&
+      bookDetails &&
+      !openLibraryCover &&
+      !loadingOpenLibraryCover
+    ) {
       setLoadingOpenLibraryCover(true);
-      
+
       const fetchCover = async () => {
         try {
           const params = new URLSearchParams({
             title: bookDetails.title,
             author: bookDetails.author || "",
           });
-          
-          console.log(`[AudiobookPlayer] 🔍 Fetching Open Library cover for: "${bookDetails.title}" by ${bookDetails.author}`);
-          
-          const response = await fetch(`${API_BASE}/audiobooks/cover?${params.toString()}`);
-          
+
+          console.log(
+            `[AudiobookPlayer] 🔍 Fetching Open Library cover for: "${bookDetails.title}" by ${bookDetails.author}`,
+          );
+
+          const response = await fetch(
+            `${API_BASE}/audiobooks/cover?${params.toString()}`,
+          );
+
           if (response.ok) {
             const data = await response.json();
             if (data.cover_url) {
-              console.log(`[AudiobookPlayer] ✅ Found Open Library cover: ${data.cover_url}`);
+              console.log(
+                `[AudiobookPlayer] ✅ Found Open Library cover: ${data.cover_url}`,
+              );
               setOpenLibraryCover(data.cover_url);
             } else {
               console.log(`[AudiobookPlayer] ❌ No Open Library cover found`);
             }
           }
         } catch (error) {
-          console.error(`[AudiobookPlayer] ❌ Error fetching Open Library cover:`, error);
+          console.error(
+            `[AudiobookPlayer] ❌ Error fetching Open Library cover:`,
+            error,
+          );
         } finally {
           setLoadingOpenLibraryCover(false);
         }
       };
-      
+
       fetchCover();
     }
   }, [coverUrl, bookDetails, openLibraryCover, loadingOpenLibraryCover]);
@@ -899,7 +992,9 @@ export default function AudiobookPlayerScreen() {
       <SafeAreaView style={styles.root} edges={["top"]}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color="#FF6B6B" />
-          <Text style={styles.errorText}>{error || "Failed to load audiobook"}</Text>
+          <Text style={styles.errorText}>
+            {error || "Failed to load audiobook"}
+          </Text>
           <Pressable style={styles.backButtonError} onPress={goBack}>
             <Text style={styles.backButtonErrorText}>Go Back</Text>
           </Pressable>
@@ -924,7 +1019,10 @@ export default function AudiobookPlayerScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+      >
         {playbackError && (
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle" size={20} color="#FF6B6B" />
@@ -942,15 +1040,25 @@ export default function AudiobookPlayerScreen() {
           // Check for Open Library cover first (fallback when LibriVox has no cover)
           const libriVoxCover = getCoverUrl(coverUrl);
           const finalCoverUrl = openLibraryCover || libriVoxCover;
-          const coverSource = openLibraryCover ? "openlibrary" : (libriVoxCover ? "librivox" : "none");
-          
+          const coverSource = openLibraryCover
+            ? "openlibrary"
+            : libriVoxCover
+              ? "librivox"
+              : "none";
+
           // Show placeholder if no URL or if proxy also failed
-          const showPlaceholder = !finalCoverUrl || (coverLoadError && finalCoverUrl.includes("/audiobooks/cover-proxy?"));
-          
+          const showPlaceholder =
+            !finalCoverUrl ||
+            (coverLoadError &&
+              finalCoverUrl.includes("/audiobooks/cover-proxy?"));
+
           if (showPlaceholder) {
             // Show text-based cover when image is missing or failed
             return bookDetails ? (
-              <TextCover title={bookDetails.title} author={bookDetails.author} />
+              <TextCover
+                title={bookDetails.title}
+                author={bookDetails.author}
+              />
             ) : (
               <View style={styles.coverPlaceholder}>
                 <Ionicons name="book" size={64} color="#888" />
@@ -960,34 +1068,54 @@ export default function AudiobookPlayerScreen() {
               </View>
             );
           }
-          
+
           return (
             <Image
               source={{ uri: finalCoverUrl }}
               style={styles.coverImage}
               onError={(e) => {
                 const error = e.nativeEvent.error;
-                console.error(`[AudiobookPlayer] ❌ Cover image failed to load`);
-                console.error(`[AudiobookPlayer]   Title: "${bookDetails?.title || 'Unknown'}"`);
-                console.error(`[AudiobookPlayer]   Author: "${bookDetails?.author || 'Unknown'}"`);
-                console.error(`[AudiobookPlayer]   Cover URL: ${finalCoverUrl}`);
-                console.error(`[AudiobookPlayer]   Cover Source: ${coverSource}`);
+                console.error(
+                  `[AudiobookPlayer] ❌ Cover image failed to load`,
+                );
+                console.error(
+                  `[AudiobookPlayer]   Title: "${bookDetails?.title || "Unknown"}"`,
+                );
+                console.error(
+                  `[AudiobookPlayer]   Author: "${bookDetails?.author || "Unknown"}"`,
+                );
+                console.error(
+                  `[AudiobookPlayer]   Cover URL: ${finalCoverUrl}`,
+                );
+                console.error(
+                  `[AudiobookPlayer]   Cover Source: ${coverSource}`,
+                );
                 console.error(`[AudiobookPlayer]   Error:`, error);
-                console.error(`[AudiobookPlayer]   Using proxy: ${finalCoverUrl.includes("/audiobooks/cover-proxy?")}`);
-                
+                console.error(
+                  `[AudiobookPlayer]   Using proxy: ${finalCoverUrl.includes("/audiobooks/cover-proxy?")}`,
+                );
+
                 // Try proxy if not already using it
                 if (!finalCoverUrl.includes("/audiobooks/cover-proxy?")) {
-                  console.log(`[AudiobookPlayer] 🔄 Retrying with proxy endpoint...`);
+                  console.log(
+                    `[AudiobookPlayer] 🔄 Retrying with proxy endpoint...`,
+                  );
                   setCoverLoadError(true);
                 } else {
                   // Proxy also failed, show text cover
-                  console.error(`[AudiobookPlayer] ⚠️ Proxy also failed, showing text-based cover`);
+                  console.error(
+                    `[AudiobookPlayer] ⚠️ Proxy also failed, showing text-based cover`,
+                  );
                   setCoverLoadError(true);
                 }
               }}
               onLoad={() => {
-                console.log(`[AudiobookPlayer] ✅ Cover image loaded successfully`);
-                console.log(`[AudiobookPlayer]   Title: "${bookDetails?.title || 'Unknown'}"`);
+                console.log(
+                  `[AudiobookPlayer] ✅ Cover image loaded successfully`,
+                );
+                console.log(
+                  `[AudiobookPlayer]   Title: "${bookDetails?.title || "Unknown"}"`,
+                );
                 console.log(`[AudiobookPlayer]   Cover URL: ${finalCoverUrl}`);
                 console.log(`[AudiobookPlayer]   Cover Source: ${coverSource}`);
                 setCoverLoadError(false);
@@ -1028,7 +1156,10 @@ export default function AudiobookPlayerScreen() {
                 }
               }}
               disabled={!hasPrevious}
-              style={[styles.controlButton, !hasPrevious && styles.controlButtonDisabled]}
+              style={[
+                styles.controlButton,
+                !hasPrevious && styles.controlButtonDisabled,
+              ]}
             >
               <Ionicons
                 name="play-skip-back"
@@ -1037,9 +1168,12 @@ export default function AudiobookPlayerScreen() {
               />
             </Pressable>
 
-            <Pressable 
-              onPress={togglePlayPause} 
-              style={[styles.playButton, (isLoadingAudio || !sound) && styles.playButtonDisabled]}
+            <Pressable
+              onPress={togglePlayPause}
+              style={[
+                styles.playButton,
+                (isLoadingAudio || !sound) && styles.playButtonDisabled,
+              ]}
               disabled={isLoadingAudio}
             >
               {isLoadingAudio ? (
@@ -1060,7 +1194,10 @@ export default function AudiobookPlayerScreen() {
                 }
               }}
               disabled={!hasNext}
-              style={[styles.controlButton, !hasNext && styles.controlButtonDisabled]}
+              style={[
+                styles.controlButton,
+                !hasNext && styles.controlButtonDisabled,
+              ]}
             >
               <Ionicons
                 name="play-skip-forward"
@@ -1132,7 +1269,8 @@ export default function AudiobookPlayerScreen() {
                   <Text
                     style={[
                       styles.chapterNumber,
-                      index === currentChapterIndex && styles.chapterNumberActive,
+                      index === currentChapterIndex &&
+                        styles.chapterNumberActive,
                     ]}
                   >
                     {index + 1}
@@ -1141,13 +1279,16 @@ export default function AudiobookPlayerScreen() {
                     <Text
                       style={[
                         styles.chapterName,
-                        index === currentChapterIndex && styles.chapterNameActive,
+                        index === currentChapterIndex &&
+                          styles.chapterNameActive,
                       ]}
                       numberOfLines={2}
                     >
                       {chapter.title}
                     </Text>
-                    <Text style={styles.chapterDuration}>{chapter.duration_formatted}</Text>
+                    <Text style={styles.chapterDuration}>
+                      {chapter.duration_formatted}
+                    </Text>
                   </View>
                 </View>
                 {index === currentChapterIndex && isPlaying && (
