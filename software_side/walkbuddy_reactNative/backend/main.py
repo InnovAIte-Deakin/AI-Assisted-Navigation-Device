@@ -1,8 +1,5 @@
 import sys
 from pathlib import Path
-import os
-from typing import List, Optional
-import httpx
 
 # 1. Fix Python path so ML_models/ imports work reliably
 CURRENT_FILE = Path(__file__).resolve()
@@ -86,58 +83,6 @@ import numpy as np
 # 3. Create FastAPI app
 app = FastAPI(title="AI Assist Backend")
 
-# 3.1. Collaboration session storage (in-memory)
-collaboration_sessions: Dict[str, Dict] = {}  # session_id -> {created_at, user_ws, guide_ws, last_frame_time}
-SESSION_EXPIRY_HOURS = 1
-MAX_FRAME_SIZE_BYTES = 400 * 1024  # 400KB
-MIN_FRAME_INTERVAL_MS = 500  # 2 FPS max
-
-# 3.2. Database setup for helpers
-DB_PATH = BACKEND_DIR / "helpers.db"
-
-def init_database():
-    """Initialize SQLite database for helpers"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS helpers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            age INTEGER,
-            email TEXT UNIQUE NOT NULL,
-            phone TEXT,
-            address TEXT,
-            emergency_contact_name TEXT,
-            emergency_contact_phone TEXT,
-            experience_level TEXT,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP
-        )
-    """)
-    
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS helper_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            helper_id INTEGER NOT NULL,
-            token TEXT UNIQUE NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP NOT NULL,
-            FOREIGN KEY (helper_id) REFERENCES helpers(id)
-        )
-    """)
-    
-    conn.commit()
-    conn.close()
-    print("[Database] ✅ Database initialized")
-
-# Initialize database on startup
-init_database()
-
-# Security
-security = HTTPBearer()
-
 
 # 4. CORS (required for mobile/web)
 app.add_middleware(
@@ -147,98 +92,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 4.1. Helper authentication models
-class HelperSignup(BaseModel):
-    name: str
-    age: Optional[int] = None
-    email: EmailStr
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    emergency_contact_name: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
-    experience_level: Optional[str] = None
-    password: str
-
-class HelperLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class HelperResponse(BaseModel):
-    id: int
-    name: str
-    age: Optional[int]
-    email: str
-    phone: Optional[str]
-    address: Optional[str]
-    emergency_contact_name: Optional[str]
-    emergency_contact_phone: Optional[str]
-    experience_level: Optional[str]
-    created_at: str
-
-class LoginResponse(BaseModel):
-    token: str
-    helper: HelperResponse
-    expires_at: str
-
-# 4.2. Password hashing utilities
-def hash_password(password: str) -> str:
-    """Hash password using SHA256 (simple, can upgrade to bcrypt later)"""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def verify_password(password: str, password_hash: str) -> bool:
-    """Verify password against hash"""
-    return hash_password(password) == password_hash
-
-def generate_token() -> str:
-    """Generate a secure random token"""
-    return secrets.token_urlsafe(32)
-
-# 4.3. Database helper functions
-def get_db_connection():
-    """Get database connection"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def get_helper_by_email(email: str) -> Optional[Dict]:
-    """Get helper by email"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM helpers WHERE email = ?", (email,))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return dict(row)
-    return None
-
-def get_helper_by_phone(phone: str) -> Optional[Dict]:
-    """Get helper by phone number"""
-    if not phone:
-        return None
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM helpers WHERE phone = ?", (phone,))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return dict(row)
-    return None
-
-def get_helper_by_token(token: str) -> Optional[Dict]:
-    """Get helper by session token"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT h.* FROM helpers h
-        JOIN helper_sessions s ON h.id = s.helper_id
-        WHERE s.token = ? AND s.expires_at > datetime('now')
-    """, (token,))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return dict(row)
-    return None
 
 
 # 5. Root endpoint - API information
