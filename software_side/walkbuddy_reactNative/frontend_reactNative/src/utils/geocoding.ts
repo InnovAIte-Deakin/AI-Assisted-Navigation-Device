@@ -1,4 +1,7 @@
 // Geocoding utilities
+// import { API_BASE } from '../config';
+
+const API_BASE = "http://0.0.0.0:8003";
 
 export interface GeocodeResult {
   name: string;
@@ -10,14 +13,18 @@ export interface GeocodeResult {
 /**
  * Geocode a place name to coordinates using backend Nominatim API
  */
-export async function geocodePlaceName(placeName: string): Promise<GeocodeResult> {
+export async function geocodePlaceName(
+  placeName: string,
+): Promise<GeocodeResult> {
   try {
     const response = await fetch(
-      `http://0.0.0.0:8002/api/geocode?q=${encodeURIComponent(placeName)}`,
+      `${API_BASE}/api/geocode?q=${encodeURIComponent(placeName)}`,
     );
-    
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Geocoding failed' }));
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Geocoding failed" }));
       throw new Error(error.detail || `Geocoding failed: ${response.status}`);
     }
 
@@ -29,7 +36,7 @@ export async function geocodePlaceName(placeName: string): Promise<GeocodeResult
       address: data.address,
     };
   } catch (error) {
-    console.error('Geocoding error:', error);
+    console.error("Geocoding error:", error);
     throw error;
   }
 }

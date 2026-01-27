@@ -21,15 +21,23 @@ import {
   normalizeCode,
   roomFor,
 } from "@/src/utils/collaboration";
-import { initWebCamera, createWebFrameCaptureHandler, WebCameraCapture } from "@/src/utils/webCameraCapture";
-import { speakWeb, stopWebSpeech, isWebTTSAvailable, isWebSpeaking } from "@/src/utils/webTTS";
-import { API_BASE } from "@/src/config";
+import {
+  initWebCamera,
+  createWebFrameCaptureHandler,
+  WebCameraCapture,
+} from "@/src/utils/webCameraCapture";
+import {
+  speakWeb,
+  stopWebSpeech,
+  isWebTTSAvailable,
+  isWebSpeaking,
+} from "@/src/utils/webTTS";
 
 export default function AskAFriendWebScreen() {
   const pathname = usePathname();
   const segments = useSegments();
   const isNavigatingAwayRef = useRef(false);
-  
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -40,8 +48,12 @@ export default function AskAFriendWebScreen() {
   const [error, setError] = useState<string | null>(null);
   const isDisconnectingRef = useRef(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameraPermission, setCameraPermission] = useState<"granted" | "denied" | "prompt">("prompt");
-  const [microphonePermission, setMicrophonePermission] = useState<"granted" | "denied" | "prompt">("prompt");
+  const [cameraPermission, setCameraPermission] = useState<
+    "granted" | "denied" | "prompt"
+  >("prompt");
+  const [microphonePermission, setMicrophonePermission] = useState<
+    "granted" | "denied" | "prompt"
+  >("prompt");
   const [isMuted, setIsMuted] = useState(false);
   const [hasAudioTrack, setHasAudioTrack] = useState(false);
 
@@ -52,7 +64,7 @@ export default function AskAFriendWebScreen() {
   const streamRef = useRef<MediaStream | null>(null);
   const [showVideoElement, setShowVideoElement] = useState(false);
   const [cameraStreamReady, setCameraStreamReady] = useState(false);
-  
+
   // WebRTC peer connection
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const iceCandidatesRef = useRef<RTCIceCandidate[]>([]);
@@ -62,7 +74,7 @@ export default function AskAFriendWebScreen() {
   const iceCandidateCountRef = useRef(0);
   const receivedIceCountRef = useRef(0);
   const localAudioTrackRef = useRef<MediaStreamTrack | null>(null);
-  
+
   // Fallback frame streaming mode
   const [useFallbackMode, setUseFallbackMode] = useState(false);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -72,43 +84,59 @@ export default function AskAFriendWebScreen() {
   const frameStatsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if on web and prevent redirects
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      Alert.alert("Error", "This screen is only available on web browsers.");
-      router.replace("/home");
-      return;
-    }
-    
-    // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
-    // Check if pathname changed away from ask-a-friend-web
-    if (pathname && pathname !== "/ask-a-friend-web" && !isNavigatingAwayRef.current) {
-      console.log("[AskAFriend] Detected redirect attempt, preventing:", pathname);
-      // Force navigation back to ask-a-friend-web immediately
-      // Use replace to prevent back button issues
-      router.replace("/ask-a-friend-web");
-    }
-    
-    // Also check window.location as a fallback (for web)
-    if (typeof window !== "undefined" && window.location.pathname !== "/ask-a-friend-web") {
-      window.history.replaceState(null, "", "/ask-a-friend-web");
-    }
-  }, [pathname, router]);
-  
+  // useEffect(() => {
+  //   if (Platform.OS !== "web") {
+  //     Alert.alert("Error", "This screen is only available on web browsers.");
+  //     router.replace("/home");
+  //     return;
+  //   }
+
+  //   // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
+  //   // Check if pathname changed away from ask-a-friend-web
+  //   if (
+  //     pathname &&
+  //     pathname !== "/ask-a-friend-web" &&
+  //     !isNavigatingAwayRef.current
+  //   ) {
+  //     console.log(
+  //       "[AskAFriend] Detected redirect attempt, preventing:",
+  //       pathname,
+  //     );
+  //     // Force navigation back to ask-a-friend-web immediately
+  //     // Use replace to prevent back button issues
+  //     router.replace("/ask-a-friend-web");
+  //   }
+
+  //   // Also check window.location as a fallback (for web)
+  //   if (
+  //     typeof window !== "undefined" &&
+  //     window.location.pathname !== "/ask-a-friend-web"
+  //   ) {
+  //     window.history.replaceState(null, "", "/ask-a-friend-web");
+  //   }
+  // }, [pathname, router]);
+
   // Monitor segments to catch redirects to tabs/home
-  useEffect(() => {
-    if (Platform.OS === "web") {
-      // If segments indicate we're being redirected to tabs/home, prevent it
-      if (segments.length > 0) {
-        const isRedirectingToTabs = segments.includes("(tabs)") || segments.includes("home");
-        const isOnAskAFriendWeb = pathname === "/ask-a-friend-web" || segments[0] === "ask-a-friend-web";
-        
-        if (isRedirectingToTabs && !isOnAskAFriendWeb) {
-          console.log("[AskAFriend] Preventing redirect to tabs/home, segments:", segments);
-          router.replace("/ask-a-friend-web");
-        }
-      }
-    }
-  }, [segments, pathname, router]);
+  // useEffect(() => {
+  //   if (Platform.OS === "web") {
+  //     // If segments indicate we're being redirected to tabs/home, prevent it
+  //     if (segments.length > 0) {
+  //       const isRedirectingToTabs =
+  //         segments.includes("(tabs)") || segments.includes("home");
+  //       const isOnAskAFriendWeb =
+  //         pathname === "/ask-a-friend-web" ||
+  //         segments[0] === "ask-a-friend-web";
+
+  //       if (isRedirectingToTabs && !isOnAskAFriendWeb) {
+  //         console.log(
+  //           "[AskAFriend] Preventing redirect to tabs/home, segments:",
+  //           segments,
+  //         );
+  //         router.replace("/ask-a-friend-web");
+  //       }
+  //     }
+  //   }
+  // }, [segments, pathname, router]);
 
   // Create session on mount
   useEffect(() => {
@@ -121,116 +149,151 @@ export default function AskAFriendWebScreen() {
 
   // Set up message handlers
   useEffect(() => {
-    const unsubscribeConnected = collaborationService.onMessage("connected", (msg) => {
-      console.log("[AskAFriend] ✅ Connected to session:", msg);
-      setIsConnected(true);
-      setIsConnecting(false);
-      setError(null);
-      
-      // Check if guide is already connected (from connection message)
-      if ((msg as any).guide_connected) {
-        console.log("[AskAFriend] ✅ Guide already connected");
+    const unsubscribeConnected = collaborationService.onMessage(
+      "connected",
+      (msg) => {
+        console.log("[AskAFriend] ✅ Connected to session:", msg);
+        setIsConnected(true);
+        setIsConnecting(false);
+        setError(null);
+
+        // Check if guide is already connected (from connection message)
+        if ((msg as any).guide_connected) {
+          console.log("[AskAFriend] ✅ Guide already connected");
+          setGuideConnected(true);
+        }
+      },
+    );
+
+    const unsubscribeGuideConnected = collaborationService.onMessage(
+      "guide_connected",
+      (msg) => {
+        console.log("[AskAFriend] ✅ Guide connected:", msg);
+        const helperNameFromMsg = (msg as any).helper_name || null;
         setGuideConnected(true);
-      }
-    });
+        if (helperNameFromMsg) {
+          setHelperName(helperNameFromMsg);
+          if (isWebTTSAvailable()) {
+            speakWeb(`${helperNameFromMsg} has joined as a helper.`);
+          }
+        } else {
+          if (isWebTTSAvailable()) {
+            speakWeb("Helper has joined. They can see your camera now.");
+          }
+        }
+        // CRITICAL: Start sending frames immediately when guide connects
+        // Don't wait for WebRTC - start fallback frame streaming right away
+        if (
+          streamRef.current &&
+          videoRef.current &&
+          isConnected &&
+          cameraPermission === "granted"
+        ) {
+          console.log(
+            "[AskAFriend] 🎥 Guide connected, starting frame streaming immediately",
+          );
+          // Start fallback frame streaming immediately
+          if (!useFallbackMode) {
+            activateFallbackMode();
+          }
+          // Also try WebRTC
+          startWebRTC();
+        }
+      },
+    );
 
-    const unsubscribeGuideConnected = collaborationService.onMessage("guide_connected", (msg) => {
-      console.log("[AskAFriend] ✅ Guide connected:", msg);
-      const helperNameFromMsg = (msg as any).helper_name || null;
-      setGuideConnected(true);
-      if (helperNameFromMsg) {
-        setHelperName(helperNameFromMsg);
-        if (isWebTTSAvailable()) {
-          speakWeb(`${helperNameFromMsg} has joined as a helper.`);
+    const unsubscribeGuideDisconnected = collaborationService.onMessage(
+      "guide_disconnected",
+      (msg) => {
+        console.log("[AskAFriend] Guide disconnected:", msg);
+        setGuideConnected(false);
+        if (helperName && isWebTTSAvailable()) {
+          speakWeb(`${helperName} has left the session.`);
+        } else if (isWebTTSAvailable()) {
+          speakWeb("Helper has left the session.");
         }
-      } else {
-        if (isWebTTSAvailable()) {
-          speakWeb("Helper has joined. They can see your camera now.");
-        }
-      }
-      // CRITICAL: Start sending frames immediately when guide connects
-      // Don't wait for WebRTC - start fallback frame streaming right away
-      if (streamRef.current && videoRef.current && isConnected && cameraPermission === "granted") {
-        console.log("[AskAFriend] 🎥 Guide connected, starting frame streaming immediately");
-        // Start fallback frame streaming immediately
-        if (!useFallbackMode) {
-          activateFallbackMode();
-        }
-        // Also try WebRTC
-        startWebRTC();
-      }
-    });
-
-    const unsubscribeGuideDisconnected = collaborationService.onMessage("guide_disconnected", (msg) => {
-      console.log("[AskAFriend] Guide disconnected:", msg);
-      setGuideConnected(false);
-      if (helperName && isWebTTSAvailable()) {
-        speakWeb(`${helperName} has left the session.`);
-      } else if (isWebTTSAvailable()) {
-        speakWeb("Helper has left the session.");
-      }
-      setHelperName(null);
-    });
+        setHelperName(null);
+      },
+    );
 
     // Register guidance message handler
     console.log("[AskAFriend] 📢 Registering guidance message handler");
-    const unsubscribeGuidance = collaborationService.onMessage("guidance", (msg) => {
-      // Backend sends "text" field, but we check both "text" and "message" for compatibility
-      const guidanceText = msg.text || msg.message || "";
-      console.log("[AskAFriend] 📢 Received guidance message:", guidanceText);
-      console.log("[AskAFriend] 📢 Full message object:", JSON.stringify(msg, null, 2));
-      
-      if (guidanceText && guidanceText.trim()) {
-        const messageToDisplay = guidanceText.trim();
-        console.log("[AskAFriend] ✅ Setting guidance message:", messageToDisplay);
-        
-        // Clear any previous message timeout
-        if ((window as any).guidanceMessageTimeout) {
-          clearTimeout((window as any).guidanceMessageTimeout);
-        }
-        
-        // Set the message immediately
-        setGuidanceMessage(messageToDisplay);
-        setIsSpeakingGuidance(true);
-        
-        // Speak guidance using web TTS with enhanced settings for clarity
-        if (isWebTTSAvailable()) {
-          console.log("[AskAFriend] 🔊 Speaking guidance message:", messageToDisplay);
-          // Use slower rate and maximum volume for better clarity and loudness
-          speakWeb(messageToDisplay, {
-            rate: 0.85, // Slower for better understanding
-            pitch: 1.0, // Normal pitch
-            volume: 1.0, // Maximum volume
-          });
-          
-          // Monitor speaking status
-          const checkSpeaking = setInterval(() => {
-            if (!isWebSpeaking()) {
+    const unsubscribeGuidance = collaborationService.onMessage(
+      "guidance",
+      (msg) => {
+        // Backend sends "text" field, but we check both "text" and "message" for compatibility
+        const guidanceText = msg.text || msg.message || "";
+        console.log("[AskAFriend] 📢 Received guidance message:", guidanceText);
+        console.log(
+          "[AskAFriend] 📢 Full message object:",
+          JSON.stringify(msg, null, 2),
+        );
+
+        if (guidanceText && guidanceText.trim()) {
+          const messageToDisplay = guidanceText.trim();
+          console.log(
+            "[AskAFriend] ✅ Setting guidance message:",
+            messageToDisplay,
+          );
+
+          // Clear any previous message timeout
+          if ((window as any).guidanceMessageTimeout) {
+            clearTimeout((window as any).guidanceMessageTimeout);
+          }
+
+          // Set the message immediately
+          setGuidanceMessage(messageToDisplay);
+          setIsSpeakingGuidance(true);
+
+          // Speak guidance using web TTS with enhanced settings for clarity
+          if (isWebTTSAvailable()) {
+            console.log(
+              "[AskAFriend] 🔊 Speaking guidance message:",
+              messageToDisplay,
+            );
+            // Use slower rate and maximum volume for better clarity and loudness
+            speakWeb(messageToDisplay, {
+              rate: 0.85, // Slower for better understanding
+              pitch: 1.0, // Normal pitch
+              volume: 1.0, // Maximum volume
+            });
+
+            // Monitor speaking status
+            const checkSpeaking = setInterval(() => {
+              if (!isWebSpeaking()) {
+                setIsSpeakingGuidance(false);
+                clearInterval(checkSpeaking);
+              }
+            }, 200);
+
+            // Clear after 30 seconds max (safety timeout)
+            setTimeout(() => {
               setIsSpeakingGuidance(false);
               clearInterval(checkSpeaking);
-            }
-          }, 200);
-          
-          // Clear after 30 seconds max (safety timeout)
-          setTimeout(() => {
+            }, 30000);
+          } else {
+            console.warn(
+              "[AskAFriend] ⚠️ TTS not available, message displayed but not spoken",
+            );
             setIsSpeakingGuidance(false);
-            clearInterval(checkSpeaking);
-          }, 30000);
+          }
+
+          // Clear message after 10 seconds (keep it visible while speaking)
+          (window as any).guidanceMessageTimeout = setTimeout(() => {
+            setGuidanceMessage("");
+            setIsSpeakingGuidance(false);
+            console.log(
+              "[AskAFriend] 🧹 Cleared guidance message after timeout",
+            );
+          }, 10000);
         } else {
-          console.warn("[AskAFriend] ⚠️ TTS not available, message displayed but not spoken");
-          setIsSpeakingGuidance(false);
+          console.warn(
+            "[AskAFriend] ⚠️ Received guidance message but it was empty:",
+            msg,
+          );
         }
-        
-        // Clear message after 10 seconds (keep it visible while speaking)
-        (window as any).guidanceMessageTimeout = setTimeout(() => {
-          setGuidanceMessage("");
-          setIsSpeakingGuidance(false);
-          console.log("[AskAFriend] 🧹 Cleared guidance message after timeout");
-        }, 10000);
-      } else {
-        console.warn("[AskAFriend] ⚠️ Received guidance message but it was empty:", msg);
-      }
-    });
+      },
+    );
 
     const unsubscribeError = collaborationService.onMessage("error", (msg) => {
       console.error("[AskAFriend] Error:", msg);
@@ -238,73 +301,96 @@ export default function AskAFriendWebScreen() {
     });
 
     // Helper acknowledgment that video was received
-    const unsubscribeVideoReceived = collaborationService.onMessage("video_received" as any, (msg) => {
-      console.log("[AskAFriend] ✅ Helper confirmed video received!");
-      setHelperReceivedVideo(true);
-      
-      // Clear fallback timeout since WebRTC is working
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
-        fallbackTimeoutRef.current = null;
-      }
-      
-      // Stop frame streaming if it was active
-      if (useFallbackMode) {
-        console.log("[AskAFriend] 🔄 WebRTC working, disabling fallback");
-        setUseFallbackMode(false);
-        stopFrameStreaming();
-      }
-      
-      if (isWebTTSAvailable()) {
-        speakWeb("Helper can now see your camera.");
-      }
-    });
+    const unsubscribeVideoReceived = collaborationService.onMessage(
+      "video_received" as any,
+      (msg) => {
+        console.log("[AskAFriend] ✅ Helper confirmed video received!");
+        setHelperReceivedVideo(true);
+
+        // Clear fallback timeout since WebRTC is working
+        if (fallbackTimeoutRef.current) {
+          clearTimeout(fallbackTimeoutRef.current);
+          fallbackTimeoutRef.current = null;
+        }
+
+        // Stop frame streaming if it was active
+        if (useFallbackMode) {
+          console.log("[AskAFriend] 🔄 WebRTC working, disabling fallback");
+          setUseFallbackMode(false);
+          stopFrameStreaming();
+        }
+
+        if (isWebTTSAvailable()) {
+          speakWeb("Helper can now see your camera.");
+        }
+      },
+    );
 
     // WebRTC signaling handlers
-    const unsubscribeWebRTCAnswer = collaborationService.onMessage("webrtc_answer", async (msg) => {
-      const code = normalizeCode(sessionId || "");
-      const room = roomFor(code);
-      console.log(`[AskAFriend] 📥 Received WebRTC answer (room: ${room})`);
-      if (peerConnectionRef.current && msg.sdp) {
-        try {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(msg.sdp as RTCSessionDescriptionInit));
-          console.log("[AskAFriend] ✅ Set remote description (answer)");
-          
-          // Add any pending ICE candidates
-          for (const candidate of iceCandidatesRef.current) {
-            try {
-              await peerConnectionRef.current.addIceCandidate(candidate);
-            } catch (err) {
-              console.warn("[AskAFriend] Failed to add pending ICE candidate:", err);
-            }
-          }
-          iceCandidatesRef.current = [];
-        } catch (error) {
-          console.error("[AskAFriend] ❌ Error handling WebRTC answer:", error);
-        }
-      }
-    });
+    const unsubscribeWebRTCAnswer = collaborationService.onMessage(
+      "webrtc_answer",
+      async (msg) => {
+        const code = normalizeCode(sessionId || "");
+        const room = roomFor(code);
+        console.log(`[AskAFriend] 📥 Received WebRTC answer (room: ${room})`);
+        if (peerConnectionRef.current && msg.sdp) {
+          try {
+            await peerConnectionRef.current.setRemoteDescription(
+              new RTCSessionDescription(msg.sdp as RTCSessionDescriptionInit),
+            );
+            console.log("[AskAFriend] ✅ Set remote description (answer)");
 
-    const unsubscribeWebRTCICE = collaborationService.onMessage("webrtc_ice", async (msg) => {
-      const code = normalizeCode(sessionId || "");
-      const room = roomFor(code);
-      console.log(`[AskAFriend] 📥 Received WebRTC ICE candidate (room: ${room})`);
-      if (peerConnectionRef.current && msg.candidate) {
-        try {
-          const candidate = new RTCIceCandidate(msg.candidate as RTCIceCandidateInit);
-          if (peerConnectionRef.current.remoteDescription) {
-            await peerConnectionRef.current.addIceCandidate(candidate);
-            console.log("[AskAFriend] ✅ Added ICE candidate from helper");
-          } else {
-            // Store for later
-            iceCandidatesRef.current.push(candidate);
-            console.log("[AskAFriend] ⏳ Storing ICE candidate (waiting for remote description)");
+            // Add any pending ICE candidates
+            for (const candidate of iceCandidatesRef.current) {
+              try {
+                await peerConnectionRef.current.addIceCandidate(candidate);
+              } catch (err) {
+                console.warn(
+                  "[AskAFriend] Failed to add pending ICE candidate:",
+                  err,
+                );
+              }
+            }
+            iceCandidatesRef.current = [];
+          } catch (error) {
+            console.error(
+              "[AskAFriend] ❌ Error handling WebRTC answer:",
+              error,
+            );
           }
-        } catch (error) {
-          console.error("[AskAFriend] ❌ Error adding ICE candidate:", error);
         }
-      }
-    });
+      },
+    );
+
+    const unsubscribeWebRTCICE = collaborationService.onMessage(
+      "webrtc_ice",
+      async (msg) => {
+        const code = normalizeCode(sessionId || "");
+        const room = roomFor(code);
+        console.log(
+          `[AskAFriend] 📥 Received WebRTC ICE candidate (room: ${room})`,
+        );
+        if (peerConnectionRef.current && msg.candidate) {
+          try {
+            const candidate = new RTCIceCandidate(
+              msg.candidate as RTCIceCandidateInit,
+            );
+            if (peerConnectionRef.current.remoteDescription) {
+              await peerConnectionRef.current.addIceCandidate(candidate);
+              console.log("[AskAFriend] ✅ Added ICE candidate from helper");
+            } else {
+              // Store for later
+              iceCandidatesRef.current.push(candidate);
+              console.log(
+                "[AskAFriend] ⏳ Storing ICE candidate (waiting for remote description)",
+              );
+            }
+          } catch (error) {
+            console.error("[AskAFriend] ❌ Error adding ICE candidate:", error);
+          }
+        }
+      },
+    );
 
     // Set up TTS completion callback
     if (typeof window !== "undefined") {
@@ -332,23 +418,34 @@ export default function AskAFriendWebScreen() {
   // CRITICAL: Start sending frames immediately when guide connects
   // This ensures frames are sent regardless of WebRTC state
   useEffect(() => {
-    if (isConnected && guideConnected && cameraPermission === "granted" && streamRef.current && videoRef.current) {
-      console.log("[AskAFriend] 🎥 Guide connected! Conditions met for frame streaming:", {
-        isConnected,
-        guideConnected,
-        cameraPermission,
-        hasStream: !!streamRef.current,
-        hasVideo: !!videoRef.current,
-        videoReadyState: videoRef.current?.readyState,
-        videoWidth: videoRef.current?.videoWidth,
-        useFallbackMode,
-        hasFrameStreamInterval: !!frameStreamIntervalRef.current,
-      });
+    if (
+      isConnected &&
+      guideConnected &&
+      cameraPermission === "granted" &&
+      streamRef.current &&
+      videoRef.current
+    ) {
+      console.log(
+        "[AskAFriend] 🎥 Guide connected! Conditions met for frame streaming:",
+        {
+          isConnected,
+          guideConnected,
+          cameraPermission,
+          hasStream: !!streamRef.current,
+          hasVideo: !!videoRef.current,
+          videoReadyState: videoRef.current?.readyState,
+          videoWidth: videoRef.current?.videoWidth,
+          useFallbackMode,
+          hasFrameStreamInterval: !!frameStreamIntervalRef.current,
+        },
+      );
 
       // CRITICAL: Start fallback frame streaming immediately when guide connects
       // Don't wait for WebRTC - send frames right away so helper sees something
       if (!frameStreamIntervalRef.current) {
-        console.log("[AskAFriend] 🚀 Starting fallback frame streaming immediately (guide connected, don't wait for WebRTC)");
+        console.log(
+          "[AskAFriend] 🚀 Starting fallback frame streaming immediately (guide connected, don't wait for WebRTC)",
+        );
         // Force start frame streaming
         if (!useFallbackMode) {
           setUseFallbackMode(true);
@@ -367,7 +464,7 @@ export default function AskAFriendWebScreen() {
       });
     }
   }, [isConnected, guideConnected, cameraPermission, cameraStreamReady]);
-  
+
   // Show video element when user clicks enable (before permission is granted)
   // This ensures the video element exists when we try to attach the stream
 
@@ -377,14 +474,19 @@ export default function AskAFriendWebScreen() {
       setIsConnecting(true);
       setError(null);
 
-      console.log("[AskAFriend] 📝 Calling collaborationService.createSession()...");
+      console.log(
+        "[AskAFriend] 📝 Calling collaborationService.createSession()...",
+      );
       const session: SessionInfo = await collaborationService.createSession();
       console.log("[AskAFriend] ✅ Session created:", session);
       console.log("[AskAFriend] ✅ Session ID:", session.session_id);
-      
+
       // Set session ID FIRST so it displays even if connection fails
       setSessionId(session.session_id);
-      console.log("[AskAFriend] ✅ Session ID set in state:", session.session_id);
+      console.log(
+        "[AskAFriend] ✅ Session ID set in state:",
+        session.session_id,
+      );
 
       // Connect as user
       console.log("[AskAFriend] 📝 Connecting to session as user...");
@@ -392,15 +494,16 @@ export default function AskAFriendWebScreen() {
       console.log("[AskAFriend] ✅ Connected to session successfully");
     } catch (err) {
       console.error("[AskAFriend] ❌ Error creating session:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to create session";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to create session";
       setError(errorMessage);
       setIsConnecting(false);
-      
+
       // Show error alert to user
       Alert.alert(
         "Session Creation Failed",
-        `Could not create session: ${errorMessage}\n\nPlease check:\n1. Backend is running on ${require("@/src/config").API_BASE}\n2. Network connection is working`,
-        [{ text: "OK" }]
+        `Could not create session: ${errorMessage}\n\nPlease check:\n1. Backend is running on \n2. Network connection is working`,
+        [{ text: "OK" }],
       );
     }
   };
@@ -410,15 +513,19 @@ export default function AskAFriendWebScreen() {
       setCameraError(null);
       setCameraPermission("prompt");
       setCameraStreamReady(false);
-      
+
       // Check if getUserMedia is available
-      if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+      ) {
         throw new Error("Camera API not available in this browser");
       }
-      
+
       // CRITICAL: Show video element FIRST so it's rendered before we get the stream
       setShowVideoElement(true);
-      
+
       // Wait for video element to be rendered in DOM
       await new Promise<void>((resolve) => {
         const checkVideo = () => {
@@ -437,7 +544,9 @@ export default function AskAFriendWebScreen() {
                     if (videoRef.current) {
                       resolve();
                     } else {
-                      console.warn("[AskAFriend] Video element not found, proceeding anyway");
+                      console.warn(
+                        "[AskAFriend] Video element not found, proceeding anyway",
+                      );
                       resolve(); // Proceed anyway, useEffect will handle attachment
                     }
                   }, 100);
@@ -448,7 +557,7 @@ export default function AskAFriendWebScreen() {
         };
         requestAnimationFrame(checkVideo);
       });
-      
+
       // Stop any existing stream first
       if (streamRef.current) {
         console.log("[AskAFriend] Stopping existing stream tracks");
@@ -458,19 +567,19 @@ export default function AskAFriendWebScreen() {
         });
         streamRef.current = null;
       }
-      
+
       // Stop existing camera
       if (cameraRef.current) {
         cameraRef.current.stop();
         cameraRef.current = null;
       }
-      
+
       console.log("[AskAFriend] Requesting camera and microphone access...");
-      
+
       // Request camera and microphone stream with fallback strategy
       let stream: MediaStream | null = null;
       let lastError: any = null;
-      
+
       // Try different camera configurations in order of preference
       const cameraConfigs = [
         // Try 1: Back camera with ideal resolution
@@ -524,41 +633,55 @@ export default function AskAFriendWebScreen() {
           audio: true,
         },
       ];
-      
+
       for (let i = 0; i < cameraConfigs.length; i++) {
         try {
-          console.log(`[AskAFriend] Trying camera config ${i + 1}/${cameraConfigs.length}...`);
+          console.log(
+            `[AskAFriend] Trying camera config ${i + 1}/${cameraConfigs.length}...`,
+          );
           stream = await navigator.mediaDevices.getUserMedia(cameraConfigs[i]);
-          console.log(`[AskAFriend] ✅ Successfully got stream with config ${i + 1}`);
+          console.log(
+            `[AskAFriend] ✅ Successfully got stream with config ${i + 1}`,
+          );
           break;
         } catch (err: any) {
-          console.warn(`[AskAFriend] Config ${i + 1} failed:`, err.name, err.message);
+          console.warn(
+            `[AskAFriend] Config ${i + 1} failed:`,
+            err.name,
+            err.message,
+          );
           lastError = err;
           // If it's a permission error, don't try other configs
-          if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          if (
+            err.name === "NotAllowedError" ||
+            err.name === "PermissionDeniedError"
+          ) {
             break;
           }
           // Continue to next config
         }
       }
-      
+
       if (!stream) {
-        throw lastError || new Error("Failed to access camera after trying all configurations");
+        throw (
+          lastError ||
+          new Error("Failed to access camera after trying all configurations")
+        );
       }
-      
+
       // Verify stream is valid
       if (!(stream instanceof MediaStream)) {
         throw new Error("Invalid stream returned from getUserMedia");
       }
-      
+
       const videoTracks = stream.getVideoTracks();
       const audioTracks = stream.getAudioTracks();
-      
+
       if (videoTracks.length === 0) {
         stream.getTracks().forEach((track) => track.stop());
         throw new Error("No video tracks in stream");
       }
-      
+
       // Store audio track reference for mute/unmute
       if (audioTracks.length > 0) {
         localAudioTrackRef.current = audioTracks[0];
@@ -572,7 +695,7 @@ export default function AskAFriendWebScreen() {
         setMicrophonePermission("denied");
         console.warn("[AskAFriend] ⚠️ No audio tracks in stream");
       }
-      
+
       console.log("[AskAFriend] Camera and microphone stream acquired:", {
         streamId: stream.id,
         videoTracks: videoTracks.length,
@@ -581,53 +704,66 @@ export default function AskAFriendWebScreen() {
         videoTrackSettings: videoTracks[0].getSettings(),
         videoElementReady: !!videoRef.current,
       });
-      
+
       // Store stream in ref
       streamRef.current = stream;
-      
+
       // Mark stream as ready - useEffect will attach it to video element
       setCameraStreamReady(true);
-      
+
       // Initialize camera object for frame capture
       const camera = initWebCamera();
       cameraRef.current = camera;
-      
+
       // Set permission to granted (video attachment happens in useEffect)
       setCameraPermission("granted");
-      
     } catch (err: any) {
       console.error("[AskAFriend] Camera error:", err);
       setCameraPermission("denied");
       setCameraStreamReady(false);
-      
+
       // Clean up stream on error
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
-      
+
       let errorMessage = "Failed to access camera";
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        errorMessage = "Camera permission denied. Please allow camera access in your browser settings and try again.";
-      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-        errorMessage = "No camera found on this device. Please connect a camera or use a device with a camera.";
-      } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
-        errorMessage = "Camera is already in use by another application. Please close other apps using the camera and try again.";
+      if (
+        err.name === "NotAllowedError" ||
+        err.name === "PermissionDeniedError"
+      ) {
+        errorMessage =
+          "Camera permission denied. Please allow camera access in your browser settings and try again.";
+      } else if (
+        err.name === "NotFoundError" ||
+        err.name === "DevicesNotFoundError"
+      ) {
+        errorMessage =
+          "No camera found on this device. Please connect a camera or use a device with a camera.";
+      } else if (
+        err.name === "NotReadableError" ||
+        err.name === "TrackStartError"
+      ) {
+        errorMessage =
+          "Camera is already in use by another application. Please close other apps using the camera and try again.";
       } else if (err.name === "OverconstrainedError") {
-        errorMessage = "Camera settings not supported. Please check your camera settings.";
+        errorMessage =
+          "Camera settings not supported. Please check your camera settings.";
       } else if (err.message) {
         errorMessage = err.message;
       } else {
-        errorMessage = "Unable to access camera. Please check:\n1. Camera is connected\n2. Browser permissions are granted\n3. No other app is using the camera";
+        errorMessage =
+          "Unable to access camera. Please check:\n1. Camera is connected\n2. Browser permissions are granted\n3. No other app is using the camera";
       }
-      
+
       setCameraError(errorMessage);
       console.error("[AskAFriend] Camera access failed:", {
         errorName: err.name,
         errorMessage: err.message,
         errorStack: err.stack,
       });
-      
+
       // Clean up camera on error
       if (cameraRef.current) {
         cameraRef.current.stop();
@@ -635,13 +771,13 @@ export default function AskAFriendWebScreen() {
       }
     }
   };
-  
+
   // Attach stream to video element when both are ready
   useEffect(() => {
     if (Platform.OS !== "web" || !cameraStreamReady || !streamRef.current) {
       return;
     }
-    
+
     const attachStream = async () => {
       // Wait for video element to be available
       if (!videoRef.current) {
@@ -654,10 +790,10 @@ export default function AskAFriendWebScreen() {
         }, 100);
         return () => clearTimeout(retryTimeout);
       }
-      
+
       const video = videoRef.current;
       const stream = streamRef.current;
-      
+
       console.log("[AskAFriend] Attaching stream to video element:", {
         videoExists: !!video,
         videoTagName: video.tagName,
@@ -665,30 +801,32 @@ export default function AskAFriendWebScreen() {
         videoTracks: stream.getVideoTracks().length,
         trackLabel: stream.getVideoTracks()[0]?.label,
       });
-      
+
       try {
         // Stop any existing stream on video element
         if (video.srcObject) {
           const oldStream = video.srcObject as MediaStream;
           oldStream.getTracks().forEach((track) => track.stop());
         }
-        
+
         // Attach stream to video element
         video.srcObject = stream;
         video.muted = true;
         video.playsInline = true;
         video.setAttribute("playsinline", "true");
         video.setAttribute("webkit-playsinline", "true");
-        
+
         // Position video element in camera preview container using nativeID
-        const cameraPreview = document.getElementById("camera-preview-container");
-        
+        const cameraPreview = document.getElementById(
+          "camera-preview-container",
+        );
+
         // Style video for camera preview - position it absolutely within preview container
         if (cameraPreview && video.parentElement !== cameraPreview) {
           // Move video into preview container
           cameraPreview.appendChild(video);
         }
-        
+
         // Ensure video is styled correctly (apply styles after moving to container)
         requestAnimationFrame(() => {
           if (video) {
@@ -704,15 +842,15 @@ export default function AskAFriendWebScreen() {
             video.style.zIndex = "2";
           }
         });
-        
+
         console.log("[AskAFriend] Stream attached, waiting for metadata...");
-        
+
         // Wait for video metadata
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error("Video metadata timeout"));
           }, 10000);
-          
+
           const onLoadedMetadata = () => {
             clearTimeout(timeout);
             video.removeEventListener("loadedmetadata", onLoadedMetadata);
@@ -724,18 +862,18 @@ export default function AskAFriendWebScreen() {
             });
             resolve();
           };
-          
+
           const onError = (err: Event) => {
             clearTimeout(timeout);
             video.removeEventListener("loadedmetadata", onLoadedMetadata);
             video.removeEventListener("error", onError);
             reject(new Error("Video element error"));
           };
-          
+
           video.addEventListener("loadedmetadata", onLoadedMetadata);
           video.addEventListener("error", onError);
         });
-        
+
         // Start playing video
         console.log("[AskAFriend] Starting video playback...");
         try {
@@ -746,19 +884,22 @@ export default function AskAFriendWebScreen() {
             videoWidth: video.videoWidth,
             videoHeight: video.videoHeight,
           });
-          
+
           // Clear any autoplay error
           if (cameraError && cameraError.includes("Tap the video")) {
             setCameraError(null);
           }
-          
+
           // Update camera object with video reference
           if (cameraRef.current) {
             (cameraRef.current as any).video = video;
             (cameraRef.current as any).stream = stream;
           }
         } catch (playError: any) {
-          console.warn("[AskAFriend] Video play error (autoplay policy):", playError);
+          console.warn(
+            "[AskAFriend] Video play error (autoplay policy):",
+            playError,
+          );
           // Autoplay might be blocked - user will need to interact
           setCameraError("Tap the video to start playback");
         }
@@ -774,7 +915,7 @@ export default function AskAFriendWebScreen() {
         streamRef.current = null;
       }
     };
-    
+
     attachStream();
   }, [cameraStreamReady, showVideoElement]);
 
@@ -803,9 +944,15 @@ export default function AskAFriendWebScreen() {
       if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
         // Note: We can't automatically detect LAN IP from browser
         // User needs to manually replace localhost with their LAN IP
-        console.log("[AskAFriend] Running on localhost. For cross-device access:");
-        console.log("[AskAFriend] 1. Find your LAN IP: ipconfig (Windows) or ifconfig (Mac/Linux)");
-        console.log("[AskAFriend] 2. Replace 'localhost' with your LAN IP in the URL");
+        console.log(
+          "[AskAFriend] Running on localhost. For cross-device access:",
+        );
+        console.log(
+          "[AskAFriend] 1. Find your LAN IP: ipconfig (Windows) or ifconfig (Mac/Linux)",
+        );
+        console.log(
+          "[AskAFriend] 2. Replace 'localhost' with your LAN IP in the URL",
+        );
         return `${origin}/helper-web`;
       }
       return `${origin}/helper-web`;
@@ -818,14 +965,14 @@ export default function AskAFriendWebScreen() {
 
     const helperUrl = getHelperWebUrl();
     const normalizedCode = normalizeCode(sessionId || "");
-    
+
     // Detect if we're on localhost and provide instructions
     let shareText = `I need help navigating!\n\nSession Code: ${normalizedCode}\n\nHelper can join via:\n🌐 Web: ${helperUrl}`;
-    
+
     if (helperUrl.includes("localhost") || helperUrl.includes("127.0.0.1")) {
       shareText += `\n\n⚠️ NOTE: If helper is on a different device, replace "localhost" with your LAN IP address.\nFind your LAN IP: ipconfig (Windows) or ifconfig (Mac/Linux)`;
     }
-    
+
     shareText += `\n📱 Or use the WalkBuddy app Helper Mode`;
 
     try {
@@ -847,10 +994,12 @@ export default function AskAFriendWebScreen() {
   // Activate fallback frame streaming mode
   const activateFallbackMode = () => {
     if (frameStreamIntervalRef.current) {
-      console.log("[FRAME] ⚠️ Frame streaming already active, skipping activation");
+      console.log(
+        "[FRAME] ⚠️ Frame streaming already active, skipping activation",
+      );
       return; // Already active
     }
-    
+
     console.log("[FRAME] 🔄 Activating fallback frame streaming mode");
     setUseFallbackMode(true);
     startFrameStreaming();
@@ -865,23 +1014,29 @@ export default function AskAFriendWebScreen() {
     }
 
     if (!streamRef.current || !videoRef.current) {
-      console.error("[FRAME] ❌ Frame streaming cannot start - missing stream or video:", {
-        hasStream: !!streamRef.current,
-        hasVideo: !!videoRef.current,
-      });
+      console.error(
+        "[FRAME] ❌ Frame streaming cannot start - missing stream or video:",
+        {
+          hasStream: !!streamRef.current,
+          hasVideo: !!videoRef.current,
+        },
+      );
       return;
     }
 
     if (!isConnected || !guideConnected) {
-      console.log("[FRAME] ⏸️ Frame streaming conditions not met (will retry when connected):", {
-        isConnected,
-        guideConnected,
-      });
+      console.log(
+        "[FRAME] ⏸️ Frame streaming conditions not met (will retry when connected):",
+        {
+          isConnected,
+          guideConnected,
+        },
+      );
       return;
     }
 
     const video = videoRef.current;
-    
+
     // Wait for video to be ready - CHECKPOINT A.1
     const waitForVideoReady = () => {
       if (!video) {
@@ -904,7 +1059,12 @@ export default function AskAFriendWebScreen() {
       }
 
       console.log("[FRAME] ✅ Video ready, starting frame capture");
-      console.log("[FRAME] CHECKPOINT A.1: Video ready - videoWidth=" + video.videoWidth + ", videoHeight=" + video.videoHeight);
+      console.log(
+        "[FRAME] CHECKPOINT A.1: Video ready - videoWidth=" +
+          video.videoWidth +
+          ", videoHeight=" +
+          video.videoHeight,
+      );
 
       // Create canvas if it doesn't exist
       if (!canvasRef.current) {
@@ -912,12 +1072,17 @@ export default function AskAFriendWebScreen() {
         canvas.width = 640; // Reasonable size for streaming
         canvas.height = 480;
         canvasRef.current = canvas;
-        console.log("[FRAME] ✅ Created canvas:", canvas.width, "x", canvas.height);
+        console.log(
+          "[FRAME] ✅ Created canvas:",
+          canvas.width,
+          "x",
+          canvas.height,
+        );
       }
 
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
-      
+
       if (!ctx) {
         console.error("[FRAME] ❌ Failed to get canvas context");
         return;
@@ -931,7 +1096,7 @@ export default function AskAFriendWebScreen() {
         role: collaborationService.getRole(),
         sessionId: sessionId,
       });
-      
+
       // Capture and send frames at ~8 FPS (every 125ms)
       const frameInterval = 125;
       framesSentCountRef.current = 0;
@@ -945,13 +1110,16 @@ export default function AskAFriendWebScreen() {
         // Check connection state - use refs to avoid stale closures
         const currentIsConnected = collaborationService.isConnected();
         const currentRole = collaborationService.getRole();
-        
+
         if (!currentIsConnected || currentRole !== "user") {
-          console.warn("[FRAME] ⚠️ Cannot send frame - not connected as user:", {
-            isConnected: currentIsConnected,
-            role: currentRole,
-            expectedRole: "user",
-          });
+          console.warn(
+            "[FRAME] ⚠️ Cannot send frame - not connected as user:",
+            {
+              isConnected: currentIsConnected,
+              role: currentRole,
+              expectedRole: "user",
+            },
+          );
           return;
         }
 
@@ -964,38 +1132,52 @@ export default function AskAFriendWebScreen() {
         try {
           // Draw video frame to canvas
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
+
           // Convert to JPEG (quality 0.6)
           const jpegBase64 = canvas.toDataURL("image/jpeg", 0.6);
-          
+
           // Send frame via WebSocket - CHECKPOINT A.2
           const code = normalizeCode(sessionId || "");
           const room = roomFor(code);
           const ts = Date.now();
-          
+
           // Always try to send - let sendCameraFrame handle validation
           framesSentCountRef.current++;
-          
+
           // Log first frame and then once per second (throttled)
           if (framesSentCountRef.current === 1) {
-            console.log(`[FRAME] ✅ FIRST FRAME sending {code: ${code.substring(0, 8)}, bytes: ${jpegBase64.length}, ts: ${ts}}`);
+            console.log(
+              `[FRAME] ✅ FIRST FRAME sending {code: ${code.substring(0, 8)}, bytes: ${jpegBase64.length}, ts: ${ts}}`,
+            );
             console.log(`[FRAME] ✅ Room: ${room}`);
-            console.log(`[FRAME] ✅ Connection state: isConnected=${collaborationService.isConnected()}, role=${collaborationService.getRole()}, guideConnected=${guideConnected}`);
+            console.log(
+              `[FRAME] ✅ Connection state: isConnected=${collaborationService.isConnected()}, role=${collaborationService.getRole()}, guideConnected=${guideConnected}`,
+            );
           } else if (framesSentCountRef.current % 8 === 0) {
-            console.log(`[FRAME] sending {code: ${code.substring(0, 8)}, bytes: ${jpegBase64.length}, ts: ${ts}}`);
-            console.log(`[FRAME] framesSent counter: ${framesSentCountRef.current}, room: ${room}`);
+            console.log(
+              `[FRAME] sending {code: ${code.substring(0, 8)}, bytes: ${jpegBase64.length}, ts: ${ts}}`,
+            );
+            console.log(
+              `[FRAME] framesSent counter: ${framesSentCountRef.current}, room: ${room}`,
+            );
           }
-          
+
           // Send the frame
           collaborationService.sendCameraFrame(jpegBase64);
-          
+
           // Log if send failed (sendCameraFrame logs warnings internally)
-          if (!collaborationService.isConnected() || collaborationService.getRole() !== "user") {
-            console.warn("[FRAME] ⚠️ Frame may not be sent - connection issue:", {
-              isConnected: collaborationService.isConnected(),
-              role: collaborationService.getRole(),
-              expectedRole: "user",
-            });
+          if (
+            !collaborationService.isConnected() ||
+            collaborationService.getRole() !== "user"
+          ) {
+            console.warn(
+              "[FRAME] ⚠️ Frame may not be sent - connection issue:",
+              {
+                isConnected: collaborationService.isConnected(),
+                role: collaborationService.getRole(),
+                expectedRole: "user",
+              },
+            );
           }
         } catch (error) {
           console.error("[FRAME] ❌ Error capturing frame:", error);
@@ -1003,7 +1185,11 @@ export default function AskAFriendWebScreen() {
       };
 
       // Start capturing frames
-      console.log("[FRAME] 🎬 Starting frame capture interval (every", frameInterval, "ms)");
+      console.log(
+        "[FRAME] 🎬 Starting frame capture interval (every",
+        frameInterval,
+        "ms)",
+      );
       frameStreamIntervalRef.current = setInterval(captureFrame, frameInterval);
       // Capture first frame immediately
       console.log("[FRAME] 🎬 Capturing first frame immediately...");
@@ -1011,14 +1197,16 @@ export default function AskAFriendWebScreen() {
         captureFrame();
         console.log("[FRAME] ✅ First frame capture attempt completed");
       }, 100);
-      
+
       // Log frame stats every second - CHECKPOINT A.3
       frameStatsIntervalRef.current = setInterval(() => {
         const count = framesSentCountRef.current;
         if (count > 0) {
           // Estimate byte size (average frame size)
           const avgFrameSize = 50000; // ~50KB per frame estimate
-          console.log(`[FRAME] 📊 Stats (1s): framesSent=${count}, fps=${count.toFixed(1)}, byteSize≈${(count * avgFrameSize).toLocaleString()}`);
+          console.log(
+            `[FRAME] 📊 Stats (1s): framesSent=${count}, fps=${count.toFixed(1)}, byteSize≈${(count * avgFrameSize).toLocaleString()}`,
+          );
         }
         framesSentCountRef.current = 0; // Reset counter
       }, 1000);
@@ -1080,7 +1268,11 @@ export default function AskAFriendWebScreen() {
 
       // Handle incoming tracks from helper (audio)
       pc.ontrack = (event) => {
-        console.log("[AskAFriend] 🎵 Received track:", event.track.kind, event.track.label);
+        console.log(
+          "[AskAFriend] 🎵 Received track:",
+          event.track.kind,
+          event.track.label,
+        );
         console.log("[AskAFriend] 🎵 Track details:", {
           kind: event.track.kind,
           label: event.track.label,
@@ -1088,29 +1280,35 @@ export default function AskAFriendWebScreen() {
           readyState: event.track.readyState,
           streams: event.streams.length,
         });
-        
+
         if (event.track.kind === "audio") {
           setHelperReceivedAudio(true);
           // Attach audio track to audio element for playback
           if (audioRef.current && event.streams && event.streams[0]) {
             const audioElement = audioRef.current;
             const audioStream = event.streams[0];
-            
-            console.log("[AskAFriend] 🎵 Attaching audio stream to audio element:", {
-              streamId: audioStream.id,
-              audioTracks: audioStream.getAudioTracks().length,
-              audioElementReady: !!audioElement,
-            });
-            
+
+            console.log(
+              "[AskAFriend] 🎵 Attaching audio stream to audio element:",
+              {
+                streamId: audioStream.id,
+                audioTracks: audioStream.getAudioTracks().length,
+                audioElementReady: !!audioElement,
+              },
+            );
+
             // Set audio properties
             audioElement.srcObject = audioStream;
             audioElement.volume = 1.0; // Ensure volume is at maximum
             audioElement.muted = false; // Ensure not muted
-            
+
             // Play audio
-            audioElement.play()
+            audioElement
+              .play()
               .then(() => {
-                console.log("[AskAFriend] ✅ Helper audio playing successfully");
+                console.log(
+                  "[AskAFriend] ✅ Helper audio playing successfully",
+                );
                 console.log("[AskAFriend] ✅ Audio element state:", {
                   volume: audioElement.volume,
                   muted: audioElement.muted,
@@ -1123,31 +1321,37 @@ export default function AskAFriendWebScreen() {
                 // Try again after a short delay
                 setTimeout(() => {
                   audioElement.play().catch((retryErr) => {
-                    console.error("[AskAFriend] ❌ Audio play retry failed:", retryErr);
+                    console.error(
+                      "[AskAFriend] ❌ Audio play retry failed:",
+                      retryErr,
+                    );
                   });
                 }, 500);
               });
-            
+
             // Monitor audio track state
             event.track.onended = () => {
               console.log("[AskAFriend] ⚠️ Helper audio track ended");
               setHelperReceivedAudio(false);
             };
-            
+
             event.track.onmute = () => {
               console.log("[AskAFriend] ⚠️ Helper audio track muted");
             };
-            
+
             event.track.onunmute = () => {
               console.log("[AskAFriend] ✅ Helper audio track unmuted");
             };
-            
+
             console.log("[AskAFriend] ✅ Helper audio attached and configured");
           } else {
-            console.error("[AskAFriend] ❌ Cannot attach audio - missing audioRef or streams:", {
-              hasAudioRef: !!audioRef.current,
-              hasStreams: !!(event.streams && event.streams[0]),
-            });
+            console.error(
+              "[AskAFriend] ❌ Cannot attach audio - missing audioRef or streams:",
+              {
+                hasAudioRef: !!audioRef.current,
+                hasStreams: !!(event.streams && event.streams[0]),
+              },
+            );
           }
         } else if (event.track.kind === "video") {
           setHelperReceivedVideo(true);
@@ -1156,10 +1360,22 @@ export default function AskAFriendWebScreen() {
 
       // Add tracks to peer connection FIRST (before creating offer)
       const tracksAdded = stream.getTracks();
-      console.log("[AskAFriend] 📊 Adding", tracksAdded.length, "tracks to peer connection");
+      console.log(
+        "[AskAFriend] 📊 Adding",
+        tracksAdded.length,
+        "tracks to peer connection",
+      );
       tracksAdded.forEach((track) => {
         pc.addTrack(track, stream);
-        console.log("[AskAFriend] ✅ Added track:", track.kind, track.label, "state:", track.readyState, "enabled:", track.enabled);
+        console.log(
+          "[AskAFriend] ✅ Added track:",
+          track.kind,
+          track.label,
+          "state:",
+          track.readyState,
+          "enabled:",
+          track.enabled,
+        );
         if (track.kind === "audio") {
           setHasAudioTrack(true);
         }
@@ -1175,10 +1391,17 @@ export default function AskAFriendWebScreen() {
           iceCandidateCountRef.current++;
           const code = normalizeCode(sessionId || "");
           const room = roomFor(code);
-          console.log(`[AskAFriend] 📤 ICE candidate ${iceCandidateCountRef.current} generated (room: ${room}):`, event.candidate.candidate.substring(0, 50));
+          console.log(
+            `[AskAFriend] 📤 ICE candidate ${iceCandidateCountRef.current} generated (room: ${room}):`,
+            event.candidate.candidate.substring(0, 50),
+          );
           collaborationService.sendWebRTCICE(event.candidate.toJSON());
         } else {
-          console.log("[AskAFriend] ✅ ICE gathering complete. Sent", iceCandidateCountRef.current, "candidates");
+          console.log(
+            "[AskAFriend] ✅ ICE gathering complete. Sent",
+            iceCandidateCountRef.current,
+            "candidates",
+          );
         }
       };
 
@@ -1191,7 +1414,7 @@ export default function AskAFriendWebScreen() {
           iceConnectionState: pc.iceConnectionState,
           signalingState: pc.signalingState,
         });
-        
+
         if (state === "connected") {
           setWebrtcConnected(true);
           console.log("[AskAFriend] ✅ WebRTC connected!");
@@ -1201,7 +1424,9 @@ export default function AskAFriendWebScreen() {
             fallbackTimeoutRef.current = null;
           }
           if (useFallbackMode) {
-            console.log("[AskAFriend] 🔄 WebRTC recovered, switching back from fallback");
+            console.log(
+              "[AskAFriend] 🔄 WebRTC recovered, switching back from fallback",
+            );
             setUseFallbackMode(false);
             stopFrameStreaming();
           }
@@ -1211,7 +1436,9 @@ export default function AskAFriendWebScreen() {
           console.error("[AskAFriend] ❌ Peer connection", state);
           // Activate fallback if not already active
           if (!useFallbackMode && guideConnected && streamRef.current) {
-            console.log("[AskAFriend] 🔄 WebRTC failed, activating fallback frame streaming");
+            console.log(
+              "[AskAFriend] 🔄 WebRTC failed, activating fallback frame streaming",
+            );
             activateFallbackMode();
           }
         }
@@ -1224,16 +1451,20 @@ export default function AskAFriendWebScreen() {
           iceConnectionState: pc.iceConnectionState,
           iceGatheringState: pc.iceGatheringState,
         });
-        
+
         if (iceState === "failed") {
           console.error("[AskAFriend] ❌ ICE connection failed");
           // Activate fallback instead of showing error
           if (!useFallbackMode && guideConnected && streamRef.current) {
-            console.log("[AskAFriend] 🔄 ICE failed, activating fallback frame streaming");
+            console.log(
+              "[AskAFriend] 🔄 ICE failed, activating fallback frame streaming",
+            );
             activateFallbackMode();
             setCameraError(null); // Clear error since fallback will work
           } else {
-            setCameraError("Video connection failed. Check network connectivity.");
+            setCameraError(
+              "Video connection failed. Check network connectivity.",
+            );
           }
         } else if (iceState === "connected" || iceState === "completed") {
           console.log("[AskAFriend] ✅ ICE connected/completed");
@@ -1243,40 +1474,47 @@ export default function AskAFriendWebScreen() {
       // CRITICAL: Create and send offer AFTER tracks are added
       const code = normalizeCode(sessionId || "");
       const room = roomFor(code);
-      console.log("[AskAFriend] 📤 Creating offer (after", tracksAdded.length, "tracks added)...");
+      console.log(
+        "[AskAFriend] 📤 Creating offer (after",
+        tracksAdded.length,
+        "tracks added)...",
+      );
       console.log(`[AskAFriend] 📤 Sending WebRTC offer (room: ${room})`);
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       console.log("[AskAFriend] ✅ Set local description (offer)");
       console.log("[AskAFriend] 📊 Offer SDP type:", offer.type);
       console.log("[AskAFriend] 📊 Signaling state:", pc.signalingState);
-      
+
       collaborationService.sendWebRTCOffer(pc.localDescription!);
       console.log(`[AskAFriend] ✅ Sent WebRTC offer to guide (room: ${room})`);
-      
+
       // Reset helper acknowledgment (will be set when helper confirms)
       setHelperReceivedVideo(false);
-      
+
       // Set fallback timeout: if no video received within 8 seconds, ensure frame streaming is active
       if (fallbackTimeoutRef.current) {
         clearTimeout(fallbackTimeoutRef.current);
       }
       fallbackTimeoutRef.current = setTimeout(() => {
         if (!helperReceivedVideo && guideConnected) {
-          console.log("[AskAFriend] ⏰ WebRTC timeout (8s), ensuring fallback frame streaming is active");
+          console.log(
+            "[AskAFriend] ⏰ WebRTC timeout (8s), ensuring fallback frame streaming is active",
+          );
           if (!useFallbackMode) {
             activateFallbackMode();
           }
         }
       }, 8000);
-      
+
       // CRITICAL: Also start fallback immediately (don't wait for WebRTC)
       // This ensures helper gets frames right away
       if (guideConnected && !useFallbackMode) {
-        console.log("[AskAFriend] 🚀 Starting fallback frame streaming immediately (WebRTC may take time)");
+        console.log(
+          "[AskAFriend] 🚀 Starting fallback frame streaming immediately (WebRTC may take time)",
+        );
         activateFallbackMode();
       }
-
     } catch (error) {
       console.error("[AskAFriend] ❌ Error starting WebRTC:", error);
       setCameraError("Failed to start video streaming. Please try again.");
@@ -1323,7 +1561,6 @@ export default function AskAFriendWebScreen() {
       localAudioTrackRef.current.stop();
       localAudioTrackRef.current = null;
     }
-    collaborationService.disconnect();
     setIsConnected(false);
     setGuideConnected(false);
     setCameraStreamReady(false);
@@ -1337,7 +1574,10 @@ export default function AskAFriendWebScreen() {
       // When muted, disable the track; when unmuted, enable it
       localAudioTrackRef.current.enabled = newMutedState;
       setIsMuted(newMutedState);
-      console.log("[AskAFriend] 🎤 Microphone", newMutedState ? "unmuted" : "muted");
+      console.log(
+        "[AskAFriend] 🎤 Microphone",
+        newMutedState ? "unmuted" : "muted",
+      );
     } else {
       console.warn("[AskAFriend] ⚠️ No audio track available to mute/unmute");
     }
@@ -1348,16 +1588,16 @@ export default function AskAFriendWebScreen() {
     if (isDisconnectingRef.current) {
       return;
     }
-    
+
     isDisconnectingRef.current = true;
     console.log("[AskAFriend] 🛑 Disconnecting...");
-    
+
     // Set flag to allow navigation
     isNavigatingAwayRef.current = true;
-    
+
     // Perform cleanup
     cleanup();
-    
+
     // Clear all state
     setSessionId(null);
     setGuidanceMessage("");
@@ -1371,29 +1611,35 @@ export default function AskAFriendWebScreen() {
     setHasAudioTrack(false);
     setUseFallbackMode(false);
     setShowVideoElement(false);
-    
+    collaborationService.disconnect();
+
     // Redirect to home screen immediately
     console.log("[AskAFriend] 🏠 Redirecting to home screen...");
-    setTimeout(() => {
-      router.replace("/home");
-      // Also update window location for web
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.location.href = "/home";
-      }
-      isDisconnectingRef.current = false;
-    }, 100);
+    // setTimeout(() => {
+    //   router.replace("/home");
+    //   // Also update window location for web
+    //   if (Platform.OS === "web" && typeof window !== "undefined") {
+    //     window.location.href = "/home";
+    //   }
+    //   isDisconnectingRef.current = false;
+    // }, 100);
   };
 
   if (Platform.OS !== "web") {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>This screen is only available on web browsers.</Text>
+        <Text style={styles.errorText}>
+          This screen is only available on web browsers.
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={styles.scrollContainer}
+      contentContainerStyle={styles.container}
+    >
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleDisconnect} style={styles.backButton}>
@@ -1405,17 +1651,19 @@ export default function AskAFriendWebScreen() {
 
       {/* Status Bar */}
       <View style={styles.statusBar}>
-        <View style={[styles.statusDot, isConnected && styles.statusDotConnected]} />
+        <View
+          style={[styles.statusDot, isConnected && styles.statusDotConnected]}
+        />
         <Text style={styles.statusText}>
           {isConnecting
             ? "Connecting..."
             : isConnected
-            ? guideConnected
-              ? helperName
-                ? `${helperName} is helping you`
-                : "Helper is viewing your camera"
-              : "Waiting for helper to join..."
-            : "Not connected"}
+              ? guideConnected
+                ? helperName
+                  ? `${helperName} is helping you`
+                  : "Helper is viewing your camera"
+                : "Waiting for helper to join..."
+              : "Not connected"}
         </Text>
       </View>
 
@@ -1447,22 +1695,30 @@ export default function AskAFriendWebScreen() {
       ) : isConnecting ? (
         <View style={styles.sessionContainer}>
           <ActivityIndicator size="large" color="#F9A826" />
-          <Text style={styles.sessionHint}>
-            Creating session...
-          </Text>
+          <Text style={styles.sessionHint}>Creating session...</Text>
         </View>
       ) : (
         <View style={styles.sessionContainer}>
           <Text style={styles.sessionLabel}>Session Code:</Text>
-          <Pressable 
-            style={[styles.shareButton, { backgroundColor: "#F9A826", marginTop: 8 }]} 
+          <Pressable
+            style={[
+              styles.shareButton,
+              { backgroundColor: "#F9A826", marginTop: 8 },
+            ]}
             onPress={createSession}
           >
             <Ionicons name="refresh" size={20} color="#1B263B" />
             <Text style={styles.shareButtonText}>Create Session</Text>
           </Pressable>
           {error && (
-            <Text style={{ color: "#FF6B6B", marginTop: 8, fontSize: 12, textAlign: "center" }}>
+            <Text
+              style={{
+                color: "#FF6B6B",
+                marginTop: 8,
+                fontSize: 12,
+                textAlign: "center",
+              }}
+            >
               {error}
             </Text>
           )}
@@ -1482,13 +1738,19 @@ export default function AskAFriendWebScreen() {
               onClick={() => {
                 // Handle click to start playback if autoplay blocked
                 if (videoRef.current && videoRef.current.paused) {
-                  videoRef.current.play()
+                  videoRef.current
+                    .play()
                     .then(() => {
-                      console.log("[AskAFriend] Video started after user click");
+                      console.log(
+                        "[AskAFriend] Video started after user click",
+                      );
                       setCameraError(null);
                     })
                     .catch((err) => {
-                      console.error("[AskAFriend] Failed to play on click:", err);
+                      console.error(
+                        "[AskAFriend] Failed to play on click:",
+                        err,
+                      );
                     });
                 }
               }}
@@ -1525,7 +1787,10 @@ export default function AskAFriendWebScreen() {
                 console.log("[AskAFriend] ✅ Audio element can play");
                 if (audioRef.current && audioRef.current.paused) {
                   audioRef.current.play().catch((err) => {
-                    console.warn("[AskAFriend] ⚠️ Auto-play prevented, user interaction required:", err);
+                    console.warn(
+                      "[AskAFriend] ⚠️ Auto-play prevented, user interaction required:",
+                      err,
+                    );
                   });
                 }
               }}
@@ -1535,72 +1800,93 @@ export default function AskAFriendWebScreen() {
             />
           </Fragment>
         )}
-        
+
         {cameraPermission === "granted" ? (
           <Fragment>
-            <View style={styles.cameraPreview} nativeID="camera-preview-container">
+            <View
+              style={styles.cameraPreview}
+              nativeID="camera-preview-container"
+            >
               <View style={styles.cameraOverlay}>
                 <Text style={styles.cameraStatusText}>
                   {useFallbackMode
                     ? "Camera Active - Fallback mode (frame stream)"
                     : webrtcConnected && helperReceivedVideo
-                    ? "Camera Active - Helper viewing your camera"
-                    : webrtcConnected
-                    ? "Camera Active - Connecting video..."
-                    : guideConnected
-                    ? "Camera Active - Starting video stream..."
-                    : "Camera Active - Waiting for helper"}
+                      ? "Camera Active - Helper viewing your camera"
+                      : webrtcConnected
+                        ? "Camera Active - Connecting video..."
+                        : guideConnected
+                          ? "Camera Active - Starting video stream..."
+                          : "Camera Active - Waiting for helper"}
                 </Text>
-                {cameraError && cameraError.includes("Tap the video") && (
-                  <Text style={styles.tapToPlayText}>Tap video to start playback</Text>
+                {!!cameraError && cameraError.includes("Tap the video") && (
+                  <Text style={styles.tapToPlayText}>
+                    Tap video to start playback
+                  </Text>
                 )}
-                {webrtcConnected && !helperReceivedVideo && !useFallbackMode && (
-                  <Text style={styles.tapToPlayText}>Establishing connection...</Text>
-                )}
+                {webrtcConnected &&
+                  !helperReceivedVideo &&
+                  !useFallbackMode && (
+                    <Text style={styles.tapToPlayText}>
+                      Establishing connection...
+                    </Text>
+                  )}
                 {useFallbackMode && (
-                  <Text style={styles.tapToPlayText}>Using reliable frame streaming</Text>
+                  <Text style={styles.tapToPlayText}>
+                    Using reliable frame streaming
+                  </Text>
                 )}
-              {/* Audio Status */}
-              {helperReceivedAudio && (
-                <View style={styles.audioStatus}>
-                  <Ionicons name="volume-high" size={16} color="#4CAF50" />
-                  <Text style={styles.audioStatusText}>Receiving audio from helper</Text>
-                  <Pressable
-                    onPress={() => {
-                      if (audioRef.current) {
-                        audioRef.current.volume = 1.0;
-                        audioRef.current.muted = false;
-                        audioRef.current.play().catch((err) => {
-                          console.error("[AskAFriend] ❌ Manual audio play failed:", err);
-                          Alert.alert("Audio Playback", "Unable to play audio. Check your browser's autoplay settings.");
-                        });
-                        console.log("[AskAFriend] 🎵 Manually playing helper audio");
-                      }
-                    }}
-                    style={styles.testAudioButton}
-                  >
-                    <Ionicons name="play" size={14} color="#4CAF50" />
-                    <Text style={styles.testAudioButtonText}>Test Audio</Text>
-                  </Pressable>
-                </View>
-              )}
-              {/* Microphone Status Indicator */}
-              {hasAudioTrack && !isMuted && (
-                <View style={styles.micActiveIndicator}>
-                  <View style={styles.micPulse} />
-                  <Ionicons name="mic" size={16} color="#4CAF50" />
-                  <Text style={styles.micActiveText}>Microphone active</Text>
-                </View>
-              )}
-              {hasAudioTrack && isMuted && (
-                <View style={styles.micMutedIndicator}>
-                  <Ionicons name="mic-off" size={16} color="#FF6B6B" />
-                  <Text style={styles.micMutedText}>Microphone muted</Text>
-                </View>
-              )}
+                {/* Audio Status */}
+                {helperReceivedAudio && (
+                  <View style={styles.audioStatus}>
+                    <Ionicons name="volume-high" size={16} color="#4CAF50" />
+                    <Text style={styles.audioStatusText}>
+                      Receiving audio from helper
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        if (audioRef.current) {
+                          audioRef.current.volume = 1.0;
+                          audioRef.current.muted = false;
+                          audioRef.current.play().catch((err) => {
+                            console.error(
+                              "[AskAFriend] ❌ Manual audio play failed:",
+                              err,
+                            );
+                            Alert.alert(
+                              "Audio Playback",
+                              "Unable to play audio. Check your browser's autoplay settings.",
+                            );
+                          });
+                          console.log(
+                            "[AskAFriend] 🎵 Manually playing helper audio",
+                          );
+                        }
+                      }}
+                      style={styles.testAudioButton}
+                    >
+                      <Ionicons name="play" size={14} color="#4CAF50" />
+                      <Text style={styles.testAudioButtonText}>Test Audio</Text>
+                    </Pressable>
+                  </View>
+                )}
+                {/* Microphone Status Indicator */}
+                {hasAudioTrack && !isMuted && (
+                  <View style={styles.micActiveIndicator}>
+                    <View style={styles.micPulse} />
+                    <Ionicons name="mic" size={16} color="#4CAF50" />
+                    <Text style={styles.micActiveText}>Microphone active</Text>
+                  </View>
+                )}
+                {hasAudioTrack && isMuted && (
+                  <View style={styles.micMutedIndicator}>
+                    <Ionicons name="mic-off" size={16} color="#FF6B6B" />
+                    <Text style={styles.micMutedText}>Microphone muted</Text>
+                  </View>
+                )}
               </View>
             </View>
-            
+
             {/* Mute/Unmute Button - Always visible when camera is active */}
             <View style={styles.audioControlsContainer}>
               {hasAudioTrack ? (
@@ -1640,8 +1926,13 @@ export default function AskAFriendWebScreen() {
         ) : cameraPermission === "denied" ? (
           <View style={styles.cameraError}>
             <Ionicons name="camera-outline" size={48} color="#FF6B6B" />
-            <Text style={styles.cameraErrorText}>{cameraError || "Camera permission denied"}</Text>
-            <Pressable style={styles.retryButton} onPress={requestCameraPermission}>
+            <Text style={styles.cameraErrorText}>
+              {cameraError || "Camera permission denied"}
+            </Text>
+            <Pressable
+              style={styles.retryButton}
+              onPress={requestCameraPermission}
+            >
               <Text style={styles.retryButtonText}>Retry Camera Access</Text>
             </Pressable>
           </View>
@@ -1651,7 +1942,10 @@ export default function AskAFriendWebScreen() {
             <Text style={styles.cameraPromptText}>
               Enable camera to share your view with your helper
             </Text>
-            <Pressable style={styles.enableButton} onPress={requestCameraPermission}>
+            <Pressable
+              style={styles.enableButton}
+              onPress={requestCameraPermission}
+            >
               <Text style={styles.enableButtonText}>Enable Camera</Text>
             </Pressable>
           </View>
@@ -1659,15 +1953,17 @@ export default function AskAFriendWebScreen() {
       </View>
 
       {/* Guidance Message Display */}
-      {guidanceMessage && (
-        <View style={[
-          styles.guidanceContainer,
-          isSpeakingGuidance && { borderWidth: 2, borderColor: "#4CAF50" }
-        ]}>
-          <Ionicons 
-            name={isSpeakingGuidance ? "volume-high" : "chatbubble-ellipses"} 
-            size={24} 
-            color={isSpeakingGuidance ? "#4CAF50" : "#F9A826"} 
+      {!!guidanceMessage && (
+        <View
+          style={[
+            styles.guidanceContainer,
+            isSpeakingGuidance && { borderWidth: 2, borderColor: "#4CAF50" },
+          ]}
+        >
+          <Ionicons
+            name={isSpeakingGuidance ? "volume-high" : "chatbubble-ellipses"}
+            size={24}
+            color={isSpeakingGuidance ? "#4CAF50" : "#F9A826"}
           />
           <View style={styles.guidanceTextContainer}>
             <Text style={styles.guidanceText}>{guidanceMessage}</Text>
@@ -1693,7 +1989,7 @@ export default function AskAFriendWebScreen() {
       )}
 
       {/* Error Display */}
-      {error && (
+      {!!error && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={20} color="#FF6B6B" />
           <Text style={styles.errorText}>{error}</Text>
@@ -1934,7 +2230,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: "#4CAF50",
-    animation: "pulse 1.5s infinite",
   },
   speakingText: {
     color: "#4CAF50",
@@ -2056,7 +2351,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#4CAF50",
     opacity: 0.5,
-    animation: "pulse 2s infinite",
   },
   micActiveText: {
     color: "#4CAF50",
