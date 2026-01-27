@@ -33,8 +33,13 @@ from typing import Dict, Optional
 from ML_models.yolo_nav.live_gradio import build_yolo_app
 from ML_models.live_ocr.live_ocr_tts import build_ocr_app
 
+# Routers
+from routers import audiobooks as audiobooks_router
+
+
 # 3. Create FastAPI app
 app = FastAPI(title="AI Assist Backend")
+app.include_router(audiobooks_router.router)
 
 # 3.1. Collaboration session storage (in-memory)
 collaboration_sessions: Dict[str, Dict] = {}  # session_id -> {created_at, user_ws, guide_ws, last_frame_time}
