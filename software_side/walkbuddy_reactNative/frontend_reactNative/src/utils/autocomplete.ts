@@ -1,5 +1,4 @@
 // Autocomplete/geocoding suggestions utility
-import { API_BASE } from '../config';
 
 export interface AutocompleteSuggestion {
   name: string;

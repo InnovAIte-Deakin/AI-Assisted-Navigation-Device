@@ -4,6 +4,7 @@ export default ({ config }) => ({
   name: config.name || "MyApp",
   slug: config.slug || "my-app",
   version: config.version || "1.0.0",
+  plugins: ["expo-speech-recognition"],
   orientation: "portrait",
   icon: "./assets/images/icon.png", // Fixed: use correct path to match app.json
   userInterfaceStyle: "light",
@@ -34,6 +35,5 @@ export default ({ config }) => ({
   },
   extra: {
     apiBaseUrl: "http://192.168.1.122:8000",
-
   },
 });

@@ -1,5 +1,4 @@
 // Geocoding utilities
-import { API_BASE } from '../config';
 
 export interface GeocodeResult {
   name: string;
@@ -13,7 +12,9 @@ export interface GeocodeResult {
  */
 export async function geocodePlaceName(placeName: string): Promise<GeocodeResult> {
   try {
-    const response = await fetch(`${API_BASE}/api/geocode?q=${encodeURIComponent(placeName)}`);
+    const response = await fetch(
+      `http://0.0.0.0:8002/api/geocode?q=${encodeURIComponent(placeName)}`,
+    );
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Geocoding failed' }));
