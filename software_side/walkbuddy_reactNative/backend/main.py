@@ -5,6 +5,7 @@ from pathlib import Path
 CURRENT_FILE = Path(__file__).resolve()
 BACKEND_DIR = CURRENT_FILE.parent
 PROJECT_ROOT = BACKEND_DIR.parent
+REPO_ROOT = BACKEND_DIR.parents[2]
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -179,7 +180,7 @@ def _get_yolo_model_raw():
     """Load YOLO model for raw output endpoint."""
     global _yolo_model_raw
     if _yolo_model_raw is None:
-        yolo_weights = PROJECT_ROOT / "ML_models" / "yolo_nav" / "weights" / "yolov8s.pt"
+        yolo_weights = REPO_ROOT / "ML_side" / "models" / "object_detection" / "best.pt"
         if not yolo_weights.exists():
             raise FileNotFoundError(f"YOLO weights not found: {yolo_weights}")
         _yolo_model_raw = YOLO(str(yolo_weights))

@@ -24,9 +24,10 @@ import numpy as np
 # Get the directory where this script is located
 THIS_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = THIS_DIR.parent
-
+REPO_ROOT = THIS_DIR.parents[3]
+print(REPO_ROOT)
 # Path to YOLO model weights (using the existing model in the project)
-YOLO_WEIGHTS = PROJECT_ROOT / "yolo_nav" / "weights" / "yolov8s.pt"
+YOLO_WEIGHTS = REPO_ROOT / "ML_side" / "models" / "object_detection" / "best.pt"
 
 # Output directories
 RAW_OUTPUTS_DIR = THIS_DIR / "raw_outputs"
