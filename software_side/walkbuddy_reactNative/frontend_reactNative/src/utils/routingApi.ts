@@ -1,4 +1,5 @@
 // Real routing API integration
+// import { API_BASE } from '../config';
 import { Route, RouteStep, ManeuverType } from "../types/navigation";
 import { stepToText } from "./navigationHelpers";
 
@@ -9,6 +10,8 @@ export interface RoutingOptions {
   destLng: number;
   profile?: "foot-walking" | "driving-car" | "cycling-regular";
 }
+
+const API_BASE = "http://0.0.0.0:8003";
 
 // Convert OpenRouteService maneuver type to our ManeuverType
 function convertManeuverType(orsType: string): ManeuverType {
@@ -32,9 +35,7 @@ function convertManeuverType(orsType: string): ManeuverType {
 // Fetch route from backend API
 export async function fetchRoute(options: RoutingOptions): Promise<Route> {
   try {
-    //TODO fix one backend is unified
-    // hardcoded to 8002 for now
-    const response = await fetch(`http://0.0.0.0:8002/api/routing`, {
+    const response = await fetch(`${API_BASE}/api/routing`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

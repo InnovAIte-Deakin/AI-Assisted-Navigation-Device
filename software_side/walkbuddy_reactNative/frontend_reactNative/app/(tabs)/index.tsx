@@ -1,71 +1,230 @@
-// app/(tabs)/index.tsx
-import React, { useEffect, useRef } from 'react';
-import { Image, SafeAreaView, StatusBar, StyleSheet, Text, View, Animated, Easing } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter } from "expo-router";
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import Icon from "react-native-vector-icons/FontAwesome";
 
-export default function HomeScreen() {
+export default function HomePage() {
   const router = useRouter();
-
-  // three pulsing dots -- animation of loading
-
-  //initializing the dots
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
-
-  //animating the dots
-  useEffect(() => {
-    const makePulse = (val: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(val, { toValue: 1, duration: 400, delay, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
-          Animated.timing(val, { toValue: 0.3, duration: 400, useNativeDriver: true, easing: Easing.inOut(Easing.quad) }),
-        ])
-      ).start();
-  
-    makePulse(dot1, 0);
-    makePulse(dot2, 150);
-    makePulse(dot3, 300);
-  
-    // auto redirect after 3 seconds to the home page
-    const t = setTimeout(() => {
-      router.replace('/home'); // go directly to home and remove splash from back stack
-    }, 3000);
-
-    return () => clearTimeout(t);
-  }, [router, dot1, dot2, dot3]);
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <View style={styles.container}>
-        <Image source={require('../../assets/images/company_logo.png')} style={styles.logo} />
-        <Text style={styles.title}>WalkBuddie</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Top row with Explore button (left) and Home title (center) */}
+      <View style={styles.topRow}>
+        <Pressable
+          style={styles.exploreBtn}
+          onPress={() => router.push("/explore")}
+          accessibilityLabel="Go to Explore"
+        >
+          <Text style={styles.exploreText}>Go to Explore page</Text>
+        </Pressable>
+        <Text style={styles.toptext}>Home</Text>
+      </View>
+      <View style={styles.line} />
 
-        {/* view which will show the animated loading sign */}
-        {/* Loading … */}
-        <View style={styles.loadingRow}>
-          <Text style={styles.loadingText}>Loading</Text>
-          <Animated.Text style={[styles.dot, { opacity: dot1 }]}>.</Animated.Text>
-          <Animated.Text style={[styles.dot, { opacity: dot2 }]}>.</Animated.Text>
-          <Animated.Text style={[styles.dot, { opacity: dot3 }]}>.</Animated.Text>
+      <View style={styles.locationBlock}>
+        {/* Row with text on left and star on right */}
+        <View style={styles.row}>
+          <Text style={styles.subtext}>My Current</Text>
+          <Icon name="star" size={22} color="#FCA311" />
         </View>
 
-        <Text style={styles.subtitle}>InnovAIte</Text>
+        {/* Address lines */}
+        <Text style={styles.addressText}>Street Address</Text>
+        <Text style={styles.addressText}>City</Text>
+
+        {/* Row for Zip + Share */}
+        <View style={styles.row}>
+          <Text style={styles.addressText}>Zip</Text>
+          <Icon name="share-alt" size={22} color="#FCA311" />
+        </View>
+        <View style={{ height: 10 }} />
+        <View style={styles.line} />
+      </View>
+      <View style={styles.iconGrid}>
+        <View style={styles.iconBox}>
+          <Pressable
+            style={styles.iconPressable}
+            onPress={() => router.push("/savedplaces")}
+            accessibilityLabel="Open saved"
+          >
+            <Icon name="bookmark" size={28} color="#FCA311" />
+            <Text style={styles.iconLabel}>Saved</Text>
+          </Pressable>
+          {/* <Icon name="bookmark" size={28} color="yellow" />
+          <Text style={styles.iconLabel}>Saved</Text> */}
+        </View>
+        <View style={styles.iconBox}>
+          <Pressable
+            style={styles.iconPressable}
+            onPress={() => router.push("/quick-nav")}
+            accessibilityLabel="Open Navigation"
+          >
+            <Icon name="location-arrow" size={28} color="#FCA311" />
+            <Text style={styles.iconLabel}>Navigation</Text>
+          </Pressable>
+          {/* <Icon name="location-arrow" size={28} color="yellow" /> */}
+        </View>
+        <View style={styles.iconBox}>
+          <Icon name="search" size={28} color="#FCA311" />
+          <Text style={styles.iconLabel}>Search</Text>
+        </View>
+        <View style={styles.iconBox}>
+          <Pressable
+            style={styles.iconPressable}
+            onPress={() => router.push("/favourites")}
+            accessibilityLabel="Open fav"
+          >
+            <Icon name="star" size={28} color="#FCA311" />
+            <Text style={styles.iconLabel}>Favourites</Text>
+          </Pressable>
+          {/* <Icon name="star" size={28} color="yellow" />
+          <Text style={styles.iconLabel}>Favourites</Text> */}
+        </View>
+      </View>
+      <View style={styles.bottomBar}>
+        <View style={styles.bottomItem}>
+          <Icon name="home" size={28} color="#FCA311" />
+        </View>
+        <View style={styles.divider} />
+        {/* <View style={styles.bottomItem}>
+          <Icon name="camera" size={28} color="#FCA311" />
+        </View> */}
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => router.push("/camera")}
+          accessibilityLabel="Open Camera"
+        >
+          <Icon name="camera" size={28} color="#FCA311" />
+        </Pressable>
+        <View style={styles.divider} />
+        {/* <View style={styles.bottomItem}>
+          <Icon name="user" size={28} color="#FCA311" />
+        </View> */}
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => router.push("/myaccount")}
+          accessibilityLabel="Open Account"
+        >
+          <Icon name="user" size={28} color="#FCA311" />
+        </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000' },
-  container: {
-    flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center',
+  iconPressable: {
+    flex: 1,
+    alignItems: "center", // center horizontally
+    justifyContent: "center", // center vertically
   },
-  logo: { width: 160, height: 160, resizeMode: 'contain', marginBottom: 24 },
-  title: { fontSize: 36, fontWeight: '800', color: '#FFA500' },
-  subtitle: { position: 'absolute', bottom: 56, fontSize: 22, fontWeight: '800', color: '#FFA500' },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
-  loadingText: { color: '#FFA500', fontWeight: '700', fontSize: 16 },
-  dot: { color: '#FFA500', fontWeight: '900', fontSize: 18, marginLeft: 2 },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    width: "100%",
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  exploreBtn: {
+    borderWidth: 1,
+    borderColor: "#FCA311",
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginRight: 12,
+    backgroundColor: "#1B263B",
+  },
+  exploreText: {
+    color: "#E0E1DD",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  container: {
+    flex: 1,
+    backgroundColor: "#0D1B2A",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 10,
+  },
+  toptext: {
+    fontSize: 24,
+    color: "#E0E1DD",
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  line: {
+    height: 2,
+    backgroundColor: "#FCA311",
+    width: "100%",
+  },
+  locationBlock: {
+    width: "100%",
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  subtext: {
+    fontSize: 20,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  addressText: {
+    fontSize: 18,
+    color: "#E0E1DD",
+    marginTop: 5,
+    marginLeft: 5,
+  },
+  iconGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 20,
+    width: "32%",
+    paddingHorizontal: 20,
+  },
+
+  iconBox: {
+    width: "45%",
+    aspectRatio: 1,
+    borderWidth: 2,
+    borderColor: "#FCA311",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
+    backgroundColor: "#111",
+  },
+
+  iconLabel: {
+    color: "#E0E1DD",
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  bottomBar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    borderTopWidth: 2,
+    borderColor: "#FCA311",
+    width: "100%",
+    paddingVertical: 10,
+    marginTop: "auto", // pushes it to the bottom
+    backgroundColor: "#0D1B2A",
+  },
+
+  bottomItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  divider: {
+    width: 2,
+    height: "60%",
+    backgroundColor: "#FCA311",
+  },
 });
