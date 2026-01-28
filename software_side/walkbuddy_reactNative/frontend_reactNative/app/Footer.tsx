@@ -1,92 +1,78 @@
 import React from "react";
-import { Alert, Pressable, StyleSheet, View, Platform } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { useRouter, usePathname } from "expo-router";
 
-import { useCurrentLocation } from "./lib/locationSaver";
-import { saveCurrentLocation } from "./lib/placesStore";
-
-export default function Footer() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { currentLocation } = useCurrentLocation();
-
-  const navPage = (targetedRoute: string) => {
-    if (pathname !== targetedRoute) {
-      router.push(targetedRoute as any);
-    }
-  };
-
-  const navCameraMode = (mode: "vision" | "voice" | "ocr") => {
-    // pathname ignores query params, so this prevents pointless pushes
-    if (pathname !== "/camera") {
-      router.push({ pathname: "/camera", params: { mode } } as any);
-      return;
-    }
-    // already on /camera, still push so mode changes
-    router.push({ pathname: "/camera", params: { mode } } as any);
-  };
-
-  const showAlertMessage = (alertTitle: string, alertMessage: string) => {
-    if (Platform.OS === "web") {
-      (globalThis as any).alert?.(`${alertTitle}\n\n${alertMessage}`);
-    } else {
-      Alert.alert(alertTitle, alertMessage);
-    }
-  };
-
-  const saveCurrentTapLocation = async () => {
-    if (!currentLocation || !currentLocation.trim()) {
-      showAlertMessage("Can't save location", "Location is not available yet.");
-      return;
-    }
-
-    const result = await saveCurrentLocation(currentLocation, "E");
-
-    if (result.status === "exists") {
-      showAlertMessage("Already saved", "This location is already saved.");
-    } else {
-      showAlertMessage("Saved successfully", "Location saved successfully.");
-    }
-  };
-
+export default function Footer({ navigation }: any) {
   return (
     <View style={styles.footWrap}>
       <View style={styles.bottomBar}>
-        <Pressable style={styles.bottomItem} onPress={() => navPage("/home")}>
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => navigation.navigate("index")}
+        >
           <Icon name="home" size={30} color="#FCA311" />
         </Pressable>
 
         <View style={styles.divider} />
 
-        {/* Camera icon should open camera with VISION active */}
         <Pressable
           style={styles.bottomItem}
-          onPress={() => navCameraMode("vision")}
+          onPress={() => navigation.navigate("camera")}
         >
           <Icon name="camera" size={30} color="#FCA311" />
         </Pressable>
 
         <View style={styles.divider} />
 
-        {/* Mic icon should open camera with VOICE active */}
         <Pressable
           style={styles.bottomItem}
-          onPress={() => navCameraMode("voice")}
+          onPress={() => navigation.navigate("indoor")}
         >
-          <Icon name="microphone" size={30} color="#FCA311" />
+          <Icon name="building" size={30} color="#FCA311" />
         </Pressable>
 
         <View style={styles.divider} />
 
-        <Pressable style={styles.bottomItem} onPress={() => navPage("/places")}>
-          <Icon name="map-marker" size={30} color="#FCA311" />
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => navigation.navigate("exterior")}
+        >
+          <Icon name="road" size={30} color="#FCA311" />
         </Pressable>
 
         <View style={styles.divider} />
 
-        <Pressable style={styles.bottomItem} onPress={saveCurrentTapLocation}>
-          <Icon name="heart" size={30} color="#FCA311" />
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => navigation.navigate("audiobooks")}
+        >
+          <Icon name="book" size={30} color="#FCA311" />
+        </Pressable>
+
+        <View style={styles.divider} />
+
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => navigation.navigate("profile")}
+        >
+          <Icon name="user-circle" size={30} color="#FCA311" />
+        </Pressable>
+        <View style={styles.divider} />
+
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => navigation.navigate("ask-a-friend-web")}
+        >
+          <Icon name="question-circle" size={30} color="#FCA311" />
+        </Pressable>
+
+        <View style={styles.divider} />
+
+        <Pressable
+          style={styles.bottomItem}
+          onPress={() => navigation.navigate("places")}
+        >
+          <Icon name="map" size={30} color="#FCA311" />
         </Pressable>
       </View>
     </View>
@@ -99,7 +85,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingBottom: 0,
     marginTop: 0,
-    backgroundColor: "transparent",
+    backgroundColor: "#0D1B2A",
   },
   bottomBar: {
     flexDirection: "row",
@@ -107,11 +93,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     backgroundColor: "#0D1B2A",
     borderColor: "#FCA311",
-    borderWidth: 2,
     borderRadius: 999,
+    borderWidth: 2,
     paddingVertical: 22,
     paddingHorizontal: 14,
     overflow: "hidden",
+    marginBottom: 20,
+    marginTop: 20,
   },
   bottomItem: {
     flex: 1,

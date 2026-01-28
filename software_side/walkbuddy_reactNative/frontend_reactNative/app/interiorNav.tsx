@@ -5,7 +5,6 @@ import React, { useState } from "react";
 import {SafeAreaView,StyleSheet,Text,View,Pressable,ScrollView,Switch,} from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import HomeHeader from "./HomeHeader";
-import Footer from "./Footer";
 
 export default function InteriorMapPage() {
   const [cameraViewEnabled, setCameraViewEnabled] = useState(false);
@@ -63,7 +62,6 @@ export default function InteriorMapPage() {
               )}
             </View>
           </View>
-          <Footer/>
         </View>
       </ScrollView>
     </SafeAreaView>

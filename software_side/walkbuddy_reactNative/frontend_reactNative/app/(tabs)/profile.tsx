@@ -17,10 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 
-import HomeHeader from "./HomeHeader";
-import Footer from "./Footer";
+import HomeHeader from "../HomeHeader";
 
-import { useSession, ProfileRecord } from "./SessionContext";
+import { useSession, ProfileRecord } from "../SessionContext";
 
 const tokens = {
   bg: "#0D1B2A",
@@ -384,7 +383,6 @@ export default function ProfilePage() {
               renderProfile(auth.profile)}
           </ScrollView>
 
-          <Footer />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

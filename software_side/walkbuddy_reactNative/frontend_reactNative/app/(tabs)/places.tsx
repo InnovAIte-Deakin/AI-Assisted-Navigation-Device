@@ -11,15 +11,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import HomeHeader from "./HomeHeader";
-import Footer from "./Footer";
+import HomeHeader from "../HomeHeader";
 
 import {
   getPlacesSorted,
   toggleFavourite,
   markUsed,
   PlaceItem,
-} from "./lib/placesStore";
+} from "../lib/placesStore";
 
 /*
   TEMPORARY TESTING ONLY
@@ -74,8 +73,9 @@ async function seedPlacesOnce() {
     },
   ];
 
-  const AsyncStorage =
-    (await import("@react-native-async-storage/async-storage")).default;
+  const AsyncStorage = (
+    await import("@react-native-async-storage/async-storage")
+  ).default;
   await AsyncStorage.setItem("wb:places_v2", JSON.stringify(dummy));
 }
 
@@ -99,7 +99,7 @@ export default function PlacesPage() {
   useFocusEffect(
     useCallback(() => {
       seedPlacesOnce().then(refresh);
-    }, [refresh])
+    }, [refresh]),
   );
 
   const selectFavPlace = async (placeId: string) => {
@@ -113,8 +113,10 @@ export default function PlacesPage() {
 
     router.push({
       pathname: "/search",
-      params: { presetDestination: placeItem.title,
-      presetType: placeItem.kind,},
+      params: {
+        presetDestination: placeItem.title,
+        presetType: placeItem.kind,
+      },
     } as any);
   };
 
@@ -172,7 +174,6 @@ export default function PlacesPage() {
             </View>
           }
         />
-        <Footer/>
       </View>
     </SafeAreaView>
   );
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  
+
   placeType: {
     width: 26,
     height: 26,

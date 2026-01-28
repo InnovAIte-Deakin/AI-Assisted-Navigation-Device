@@ -420,7 +420,7 @@ export default function AudiobooksScreen() {
     });
   };
 
-  const goHomeIcon = () => router.push("/home" as const);
+  const goHomeIcon = () => router.push("/" as const);
 
   // Voice input handlers - Fixed implementation
   const startListening = useCallback(() => {
