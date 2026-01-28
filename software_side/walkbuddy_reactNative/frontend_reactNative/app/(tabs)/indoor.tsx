@@ -4,7 +4,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from "react-n
 import * as Speech from "expo-speech";
 import * as Haptics from "expo-haptics";
 
-import { POIS, V2_GRAPH, type NodeId } from "../src/nav/v2_graph";
+import { POIS, V2_GRAPH, type NodeId } from "../../src/nav/v2_graph";
 
 const GOLD = "#f9b233";
 const BG = "#1B263B";
