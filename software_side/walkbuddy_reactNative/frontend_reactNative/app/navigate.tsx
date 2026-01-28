@@ -68,7 +68,7 @@ export default function NavigateScreen() {
  
       {/* Bottom bar */}
       <View style={styles.bottomBar}>
-        <Pressable style={styles.bottomItem} onPress={() => router.push('/home')}>
+        <Pressable style={styles.bottomItem} onPress={() => router.push('/')}>
           <Ionicons name="home-outline" size={26} color={GOLD} />
         </Pressable>
         <View style={styles.bottomDivider} />

@@ -506,39 +506,39 @@ export default function HelperWebScreen() {
   };
 
   // Prevent any navigation redirects on web - this screen must stay on web
-  // useEffect(() => {
-  //   if (Platform.OS !== "web") {
-  //     // On mobile, redirect to home instead
-  //     router.replace("/home");
-  //     return;
-  //   }
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      // On mobile, redirect to home instead
+      router.replace("/");
+      return;
+    }
 
-  //   // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
-  //   // Check if pathname changed away from helper-web
-  //   if (
-  //     pathname &&
-  //     pathname !== "/helper-web" &&
-  //     !isNavigatingAwayRef.current
-  //   ) {
-  //     console.log(
-  //       "[HelperWeb] Detected redirect attempt, preventing:",
-  //       pathname,
-  //     );
-  //     // Force navigation back to helper-web immediately
-  //     // Use replace to prevent back button issues
-  //     router.replace("/helper-web");
-  //   }
+    // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
+    // Check if pathname changed away from helper-web
+    if (
+      pathname &&
+      pathname !== "/helper-web" &&
+      !isNavigatingAwayRef.current
+    ) {
+      console.log(
+        "[HelperWeb] Detected redirect attempt, preventing:",
+        pathname,
+      );
+      // Force navigation back to helper-web immediately
+      // Use replace to prevent back button issues
+      router.replace("/helper-web");
+    }
 
-  //   // Also check window.location as a fallback (for web)
-  //   if (
-  //     typeof window !== "undefined" &&
-  //     window.location.pathname !== "/helper-web"
-  //   ) {
-  //     window.history.replaceState(null, "", "/helper-web");
-  //   }
-  // }, [pathname, router]);
+    // Also check window.location as a fallback (for web)
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/helper-web"
+    ) {
+      window.history.replaceState(null, "", "/helper-web");
+    }
+  }, [pathname, router]);
 
-  // // Monitor segments to catch redirects to tabs/home
+  // Monitor segments to catch redirects to tabs/home
   // useEffect(() => {
   //   if (Platform.OS === "web") {
   //     // If segments indicate we're being redirected to tabs/home, prevent it

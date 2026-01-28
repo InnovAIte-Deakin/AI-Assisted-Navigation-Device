@@ -14,7 +14,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import HomeHeader from "./HomeHeader";
-import Footer from "./Footer";
 
 /*
   NOTE:
@@ -52,9 +51,8 @@ export default function SearchPage() {
   }, [width]);
 
   const [query, setQuery] = useState("");
-  const [destinationType, setDestinationType] = useState<DestinationType | null>(
-    null
-  );
+  const [destinationType, setDestinationType] =
+    useState<DestinationType | null>(null);
 
   const hasDestination = query.trim().length > 0;
 
@@ -81,13 +79,16 @@ export default function SearchPage() {
     }
 
     router.push({
-      pathname: "/interiorNav",
-      params: { targetedDestination: query.trim() },
+      pathname: "/indoor",
     } as any);
   }
 
   function onPressMaps() {
-    console.log("[Search] MAPS pressed", { hasDestination, destinationType, query });
+    console.log("[Search] MAPS pressed", {
+      hasDestination,
+      destinationType,
+      query,
+    });
 
     if (!hasDestination) return;
 
@@ -100,15 +101,15 @@ export default function SearchPage() {
     const encoded = encodeURIComponent(destinationText);
 
     // Web: open exterior in a new empty window/tab
-    if (Platform.OS === "web") {
-      const url = `/exterior?presetDestination=${encoded}&presetType=E`;
-      window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
+    // if (Platform.OS === "web") {
+    //   const url = `/exterior?presetDestination=${encoded}&presetType=E`;
+    //   window.open(url, "_blank", "noopener,noreferrer");
+    //   return;
+    // }
 
     // Mobile: navigate normally
     router.push({
-      pathname: "/exterior",
+      pathname: "exterior",
       params: { presetDestination: destinationText, presetType: "E" },
     } as any);
   }
@@ -169,7 +170,10 @@ export default function SearchPage() {
           {/* Navigation mode buttons */}
           <View style={styles.buttonRow}>
             <Pressable
-              style={[styles.modeBtn, !hasDestination && styles.modeBtnDisabled]}
+              style={[
+                styles.modeBtn,
+                !hasDestination && styles.modeBtnDisabled,
+              ]}
               onPress={onPressInterior}
               disabled={!hasDestination}
               accessibilityLabel="Interior navigation"
@@ -186,7 +190,10 @@ export default function SearchPage() {
             </Pressable>
 
             <Pressable
-              style={[styles.modeBtn, !hasDestination && styles.modeBtnDisabled]}
+              style={[
+                styles.modeBtn,
+                !hasDestination && styles.modeBtnDisabled,
+              ]}
               onPress={onPressMaps}
               disabled={!hasDestination}
               accessibilityLabel="Outdoor maps navigation"
@@ -206,8 +213,6 @@ export default function SearchPage() {
           <View style={{ height: 1 }} />
           <View style={{ height: 1 }} />
         </View>
-
-        <Footer />
       </View>
     </SafeAreaView>
   );

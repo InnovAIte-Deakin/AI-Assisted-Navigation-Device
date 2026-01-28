@@ -84,59 +84,59 @@ export default function AskAFriendWebScreen() {
   const frameStatsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if on web and prevent redirects
-  // useEffect(() => {
-  //   if (Platform.OS !== "web") {
-  //     Alert.alert("Error", "This screen is only available on web browsers.");
-  //     router.replace("/home");
-  //     return;
-  //   }
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      Alert.alert("Error", "This screen is only available on web browsers.");
+      router.replace("/");
+      return;
+    }
 
-  //   // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
-  //   // Check if pathname changed away from ask-a-friend-web
-  //   if (
-  //     pathname &&
-  //     pathname !== "/ask-a-friend-web" &&
-  //     !isNavigatingAwayRef.current
-  //   ) {
-  //     console.log(
-  //       "[AskAFriend] Detected redirect attempt, preventing:",
-  //       pathname,
-  //     );
-  //     // Force navigation back to ask-a-friend-web immediately
-  //     // Use replace to prevent back button issues
-  //     router.replace("/ask-a-friend-web");
-  //   }
+    // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
+    // Check if pathname changed away from ask-a-friend-web
+    if (
+      pathname &&
+      pathname !== "/ask-a-friend-web" &&
+      !isNavigatingAwayRef.current
+    ) {
+      console.log(
+        "[AskAFriend] Detected redirect attempt, preventing:",
+        pathname,
+      );
+      // Force navigation back to ask-a-friend-web immediately
+      // Use replace to prevent back button issues
+      router.replace("/ask-a-friend-web");
+    }
 
-  //   // Also check window.location as a fallback (for web)
-  //   if (
-  //     typeof window !== "undefined" &&
-  //     window.location.pathname !== "/ask-a-friend-web"
-  //   ) {
-  //     window.history.replaceState(null, "", "/ask-a-friend-web");
-  //   }
-  // }, [pathname, router]);
+    // Also check window.location as a fallback (for web)
+    if (
+      typeof window !== "undefined" &&
+      window.location.pathname !== "/ask-a-friend-web"
+    ) {
+      window.history.replaceState(null, "", "/ask-a-friend-web");
+    }
+  }, [pathname, router]);
 
   // Monitor segments to catch redirects to tabs/home
-  // useEffect(() => {
-  //   if (Platform.OS === "web") {
-  //     // If segments indicate we're being redirected to tabs/home, prevent it
-  //     if (segments.length > 0) {
-  //       const isRedirectingToTabs =
-  //         segments.includes("(tabs)") || segments.includes("home");
-  //       const isOnAskAFriendWeb =
-  //         pathname === "/ask-a-friend-web" ||
-  //         segments[0] === "ask-a-friend-web";
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      // If segments indicate we're being redirected to tabs/home, prevent it
+      if (segments.length > 0) {
+        const isRedirectingToTabs =
+          segments.includes("(tabs)") || segments.includes("home");
+        const isOnAskAFriendWeb =
+          pathname === "/ask-a-friend-web" ||
+          segments[0] === "ask-a-friend-web";
 
-  //       if (isRedirectingToTabs && !isOnAskAFriendWeb) {
-  //         console.log(
-  //           "[AskAFriend] Preventing redirect to tabs/home, segments:",
-  //           segments,
-  //         );
-  //         router.replace("/ask-a-friend-web");
-  //       }
-  //     }
-  //   }
-  // }, [segments, pathname, router]);
+        if (isRedirectingToTabs && !isOnAskAFriendWeb) {
+          console.log(
+            "[AskAFriend] Preventing redirect to tabs/home, segments:",
+            segments,
+          );
+          router.replace("/ask-a-friend-web");
+        }
+      }
+    }
+  }, [segments, pathname, router]);
 
   // Create session on mount
   useEffect(() => {
@@ -1612,6 +1612,7 @@ export default function AskAFriendWebScreen() {
     setUseFallbackMode(false);
     setShowVideoElement(false);
     collaborationService.disconnect();
+    
 
     // Redirect to home screen immediately
     console.log("[AskAFriend] 🏠 Redirecting to home screen...");
