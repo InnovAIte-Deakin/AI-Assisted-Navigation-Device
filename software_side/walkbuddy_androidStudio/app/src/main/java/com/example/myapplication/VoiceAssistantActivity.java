@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-
 public class VoiceAssistantActivity extends AppCompatActivity {
 
     private static final String TAG = "VoiceAssistant";
@@ -57,29 +56,23 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             Manifest.permission.RECORD_AUDIO
     };
 
-
     private PreviewView cameraPreview;
     private DetectionOverlay detectionOverlay;
-    private FloatingActionButton btnMicrophone;  // ✅ FIXED: Changed from ImageView
+    private FloatingActionButton btnMicrophone; // ✅ FIXED: Changed from ImageView
     private ImageView btnBack;
     private TextView txtStatus;
     private TextView txtDetectedObjects;
     private View overlayControls;
 
-
     private VoiceNavigationHelper voiceHelper;
     private TTSAnnouncer announcer;
-
-
     private ProcessCameraProvider cameraProvider;
-
 
     private List<String> currentDetections = new ArrayList<>();
     private boolean isDetecting = true;
-
-
     private Module mlModel;
     private boolean mlModelLoaded = false;
+
     private final String[] CLASSES = {"book", "books", "monitor", "office-chair", "whiteboard", "table", "tv"};
 
     @Override
@@ -90,14 +83,9 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         initializeViews();
         setupClickListeners();
 
-
         announcer = new TTSAnnouncer(this);
-
         loadMLModel();
-
-
         initializeVoiceNavigation();
-
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -105,8 +93,23 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_PERMISSIONS);
         }
 
-
         announcer.speak("Voice assistant ready. Tap microphone to ask a question about your surroundings.");
+    }
+
+    private void setupClickListeners() {
+        btnMicrophone.setOnClickListener(v -> {
+            Log.d(TAG, "Microphone button clicked");
+            voiceHelper.startVoiceInteraction();
+        });
+
+        btnBack.setOnClickListener(v -> {
+            announcer.speak("Returning to home");
+            finish();
+        });
+
+        cameraPreview.setOnClickListener(v -> {
+            toggleControlsVisibility();
+        });
     }
 
     private void initializeViews() {
@@ -119,25 +122,6 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         overlayControls = findViewById(R.id.overlayControls);
     }
 
-    private void setupClickListeners() {
-
-        btnMicrophone.setOnClickListener(v -> {
-            Log.d(TAG, "Microphone button clicked");
-            voiceHelper.startVoiceInteraction();
-        });
-
-
-        btnBack.setOnClickListener(v -> {
-            announcer.speak("Returning to home");
-            finish();
-        });
-
-
-        cameraPreview.setOnClickListener(v -> {
-            toggleControlsVisibility();
-        });
-    }
-
     private void toggleControlsVisibility() {
         if (overlayControls.getVisibility() == View.VISIBLE) {
             overlayControls.setVisibility(View.GONE);
@@ -146,14 +130,9 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         }
     }
 
-
     private void initializeVoiceNavigation() {
         voiceHelper = new VoiceNavigationHelper(this);
-
-
         voiceHelper.setTTSAnnouncer(announcer);
-
-
         voiceHelper.setDetectionProvider(new VoiceNavigationHelper.DetectionProvider() {
             @Override
             public List<String> getCurrentDetections() {
@@ -163,14 +142,11 @@ public class VoiceAssistantActivity extends AppCompatActivity {
 
         // Initialize
         voiceHelper.initialize();
-
         Log.d(TAG, "Voice navigation initialized");
     }
 
-
     private void loadMLModel() {
         try {
-
             try {
                 com.facebook.soloader.SoLoader.init(this, false);
                 Log.d(TAG, "SoLoader initialized");
@@ -178,11 +154,9 @@ public class VoiceAssistantActivity extends AppCompatActivity {
                 Log.w(TAG, "SoLoader initialization failed", e);
             }
 
-
             String modelPath = copyAssetToFile("models/best_lite_fixed.ptl");
-
-
             Log.d(TAG, "Loading YOLO model: " + modelPath);
+
             mlModel = LiteModuleLoader.load(modelPath);
             mlModelLoaded = true;
 
@@ -195,7 +169,6 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             announcer.speak("Running in simulation mode");
         }
     }
-
 
     private String copyAssetToFile(String assetName) throws java.io.IOException {
         File file = new File(getFilesDir(), assetName.replace("/", "_"));
@@ -214,13 +187,11 @@ public class VoiceAssistantActivity extends AppCompatActivity {
                 outputStream.write(buffer, 0, read);
             }
             outputStream.flush();
-
             Log.d(TAG, "Model copied to: " + file.getAbsolutePath());
         }
 
         return file.getAbsolutePath();
     }
-
 
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
@@ -232,12 +203,10 @@ public class VoiceAssistantActivity extends AppCompatActivity {
                 bindCameraUseCases();
             } catch (ExecutionException | InterruptedException e) {
                 Log.e(TAG, "Error starting camera", e);
-                Toast.makeText(this, "Camera error: " + e.getMessage(),
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Camera error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
-
 
     private void bindCameraUseCases() {
         if (cameraProvider == null) {
@@ -245,10 +214,8 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             return;
         }
 
-
         Preview preview = new Preview.Builder().build();
         preview.setSurfaceProvider(cameraPreview.getSurfaceProvider());
-
 
         ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                 .setTargetResolution(new Size(640, 480))
@@ -257,29 +224,22 @@ public class VoiceAssistantActivity extends AppCompatActivity {
 
         imageAnalysis.setAnalyzer(Executors.newSingleThreadExecutor(), this::analyzeImage);
 
-
         CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
 
         try {
-
             cameraProvider.unbindAll();
-
-
             cameraProvider.bindToLifecycle(
                     this,
                     cameraSelector,
                     preview,
                     imageAnalysis
             );
-
             Log.d(TAG, "Camera bound successfully");
-
         } catch (Exception e) {
             Log.e(TAG, "Error binding camera", e);
             Toast.makeText(this, "Failed to start camera", Toast.LENGTH_SHORT).show();
         }
     }
-
 
     private void analyzeImage(ImageProxy image) {
         if (!isDetecting) {
@@ -289,30 +249,22 @@ public class VoiceAssistantActivity extends AppCompatActivity {
 
         try {
             if (mlModelLoaded && mlModel != null) {
-
                 runYOLODetection(image);
             } else {
-
                 simulateObjectDetection();
             }
         } catch (Exception e) {
             Log.e(TAG, "Error in detection", e);
-
             simulateObjectDetection();
         } finally {
             image.close();
         }
     }
 
-
     private void runYOLODetection(ImageProxy image) {
         try {
-
             Tensor inputTensor = preprocessImage(image);
-
-
             IValue output = mlModel.forward(IValue.from(inputTensor));
-
 
             Tensor outputTensor;
             if (output.isTuple()) {
@@ -331,21 +283,15 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         }
     }
 
-
     private Tensor preprocessImage(ImageProxy image) {
-
         Bitmap bitmap = imageProxyToBitmap(image);
-
-
         Bitmap resized = Bitmap.createScaledBitmap(bitmap, 640, 640, true);
-
 
         float[] mean = new float[]{0.0f, 0.0f, 0.0f};
         float[] std = new float[]{1.0f, 1.0f, 1.0f};
 
         return TensorImageUtils.bitmapToFloat32Tensor(resized, mean, std);
     }
-
 
     private Bitmap imageProxyToBitmap(ImageProxy image) {
         ImageProxy.PlaneProxy[] planes = image.getPlanes();
@@ -363,8 +309,11 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         uBuffer.get(nv21, ySize + vSize, uSize);
 
         YuvImage yuvImage = new YuvImage(
-                nv21, ImageFormat.NV21,
-                image.getWidth(), image.getHeight(), null);
+                nv21,
+                ImageFormat.NV21,
+                image.getWidth(),
+                image.getHeight(),
+                null);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         yuvImage.compressToJpeg(new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight()), 100, out);
@@ -372,7 +321,6 @@ public class VoiceAssistantActivity extends AppCompatActivity {
 
         return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
     }
-
 
     private void processYOLOOutput(Tensor output) {
         long[] shape = output.shape();
@@ -388,19 +336,16 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         int numClasses = (int)shape[1] - 4; // Subtract bbox coords
         int numAnchors = (int)shape[2];
 
-
         List<DetectionOverlay.Detection> detections = new ArrayList<>();
         currentDetections.clear();
 
         float confidenceThreshold = 0.4f;
 
         for (int anchor = 0; anchor < numAnchors; anchor++) {
-
             float x = scores[0 * numAnchors + anchor];
             float y = scores[1 * numAnchors + anchor];
             float w = scores[2 * numAnchors + anchor];
             float h = scores[3 * numAnchors + anchor];
-
 
             float maxConf = 0;
             int bestClass = -1;
@@ -420,15 +365,15 @@ public class VoiceAssistantActivity extends AppCompatActivity {
                 }
             }
 
-
             if (maxConf > confidenceThreshold && bestClass >= 0 && w > 0.02f && h > 0.02f) {
                 DetectionOverlay.Detection detection = createDetection(
-                        CLASSES[bestClass], maxConf, x, y, w, h, anchor);
+                        CLASSES[bestClass],
+                        maxConf,
+                        x, y, w, h,
+                        anchor);
 
                 if (detection != null) {
                     detections.add(detection);
-
-
                     if (!currentDetections.contains(CLASSES[bestClass])) {
                         currentDetections.add(CLASSES[bestClass]);
                     }
@@ -436,20 +381,15 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             }
         }
 
-
         List<DetectionOverlay.Detection> finalDetections = applyNMS(detections, 0.3f);
-
 
         if (detectionOverlay != null) {
             detectionOverlay.updateDetections(finalDetections);
         }
 
-
         updateDetectionDisplay();
-
         Log.d(TAG, "Final detections: " + currentDetections.size() + " objects");
     }
-
 
     private DetectionOverlay.Detection createDetection(String className, float confidence,
                                                        float x, float y, float w, float h, int anchor) {
@@ -460,12 +400,10 @@ public class VoiceAssistantActivity extends AppCompatActivity {
 
         if (previewWidth <= 0 || previewHeight <= 0) return null;
 
-
         float centerX = x * previewWidth;
         float centerY = y * previewHeight;
         float width = w * previewWidth;
         float height = h * previewHeight;
-
 
         float left = Math.max(0, centerX - width / 2);
         float top = Math.max(0, centerY - height / 2);
@@ -477,10 +415,8 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         return new DetectionOverlay.Detection(className, confidence, boundingBox, anchor);
     }
 
-
     private List<DetectionOverlay.Detection> applyNMS(List<DetectionOverlay.Detection> detections, float iouThreshold) {
         if (detections.isEmpty()) return detections;
-
 
         detections.sort((a, b) -> Float.compare(b.confidence, a.confidence));
 
@@ -501,7 +437,6 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         return result;
     }
 
-
     private float calculateIoU(RectF box1, RectF box2) {
         float intersectLeft = Math.max(box1.left, box2.left);
         float intersectTop = Math.max(box1.top, box2.top);
@@ -520,11 +455,9 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         return unionArea > 0 ? intersectionArea / unionArea : 0.0f;
     }
 
-
     private float sigmoid(float x) {
         return (float) (1.0 / (1.0 + Math.exp(-x)));
     }
-
 
     private void simulateObjectDetection() {
         runOnUiThread(() -> {
@@ -547,7 +480,6 @@ public class VoiceAssistantActivity extends AppCompatActivity {
         });
     }
 
-
     private void updateDetectionDisplay() {
         if (currentDetections.isEmpty()) {
             txtDetectedObjects.setText("No objects detected");
@@ -558,7 +490,6 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             txtStatus.setText("Status: " + currentDetections.size() + " objects found");
         }
     }
-
 
     private boolean allPermissionsGranted() {
         for (String permission : REQUIRED_PERMISSIONS) {
@@ -579,13 +510,11 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             if (allPermissionsGranted()) {
                 startCamera();
             } else {
-                Toast.makeText(this,
-                        "Camera and microphone permissions required",
+                Toast.makeText(this, "Camera and microphone permissions required",
                         Toast.LENGTH_LONG).show();
                 finish();
             }
         } else {
-
             voiceHelper.onPermissionResult(requestCode, grantResults);
         }
     }
