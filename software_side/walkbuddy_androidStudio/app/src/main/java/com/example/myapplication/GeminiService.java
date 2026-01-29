@@ -15,20 +15,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-/**
- * Service for interacting with Google Gemini FREE LLM
- * Handles navigation guidance generation for visually impaired users
- *
- * Features:
- * - FREE Google Gemini API (1,500 requests/day)
- * - Navigation guidance based on detected objects
- * - Path clearance checking
- * - Environment description
- *
- * Usage:
- * GeminiService service = new GeminiService(context);
- * service.getNavigationGuidance(objects, question, callback);
- */
+
 public class GeminiService {
 
     private static final String TAG = "GeminiService";
@@ -38,64 +25,24 @@ public class GeminiService {
     private final GenerativeModelFutures model;
     private final Executor executor;
 
-    /**
-     * Callback interface for async Gemini responses
-     */
-    public interface GeminiCallback {
-        /**
-         * Called when Gemini successfully generates a response
-         * @param response The generated navigation guidance text
-         */
-        void onSuccess(String response);
 
-        /**
-         * Called when an error occurs
-         * @param error Error message describing what went wrong
-         */
+    public interface GeminiCallback {
+        void onSuccess(String response);
         void onError(String error);
     }
-
-    /**
-     * Constructor - Initializes Gemini service with FREE API
-     *
-     * @param context Application context
-     */
     public GeminiService(Context context) {
         this.context = context.getApplicationContext();
 
-        // Load API key from strings.xml (secure method)
         this.geminiApiKey = context.getString(R.string.gemini_api_key);
 
-        // Initialize executor for async operations
         this.executor = Executors.newSingleThreadExecutor();
 
-        // Initialize Gemini model (FREE tier - gemini-1.5-flash)
         GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", geminiApiKey);
         this.model = GenerativeModelFutures.from(gm);
 
         Log.d(TAG, "GeminiService initialized with FREE Gemini 1.5 Flash model");
     }
 
-    /**
-     * Generate navigation guidance based on detected objects and user question
-     *
-     * This is the main method for voice navigation queries.
-     *
-     * @param detectedObjects List of objects detected by YOLO (e.g., ["table", "chair"])
-     * @param userQuestion Question asked by user via voice (e.g., "Is the path clear?")
-     * @param callback Callback to receive response or error
-     *
-     * Example:
-     * service.getNavigationGuidance(
-     *     Arrays.asList("table", "chair"),
-     *     "Is the path clear?",
-     *     new GeminiCallback() {
-     *         void onSuccess(String response) {
-     *             // Handle response: "Yes, path clear. Table on right."
-     *         }
-     *     }
-     * );
-     */
     public void getNavigationGuidance(List<String> detectedObjects,
                                       String userQuestion,
                                       GeminiCallback callback) {
@@ -110,21 +57,17 @@ public class GeminiService {
             return;
         }
 
-        // Build optimized prompt for navigation
         String prompt = buildNavigationPrompt(detectedObjects, userQuestion);
 
         Log.d(TAG, "Sending to Gemini - Question: " + userQuestion +
                 ", Objects: " + (detectedObjects != null ? detectedObjects.size() : 0));
 
-        // Create content for Gemini
         Content content = new Content.Builder()
                 .addText(prompt)
                 .build();
 
-        // Make async API call to Gemini
         ListenableFuture<GenerateContentResponse> response = model.generateContent(content);
 
-        // Handle response asynchronously
         Futures.addCallback(response, new FutureCallback<GenerateContentResponse>() {
             @Override
             public void onSuccess(GenerateContentResponse result) {
@@ -162,14 +105,6 @@ public class GeminiService {
         }, executor);
     }
 
-    /**
-     * Quick path clearance check (optimized for speed)
-     *
-     * Faster than full navigation guidance - use for simple "is path clear?" queries
-     *
-     * @param detectedObjects List of detected obstacles
-     * @param callback Callback to receive response
-     */
     public void checkPathClearance(List<String> detectedObjects, GeminiCallback callback) {
 
         if (callback == null) {
@@ -177,14 +112,12 @@ public class GeminiService {
             return;
         }
 
-        // If no objects detected, path is clear!
         if (detectedObjects == null || detectedObjects.isEmpty()) {
             Log.d(TAG, "No objects detected - path is clear");
             callback.onSuccess("Path is clear ahead. You may proceed safely.");
             return;
         }
 
-        // Build optimized prompt for quick path check
         String prompt = "You are a safety assistant for visually impaired navigation.\n" +
                 "Detected objects: " + String.join(", ", detectedObjects) + "\n\n" +
                 "Respond in ONE sentence:\n" +
@@ -222,14 +155,7 @@ public class GeminiService {
         }, executor);
     }
 
-    /**
-     * Generate description of current environment
-     *
-     * Use for "what's around me?" or "describe my surroundings" queries
-     *
-     * @param detectedObjects List of detected objects
-     * @param callback Callback to receive response
-     */
+
     public void describeEnvironment(List<String> detectedObjects, GeminiCallback callback) {
 
         if (callback == null) {
@@ -237,14 +163,12 @@ public class GeminiService {
             return;
         }
 
-        // Handle empty environment
         if (detectedObjects == null || detectedObjects.isEmpty()) {
             Log.d(TAG, "No objects to describe");
             callback.onSuccess("I don't detect any objects in your immediate surroundings.");
             return;
         }
 
-        // Build prompt for environment description
         String prompt = "Describe this environment for a visually impaired person.\n" +
                 "Objects present: " + String.join(", ", detectedObjects) + "\n\n" +
                 "Provide a brief, helpful description in ONE sentence.\n" +
@@ -280,18 +204,9 @@ public class GeminiService {
         }, executor);
     }
 
-    /**
-     * Build optimized prompt for navigation guidance
-     *
-     * This creates a carefully crafted prompt that gets the best responses from Gemini
-     *
-     * @param detectedObjects List of detected objects (can be null/empty)
-     * @param userQuestion User's question
-     * @return Formatted prompt string
-     */
+
     private String buildNavigationPrompt(List<String> detectedObjects, String userQuestion) {
 
-        // Format objects list
         String objectsList;
         if (detectedObjects == null || detectedObjects.isEmpty()) {
             objectsList = "No obstacles detected in immediate vicinity";
@@ -299,7 +214,6 @@ public class GeminiService {
             objectsList = String.join(", ", detectedObjects);
         }
 
-        // Build comprehensive prompt with clear instructions
         return "You are an AI navigation assistant for visually impaired users.\n" +
                 "Speak naturally and concisely. Use simple, clear language.\n\n" +
 
@@ -320,12 +234,6 @@ public class GeminiService {
 
                 "RESPONSE:";
     }
-
-    /**
-     * Check if service is properly initialized
-     *
-     * @return true if API key is set and model is ready
-     */
     public boolean isReady() {
         return geminiApiKey != null &&
                 !geminiApiKey.isEmpty() &&
@@ -333,11 +241,6 @@ public class GeminiService {
                 model != null;
     }
 
-    /**
-     * Get the current API key (for debugging - don't log in production!)
-     *
-     * @return First 10 characters of API key (masked)
-     */
     public String getApiKeyPreview() {
         if (geminiApiKey == null || geminiApiKey.length() < 10) {
             return "NOT_SET";

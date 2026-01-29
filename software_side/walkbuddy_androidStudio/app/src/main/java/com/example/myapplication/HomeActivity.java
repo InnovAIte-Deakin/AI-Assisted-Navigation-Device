@@ -57,40 +57,39 @@ public class HomeActivity extends AppCompatActivity {
         findViewById(R.id.btnAskAssistant).setOnClickListener(v -> {
             Log.d(TAG, "Ask Assistant button clicked - Starting Voice Assistant");
 
-            // Start Voice Assistant Activity with camera and voice
             Intent intent = new Intent(HomeActivity.this, VoiceAssistantActivity.class);
             startActivity(intent);
         });
 
 
         findViewById(R.id.cardNavigation).setOnClickListener(v -> {
-            // Immediate refresh when user taps Navigation
+
             requestSingleUpdate();
         });
 
-        // Header icon click handlers
+
         findViewById(R.id.btnMicrophone).setOnClickListener(v -> {
-            // Toggle microphone or start voice input
+
             Toast.makeText(this, "Microphone (placeholder)", Toast.LENGTH_SHORT).show();
         });
 
         findViewById(R.id.btnProfile).setOnClickListener(v -> {
-            // Open profile or settings
+
             Toast.makeText(this, "Profile (placeholder)", Toast.LENGTH_SHORT).show();
         });
 
-        // My Current section action buttons
+
         findViewById(R.id.btnStar).setOnClickListener(v -> {
-            // Add current location to favorites
+
             Toast.makeText(this, "Added to favorites", Toast.LENGTH_SHORT).show();
         });
 
         findViewById(R.id.btnShare).setOnClickListener(v -> {
-            // Share current location
+
             Toast.makeText(this, "Share location (placeholder)", Toast.LENGTH_SHORT).show();
         });
 
-        // Action grid click handlers
+
         findViewById(R.id.cardSaved).setOnClickListener(v -> {
             Toast.makeText(this, "Saved locations (placeholder)", Toast.LENGTH_SHORT).show();
         });
@@ -106,9 +105,9 @@ public class HomeActivity extends AppCompatActivity {
 
         ensureLocationPermissionThenStart();
 
-        // Bottom bar click handlers
+
         findViewById(R.id.btnBottomHome).setOnClickListener(v -> {
-            // Already on home, just show feedback
+
             Toast.makeText(this, "Home", Toast.LENGTH_SHORT).show();
         });
         
@@ -130,7 +129,7 @@ public class HomeActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
             return;
         }
-        // Start periodic updates and attempt an immediate fetch
+
         startLocationUpdates();
         requestSingleUpdate();
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||

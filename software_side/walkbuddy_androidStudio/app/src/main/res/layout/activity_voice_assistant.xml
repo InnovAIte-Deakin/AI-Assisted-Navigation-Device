@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="#1a1a1a">
 
-    <!-- Camera Preview (Full Screen) -->
+
     <androidx.camera.view.PreviewView
         android:id="@+id/cameraPreview"
         android:layout_width="0dp"
@@ -16,7 +16,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Detection Overlay -->
+
     <com.example.myapplication.DetectionOverlay
         android:id="@+id/detectionOverlay"
         android:layout_width="0dp"
@@ -26,7 +26,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Top Controls -->
+
     <LinearLayout
         android:id="@+id/overlayControls"
         android:layout_width="0dp"
@@ -38,14 +38,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Header Bar -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <!-- Back Button - FIXED -->
+
             <ImageView
                 android:id="@+id/btnBack"
                 android:layout_width="48dp"
@@ -56,7 +56,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 app:tint="#FFC107" />
 
-            <!-- Title -->
+
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -67,13 +67,13 @@
                 android:textStyle="bold"
                 android:gravity="center" />
 
-            <!-- Spacer -->
+
             <View
                 android:layout_width="48dp"
                 android:layout_height="48dp" />
         </LinearLayout>
 
-        <!-- Status -->
+
         <TextView
             android:id="@+id/txtStatus"
             android:layout_width="match_parent"
@@ -84,7 +84,7 @@
             android:textSize="14sp"
             android:gravity="center" />
 
-        <!-- Detected Objects -->
+
         <TextView
             android:id="@+id/txtDetectedObjects"
             android:layout_width="match_parent"
@@ -96,7 +96,7 @@
             android:gravity="center" />
     </LinearLayout>
 
-    <!-- Microphone Button -->
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/btnMicrophone"
         android:layout_width="wrap_content"
@@ -110,7 +110,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Instructions -->
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

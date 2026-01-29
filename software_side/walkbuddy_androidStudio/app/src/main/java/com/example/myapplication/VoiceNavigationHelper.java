@@ -15,31 +15,7 @@ import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Helper class to manage voice navigation functionality
- * Integrates Speech Recognition → YOLO Detection → Gemini LLM → TTS pipeline
- *
- * COMPLETE PIPELINE:
- * 1. User taps microphone button
- * 2. Speech-to-Text captures question
- * 3. YOLO captures detected objects
- * 4. Gemini AI processes question + objects
- * 5. TTS speaks response at MAXIMUM volume
- *
- * Features:
- * - Automatic permission handling
- * - Maximum volume TTS output
- * - YOLO detection integration
- * - Error handling and user feedback
- * - Resource management
- *
- * Usage:
- * VoiceNavigationHelper helper = new VoiceNavigationHelper(activity);
- * helper.setDetectionProvider(() -> getYOLODetections());
- * helper.setTTSAnnouncer(ttsAnnouncer);
- * helper.initialize();
- * helper.startVoiceInteraction();
- */
+
 public class VoiceNavigationHelper {
 
     private static final String TAG = "VoiceNavHelper";
@@ -60,24 +36,15 @@ public class VoiceNavigationHelper {
     private int originalVolume = 0;
     private String lastResponse = "";
 
-    /**
-     * Interface for providing YOLO detections
-     */
+
     public interface DetectionProvider {
-        /**
-         * Get current YOLO detections
-         * @return List of detected object class names (e.g., ["table", "chair"])
-         */
+
         List<String> getCurrentDetections();
     }
 
     private DetectionProvider detectionProvider;
 
-    /**
-     * Constructor
-     *
-     * @param activity The activity using voice navigation
-     */
+
     public VoiceNavigationHelper(Activity activity) {
         if (activity == null) {
             throw new IllegalArgumentException("Activity cannot be null");
@@ -90,39 +57,22 @@ public class VoiceNavigationHelper {
         Log.d(TAG, "VoiceNavigationHelper created");
     }
 
-    /**
-     * Set the detection provider (for YOLO integration)
-     *
-     * @param provider Callback to get current YOLO detections
-     *
-     * Example:
-     * helper.setDetectionProvider(() -> {
-     *     return Arrays.asList("table", "chair", "monitor");
-     * });
-     */
+
     public void setDetectionProvider(DetectionProvider provider) {
         this.detectionProvider = provider;
         Log.d(TAG, "Detection provider set");
     }
 
-    /**
-     * Set TTS announcer (optional - reuse existing one)
-     *
-     * @param announcer Existing TTSAnnouncer instance
-     */
+
     public void setTTSAnnouncer(TTSAnnouncer announcer) {
         this.ttsAnnouncer = announcer;
         Log.d(TAG, "TTS announcer set externally");
     }
 
-    /**
-     * Initialize all services
-     * Call this after setting providers and before startVoiceInteraction()
-     */
+
     public void initialize() {
         Log.d(TAG, "Initializing voice navigation services");
 
-        // Check permissions first
         if (!checkPermissions()) {
             Log.w(TAG, "Permissions not granted, requesting...");
             requestPermissions();
@@ -132,14 +82,11 @@ public class VoiceNavigationHelper {
         initializeServices();
     }
 
-    /**
-     * Initialize services after permissions granted
-     */
+
     private void initializeServices() {
         Log.d(TAG, "Initializing services with permissions granted");
 
         try {
-            // Initialize TTS (create new if not provided)
             if (ttsAnnouncer == null) {
                 ttsAnnouncer = new TTSAnnouncer(activity);
                 Log.d(TAG, "TTS initialized (new instance)");
@@ -147,10 +94,8 @@ public class VoiceNavigationHelper {
                 Log.d(TAG, "TTS initialized (existing instance)");
             }
 
-            // Initialize Gemini Service
             geminiService = new GeminiService(activity);
 
-            // Verify API key is set
             if (!geminiService.isReady()) {
                 Log.e(TAG, "Gemini service not ready - API key: " + geminiService.getApiKeyPreview());
                 showToast("Please set your Gemini API key in strings.xml");
@@ -159,7 +104,7 @@ public class VoiceNavigationHelper {
 
             Log.d(TAG, "Gemini service initialized - API key: " + geminiService.getApiKeyPreview());
 
-            // Initialize Speech Recognition
+
             speechService = new SpeechRecognitionService(activity, speechCallback);
             speechService.initialize();
             Log.d(TAG, "Speech recognition initialized");
@@ -176,10 +121,7 @@ public class VoiceNavigationHelper {
         }
     }
 
-    /**
-     * Start voice interaction pipeline
-     * This is called when user taps the microphone button
-     */
+
     public void startVoiceInteraction() {
         Log.d(TAG, "startVoiceInteraction() called");
 
@@ -190,18 +132,18 @@ public class VoiceNavigationHelper {
             return;
         }
 
-        // Check if initialized
+
         if (!isInitialized) {
             Log.w(TAG, "Services not initialized");
             showToast("Initializing voice navigation...");
             initialize();
 
-            // Try again after a short delay
+
             mainHandler.postDelayed(this::startVoiceInteraction, 2000);
             return;
         }
 
-        // Check permissions
+
         if (!checkPermissions()) {
             Log.w(TAG, "Permissions not granted");
             requestPermissions();
@@ -227,9 +169,7 @@ public class VoiceNavigationHelper {
         }, 1500);
     }
 
-    /**
-     * Stop current interaction
-     */
+
     public void stopInteraction() {
         Log.d(TAG, "Stopping interaction");
 
@@ -241,9 +181,7 @@ public class VoiceNavigationHelper {
         restoreVolume();
     }
 
-    /**
-     * Repeat last response
-     */
+
     public void repeatLastResponse() {
         if (lastResponse != null && !lastResponse.isEmpty()) {
             Log.d(TAG, "Repeating last response: " + lastResponse);
@@ -254,9 +192,7 @@ public class VoiceNavigationHelper {
         }
     }
 
-    /**
-     * Check required permissions
-     */
+
     private boolean checkPermissions() {
         String[] requiredPermissions = {
                 Manifest.permission.RECORD_AUDIO,
@@ -274,9 +210,7 @@ public class VoiceNavigationHelper {
         return true;
     }
 
-    /**
-     * Request required permissions
-     */
+
     private void requestPermissions() {
         String[] permissions = {
                 Manifest.permission.RECORD_AUDIO,
@@ -287,13 +221,7 @@ public class VoiceNavigationHelper {
         Log.d(TAG, "Requested permissions");
     }
 
-    /**
-     * Handle permission result
-     * Call this from your Activity's onRequestPermissionsResult
-     *
-     * @param requestCode Request code from onRequestPermissionsResult
-     * @param grantResults Grant results array
-     */
+
     public void onPermissionResult(int requestCode, int[] grantResults) {
         if (requestCode == REQUEST_PERMISSIONS) {
             boolean allGranted = true;
@@ -314,9 +242,7 @@ public class VoiceNavigationHelper {
         }
     }
 
-    /**
-     * Speech recognition callbacks
-     */
+
     private final SpeechRecognitionService.SpeechRecognitionCallback speechCallback =
             new SpeechRecognitionService.SpeechRecognitionCallback() {
 
@@ -341,12 +267,10 @@ public class VoiceNavigationHelper {
                         showToast("You said: " + text);
                     });
 
-                    // STEP 3: Get current YOLO detections
                     List<String> detectedObjects = getCurrentYOLODetections();
 
                     Log.d(TAG, "Detected objects: " + detectedObjects);
 
-                    // STEP 4: Send to Gemini LLM
                     processWithGemini(text, detectedObjects);
                 }
 
@@ -366,9 +290,7 @@ public class VoiceNavigationHelper {
                 }
             };
 
-    /**
-     * Get current YOLO detections
-     */
+
     private List<String> getCurrentYOLODetections() {
         if (detectionProvider != null) {
             try {
@@ -380,14 +302,11 @@ public class VoiceNavigationHelper {
             }
         }
 
-        // Fallback: return empty list
         Log.w(TAG, "No detection provider set, returning empty list");
         return new ArrayList<>();
     }
 
-    /**
-     * STEP 4: Process with Gemini LLM
-     */
+
     private void processWithGemini(String userQuestion, List<String> detectedObjects) {
         Log.d(TAG, "Processing with Gemini - Question: " + userQuestion +
                 ", Objects: " + detectedObjects);
@@ -411,10 +330,8 @@ public class VoiceNavigationHelper {
                     public void onSuccess(String response) {
                         Log.d(TAG, "Gemini response: " + response);
 
-                        // Store for repeat functionality
                         lastResponse = response;
 
-                        // STEP 5-6: Speak response at MAXIMUM volume
                         speakLoudly(response);
 
                         isProcessing = false;
@@ -436,9 +353,7 @@ public class VoiceNavigationHelper {
         );
     }
 
-    /**
-     * STEP 6: Speak at MAXIMUM volume
-     */
+
     private void speakLoudly(String text) {
         if (ttsAnnouncer == null) {
             Log.e(TAG, "TTS not available");
@@ -448,30 +363,23 @@ public class VoiceNavigationHelper {
 
         Log.d(TAG, "Speaking at maximum volume: " + text);
 
-        // Save current volume
         originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
 
-        // Set to MAXIMUM volume
         int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0);
 
         Log.d(TAG, "Volume set to maximum: " + maxVolume + " (was " + originalVolume + ")");
 
-        // Speak the text
         ttsAnnouncer.speak(text);
 
-        // Restore volume after 5 seconds
         mainHandler.postDelayed(this::restoreVolume, 5000);
 
-        // Also show in UI
         mainHandler.post(() -> {
             showToast(text);
         });
     }
 
-    /**
-     * Restore original volume
-     */
+
     private void restoreVolume() {
         if (audioManager != null && originalVolume > 0) {
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0);
@@ -480,18 +388,13 @@ public class VoiceNavigationHelper {
         }
     }
 
-    /**
-     * Show toast on main thread
-     */
     private void showToast(String message) {
         mainHandler.post(() -> {
             Toast.makeText(activity, message, Toast.LENGTH_SHORT).show();
         });
     }
 
-    /**
-     * Check if voice navigation is ready
-     */
+
     public boolean isReady() {
         return isInitialized &&
                 geminiService != null &&
@@ -500,24 +403,17 @@ public class VoiceNavigationHelper {
                 ttsAnnouncer != null;
     }
 
-    /**
-     * Check if currently processing a request
-     */
+
     public boolean isProcessing() {
         return isProcessing;
     }
 
-    /**
-     * Get last response (for debugging or repeat functionality)
-     */
+
     public String getLastResponse() {
         return lastResponse;
     }
 
-    /**
-     * Release resources
-     * Call this in your Activity's onDestroy()
-     */
+
     public void release() {
         Log.d(TAG, "Releasing resources");
 
@@ -528,11 +424,8 @@ public class VoiceNavigationHelper {
 
         restoreVolume();
 
-        // Don't shutdown TTS if it was provided externally
-        // The activity will handle that
         if (ttsAnnouncer != null) {
-            // Only shutdown if we created it
-            // ttsAnnouncer.shutdown();
+
         }
 
         geminiService = null;
