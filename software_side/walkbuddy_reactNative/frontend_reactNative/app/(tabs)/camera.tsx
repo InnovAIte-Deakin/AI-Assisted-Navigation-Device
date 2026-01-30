@@ -1,14 +1,20 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Dimensions,
   Platform,
   Pressable,
   StyleSheet,
- Text,
+  Text,
   View,
   LayoutChangeEvent,
 } from "react-native";
@@ -406,7 +412,8 @@ export default function CameraAssistScreen() {
       }
 
       const formData = await buildImageFormData(photo.uri);
-      const endpoint = myMode === "ocr" ? `${API_BASE}/ocr` : `${API_BASE}/vision`;
+      const endpoint =
+        myMode === "ocr" ? `${API_BASE}/ocr` : `${API_BASE}/vision`;
 
       timeoutId = setTimeout(() => controller.abort(), AUTO_SCAN_TIMEOUT_MS);
 
@@ -469,6 +476,20 @@ export default function CameraAssistScreen() {
       captureAndDetect();
     };
   }, [captureAndDetect]);
+
+  const manualOCRScan = useCallback(async () => {
+    // 1. Give haptic feedback
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // 2. Stop the auto-loop so it doesn't interfere
+    stopScanLoop();
+
+    // 3. Trigger a single detection
+    await captureAndDetect();
+
+    // 4. Optionally restart loop or stay static
+    console.log("Manual OCR Scan Complete");
+  }, [captureAndDetect, stopScanLoop]);
 
   // ---- scan loop ----
   useEffect(() => {
@@ -703,9 +724,34 @@ export default function CameraAssistScreen() {
       {/* OCR panel */}
       {camMode === "ocr" && (
         <View style={styles.ocrPanel}>
-          <Text style={styles.ocrTitle}>Detected text</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text style={styles.ocrTitle}>Detected text</Text>
+
+            {/* NEW MANUAL SCAN BUTTON */}
+            <Pressable
+              onPress={manualOCRScan}
+              style={({ pressed }) => [
+                {
+                  backgroundColor: pressed ? "#fff" : GOLD,
+                  padding: 8,
+                  borderRadius: 8,
+                },
+              ]}
+            >
+              <MaterialIcons name="camera-alt" size={20} color="#1B263B" />
+            </Pressable>
+          </View>
+
           {detections.length === 0 ? (
-            <Text style={styles.ocrEmpty}>No text yet</Text>
+            <Text style={styles.ocrEmpty}>
+              No text yet. Tap camera to scan.
+            </Text>
           ) : (
             <View style={styles.ocrOneBox}>
               <Text style={styles.ocrBlock}>{ocrText || "—"}</Text>
