@@ -39,8 +39,9 @@ public class HomeActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedClient;
     private LocationCallback locationCallback;
     private TTSAnnouncer announcer;
-    private TextView addressText;
+
     private Handler handler;
+    private TextView addressText;
     private long currentInterval = INTERVAL_NORMAL_MS;
 
     @Override
@@ -55,7 +56,7 @@ public class HomeActivity extends AppCompatActivity {
         addressText = findViewById(R.id.txtAddress);
 
         findViewById(R.id.btnAskAssistant).setOnClickListener(v -> {
-            Log.d(TAG, "Ask Assistant button clicked - Starting Voice Assistant");
+            Log.d(TAG, "Ask Assistant button clicked  Starting Voice Assistant ");
 
             Intent intent = new Intent(HomeActivity.this, VoiceAssistantActivity.class);
             startActivity(intent);
