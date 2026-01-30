@@ -247,6 +247,7 @@ public class GeminiService {
     public boolean isReady() {
         return geminiApiKey != null &&
                 !geminiApiKey.isEmpty() &&
+                // GEMINI API KEY
                 !geminiApiKey.equals("AIzaSyD3X-HBNQfn9JrIn7RRHSALMjy2eLUev3E") &&
                 model != null;
     }
