@@ -158,14 +158,16 @@ public class GeminiService {
 
     public void describeEnvironment(List<String> detectedObjects, GeminiCallback callback) {
 
-        if (callback == null) {
-            Log.e(TAG, "Callback cannot be null");
-            return;
-        }
+
 
         if (detectedObjects == null || detectedObjects.isEmpty()) {
             Log.d(TAG, "No objects to describe");
             callback.onSuccess("I don't detect any objects in your immediate surroundings.");
+            return;
+        }
+
+        if (callback == null) {
+            Log.e(TAG, "Callback cannot be null");
             return;
         }
 
@@ -234,12 +236,6 @@ public class GeminiService {
 
                 "RESPONSE:";
     }
-    public boolean isReady() {
-        return geminiApiKey != null &&
-                !geminiApiKey.isEmpty() &&
-                !geminiApiKey.equals("YOUR_API_KEY_HERE") &&
-                model != null;
-    }
 
     public String getApiKeyPreview() {
         if (geminiApiKey == null || geminiApiKey.length() < 10) {
@@ -247,4 +243,12 @@ public class GeminiService {
         }
         return geminiApiKey.substring(0, 10) + "...";
     }
+    public boolean isReady() {
+        return geminiApiKey != null &&
+                !geminiApiKey.isEmpty() &&
+                !geminiApiKey.equals("YOUR_API_KEY_HERE") &&
+                model != null;
+    }
+
+
 }

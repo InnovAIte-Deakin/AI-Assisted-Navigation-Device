@@ -58,15 +58,15 @@ public class VoiceNavigationHelper {
     }
 
 
-    public void setDetectionProvider(DetectionProvider provider) {
-        this.detectionProvider = provider;
-        Log.d(TAG, "Detection provider set");
-    }
-
-
     public void setTTSAnnouncer(TTSAnnouncer announcer) {
         this.ttsAnnouncer = announcer;
         Log.d(TAG, "TTS announcer set externally");
+    }
+
+
+    public void setDetectionProvider(DetectionProvider provider) {
+        this.detectionProvider = provider;
+        Log.d(TAG, "Detection provider set");
     }
 
 
@@ -83,43 +83,6 @@ public class VoiceNavigationHelper {
     }
 
 
-    private void initializeServices() {
-        Log.d(TAG, "Initializing services with permissions granted");
-
-        try {
-            if (ttsAnnouncer == null) {
-                ttsAnnouncer = new TTSAnnouncer(activity);
-                Log.d(TAG, "TTS initialized (new instance)");
-            } else {
-                Log.d(TAG, "TTS initialized (existing instance)");
-            }
-
-            geminiService = new GeminiService(activity);
-
-            if (!geminiService.isReady()) {
-                Log.e(TAG, "Gemini service not ready - API key: " + geminiService.getApiKeyPreview());
-                showToast("Please set your Gemini API key in strings.xml");
-                return;
-            }
-
-            Log.d(TAG, "Gemini service initialized - API key: " + geminiService.getApiKeyPreview());
-
-
-            speechService = new SpeechRecognitionService(activity, speechCallback);
-            speechService.initialize();
-            Log.d(TAG, "Speech recognition initialized");
-
-            isInitialized = true;
-            Log.d(TAG, "All services initialized successfully");
-
-            showToast("Voice navigation ready");
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error initializing services", e);
-            showToast("Error initializing voice navigation: " + e.getMessage());
-            isInitialized = false;
-        }
-    }
 
 
     public void startVoiceInteraction() {
@@ -168,6 +131,55 @@ public class VoiceNavigationHelper {
             }
         }, 1500);
     }
+    private void initializeServices() {
+        Log.d(TAG, "Initializing services with permissions granted");
+
+        try {
+            if (ttsAnnouncer == null) {
+                ttsAnnouncer = new TTSAnnouncer(activity);
+                Log.d(TAG, "TTS initialized (new instance)");
+            } else {
+                Log.d(TAG, "TTS initialized (existing instance)");
+            }
+
+            geminiService = new GeminiService(activity);
+
+            if (!geminiService.isReady()) {
+                Log.e(TAG, "Gemini service not ready - API key: " + geminiService.getApiKeyPreview());
+                showToast("Please set your Gemini API key in strings.xml");
+                return;
+            }
+
+            Log.d(TAG, "Gemini service initialized - API key: " + geminiService.getApiKeyPreview());
+
+
+            speechService = new SpeechRecognitionService(activity, speechCallback);
+            speechService.initialize();
+            Log.d(TAG, "Speech recognition initialized");
+
+            isInitialized = true;
+            Log.d(TAG, "All services initialized successfully");
+
+            showToast("Voice navigation ready");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing services", e);
+            showToast("Error initializing voice navigation: " + e.getMessage());
+            isInitialized = false;
+        }
+    }
+
+
+
+    public void repeatLastResponse() {
+        if (lastResponse != null && !lastResponse.isEmpty()) {
+            Log.d(TAG, "Repeating last response: " + lastResponse);
+            speakLoudly(lastResponse);
+        } else {
+            Log.d(TAG, "No previous response to repeat");
+            showToast("No previous response");
+        }
+    }
 
 
     public void stopInteraction() {
@@ -179,17 +191,6 @@ public class VoiceNavigationHelper {
 
         isProcessing = false;
         restoreVolume();
-    }
-
-
-    public void repeatLastResponse() {
-        if (lastResponse != null && !lastResponse.isEmpty()) {
-            Log.d(TAG, "Repeating last response: " + lastResponse);
-            speakLoudly(lastResponse);
-        } else {
-            Log.d(TAG, "No previous response to repeat");
-            showToast("No previous response");
-        }
     }
 
 

@@ -142,7 +142,7 @@ public class VoiceAssistantActivity extends AppCompatActivity {
 
         // Initialize
         voiceHelper.initialize();
-        Log.d(TAG, "Voice navigation initialized");
+        Log.d(TAG, " Voice navigation initialized");
     }
 
     private void loadMLModel() {
@@ -160,13 +160,13 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             mlModel = LiteModuleLoader.load(modelPath);
             mlModelLoaded = true;
 
-            Log.d(TAG, "YOLO model loaded successfully");
-            announcer.speak("Object detection model loaded");
+            Log.d(TAG, "YOLO model loaded successfully ");
+            announcer.speak("Object detection model loaded ");
 
         } catch (Exception e) {
             Log.e(TAG, "Error loading YOLO model", e);
             mlModelLoaded = false;
-            announcer.speak("Running in simulation mode");
+            announcer.speak("Running in simulation mode ");
         }
     }
 
