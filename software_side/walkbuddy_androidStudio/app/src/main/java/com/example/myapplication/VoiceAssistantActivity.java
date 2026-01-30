@@ -140,7 +140,7 @@ public class VoiceAssistantActivity extends AppCompatActivity {
             }
         });
 
-        // Initialize
+
         voiceHelper.initialize();
         Log.d(TAG, " Voice navigation initialized");
     }

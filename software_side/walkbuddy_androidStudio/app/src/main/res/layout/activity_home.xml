@@ -25,7 +25,6 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="12dp"
         android:contentDescription="@string/microphone"
-
         android:padding="8dp"
         android:src="@drawable/ic_microphone"
         app:layout_constraintStart_toStartOf="parent"
@@ -38,7 +37,6 @@
         android:layout_marginTop="16dp"
         android:text="@string/home_title"
         android:textColor="@color/accent_amber"
-
         android:textSize="24sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -53,7 +51,6 @@
         android:layout_marginTop="12dp"
         android:layout_marginEnd="12dp"
         android:contentDescription="@string/profile"
-
         android:padding="8dp"
         android:src="@drawable/ic_person"
         app:layout_constraintEnd_toEndOf="parent"
@@ -77,7 +74,6 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="8dp"
-
         android:gravity="center"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="@id/dividerHeader"
@@ -95,7 +91,6 @@
         android:layout_marginStart="16dp"
         android:layout_marginTop="10dp"
         android:text="@string/home_my_current"
-
         android:textColor="@color/accent_amber"
         android:textSize="30sp"
         android:textStyle="bold"

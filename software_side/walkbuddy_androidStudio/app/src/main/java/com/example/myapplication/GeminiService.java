@@ -205,6 +205,12 @@ public class GeminiService {
             }
         }, executor);
     }
+    public String getApiKeyPreview() {
+        if (geminiApiKey == null || geminiApiKey.length() < 10) {
+            return "NOT_SET";
+        }
+        return geminiApiKey.substring(0, 10) + "...";
+    }
 
 
     private String buildNavigationPrompt(List<String> detectedObjects, String userQuestion) {
@@ -237,16 +243,11 @@ public class GeminiService {
                 "RESPONSE:";
     }
 
-    public String getApiKeyPreview() {
-        if (geminiApiKey == null || geminiApiKey.length() < 10) {
-            return "NOT_SET";
-        }
-        return geminiApiKey.substring(0, 10) + "...";
-    }
+
     public boolean isReady() {
         return geminiApiKey != null &&
                 !geminiApiKey.isEmpty() &&
-                !geminiApiKey.equals("YOUR_API_KEY_HERE") &&
+                !geminiApiKey.equals("AIzaSyD3X-HBNQfn9JrIn7RRHSALMjy2eLUev3E") &&
                 model != null;
     }
 

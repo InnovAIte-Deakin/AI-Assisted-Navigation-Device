@@ -14,8 +14,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
 
+        // Add ABI filters for PyTorch support
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
@@ -38,6 +38,12 @@ android {
     packaging {
         jniLibs {
             pickFirsts += listOf(
+                "**/libc++_shared.so",
+                "**/libfbjni.so",
+                "**/libpytorch_jni.so",
+                "**/libpytorch_jni_lite.so",
+                "**/libpytorch_vision_jni.so",
+                "**/libimage_processing_util_jni.so"
             )
         }
     }
