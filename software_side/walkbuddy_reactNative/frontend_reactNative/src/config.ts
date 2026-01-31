@@ -1,10 +1,11 @@
-// frontend_reactNative/src/config.ts
 import Constants from "expo-constants";
 
-type Extra = {
-  apiBaseUrl?: string;
-};
+const extra = (Constants.expoConfig?.extra ?? {}) as any;
 
-const extra = (Constants.expoConfig?.extra || {}) as Extra;
+// IMPORTANT: phones cannot access localhost on your laptop
+const defaultApiBase =
+  extra.apiBaseUrl ??
+  (process.env.EXPO_PUBLIC_API_BASE as string) ??
+  "http://172.20.10.2:8000";
 
-export const API_BASE = extra.apiBaseUrl ?? "http://localhost:8000";
+export const API_BASE = defaultApiBase;

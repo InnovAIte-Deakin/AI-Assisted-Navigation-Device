@@ -123,7 +123,7 @@ def build_yolo_app():
     with gr.Blocks() as demo:
         gr.Markdown("## YOLOv8 Webcam with TTS")
 
-        cam = gr.Image(source="webcam", streaming=True, type="numpy")
+        cam = gr.Image( sources=["webcam"], streaming=True, type="numpy")
         out_img = gr.Image()
         out_audio = gr.Audio(type="filepath", autoplay=True)
         state = gr.State(init_state())
