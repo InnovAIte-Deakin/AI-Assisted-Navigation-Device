@@ -1,5 +1,92 @@
-# AI Assisted Navigation Device
 
+# AI Assisted Navigation Device as of Feb 2026
+
+## Project Overview
+This project aims to develop an AI-assisted navigation system to support visually impaired users, with a focus on complex indoor environments (e.g., university campuses). The prototype combines fast, sensor-driven (via phone tech) obstacle awareness with camera/ML-driven scene understanding (object and text recognition), so guidance can be both immediate (safety) and contextual (navigation meaning).
+
+We treat privacy as a core requirement. The intent is to minimise data collection and avoid unnecessary retention, with a preference for on-device or local processing wherever practical.
+
+## Repository Structure (main branch)
+Top-level folders on the `main` branch:
+
+### `Hardware_side/`
+Hardware and embedded work for the physical device/sensor stack.
+- Microcontroller code
+- Wiring / BOM references
+- Sensor integration notes
+
+### `ML_side/`
+Machine learning and vision/NLP work used by the system.
+- Model experiments and training artefacts
+- Inference tooling and integration helpers
+- Anything related to object detection / OCR / LLM usage for the prototype
+
+Important: large model binaries must not be committed to git (see “Model files policy” below).
+
+### `software_side/`
+The software application layer that integrates components and delivers the end-user experience.
+- Frontend/mobile/web app code
+- Backend/services (where applicable)
+- Integration glue between hardware + ML outputs
+
+### `Documentation_side/`
+Project documentation and deliverables.
+- Proposals, reports, meeting notes
+- Architecture diagrams / specs
+- Research notes and references
+
+## Model files policy (do not commit)
+Do not commit large model files or local adapters to the repository.
+
+Examples of files that should stay local:
+- `.gguf` model binaries
+- local adapter folders
+- large checkpoints / datasets
+
+If you see these appearing under “Untracked files” in `git status`, add ignore rules and keep them on disk only.
+
+Suggested `.gitignore` entries (adjust paths to match your local layout):
+- `**/*.gguf`
+- `**/models/`
+- `**/adapters/`
+
+## Collaboration Guidelines (fork workflow)
+We use a fork-based workflow:
+
+- `origin` → your personal fork (where you push branches)
+- `upstream` → the group repository (where PRs are merged)
+
+### One-time setup
+Clone your fork, then add upstream:
+
+- `git clone <your-fork-url>`
+- `cd AI-Assisted-Navigation-Device`
+- `git remote add upstream https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device.git`
+- `git remote -v`
+
+### Day-to-day workflow (development work)
+- Sync your local `development` with upstream:
+  - `git checkout development`
+  - `git fetch upstream`
+  - `git merge upstream/development`
+- Create a feature branch from `development`:
+  - `git checkout -b <area>-<task>-<name>`
+- Commit changes and push to your fork:
+  - `git push origin <your-branch>`
+- Open a PR into `upstream/development`
+
+### Merging policy
+- Only integration leads merge into:
+  - `development` (after review/approval)
+  - `main` (stable releases only)
+
+
+
+
+
+
+Backup of the Readme Prior to the end of T3 ending in Feb 2026
+________
 ## Project Overview
 This project aims to develop an AI-assisted navigation device for visually impaired individuals, specifically designed for navigating complex indoor environments like university campuses. Our goal is to create a functional proof-of-concept that combines the strengths of sensor technologies for real-time obstacle avoidance with camera-based AI for high-level object and text recognition.
 
