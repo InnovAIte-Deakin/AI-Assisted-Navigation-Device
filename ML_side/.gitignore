@@ -12,7 +12,7 @@ venv/
 
 # Models (keep small ones, ignore large ones)
 *.pt
-!models/object_detection/best.pt
+!models/best.pt
 
 # Data (if too large)
 # data/raw/

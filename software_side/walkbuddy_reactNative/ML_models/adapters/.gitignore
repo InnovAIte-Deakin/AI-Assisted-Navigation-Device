@@ -1,7 +1,0 @@
-# Adapter generated files
-__pycache__/
-*.pyc
-raw_outputs/*.json
-sample_outputs/*.json
-!raw_outputs/.gitkeep
-!sample_outputs/.gitkeep
