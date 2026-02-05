@@ -3,17 +3,7 @@ import requests
 from tqdm import tqdm
 from pathlib import Path
 
-# --- CONFIGURATION ---
-# 1. Get the directory where THIS script is living (backend/slow_lane)
-CURRENT_SCRIPT_DIR = Path(__file__).resolve().parent
-
-# 2. Calculate Project Root
-#    Level 1 up: backend/
-#    Level 2 up: walkbuddy_reactNative/ (Project Root)
-PROJECT_ROOT = CURRENT_SCRIPT_DIR.parents[3] 
-
-# 3. Target Directory: ML_side/models
-#    This places the LLM in the main models folder, near your object_detection folder.
+PROJECT_ROOT = Path(__file__).resolve().parents[3] 
 MODEL_DIR = PROJECT_ROOT / "ML_side" / "models"
 MODEL_FILENAME = "llama-3.2-1b-instruct-q4_k_m.gguf"
 MODEL_PATH = MODEL_DIR / MODEL_FILENAME
@@ -43,9 +33,7 @@ def download_file(url, filename):
     return True
 
 def main():
-    print(f"📍 Script Location: {CURRENT_SCRIPT_DIR}")
-    print(f"📂 Target Model Directory: {MODEL_DIR}")
-    
+
     # Check if the folder exists (create if not)
     if not MODEL_DIR.exists():
         print(f"Creating directory: {MODEL_DIR}")

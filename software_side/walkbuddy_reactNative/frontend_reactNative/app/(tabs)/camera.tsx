@@ -25,7 +25,7 @@ import { getTTSService, RiskLevel } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
 
 // Use your Tunnel URL (easiest for mobile testing right now)
-const API_BASE = "https://acre-eden-distances-audio.trycloudflare.com";
+const API_BASE = "http://localhost:8000";
 
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");

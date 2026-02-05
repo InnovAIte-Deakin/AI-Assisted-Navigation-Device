@@ -4,9 +4,8 @@ from pathlib import Path
 from ultralytics import YOLO
 
 # Load model once globally
-BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent # Adjust based on your structure
-print(BASE_DIR)
-MODEL_PATH = BASE_DIR / "ML_side" / "models" / "object_detection" / "best.pt"
+BASE_DIR = Path(__file__).resolve().parents[4] 
+MODEL_PATH = BASE_DIR / "ML_side" / "models" / "best.pt"
 model_instance = YOLO(str(MODEL_PATH))
 
 def vision_adapter(image_path: str) -> dict:
