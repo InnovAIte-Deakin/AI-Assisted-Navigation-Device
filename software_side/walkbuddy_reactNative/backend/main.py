@@ -7,27 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 
 # 1. SETUP PATHS
-CURRENT_FILE = Path(__file__).resolve()
-BACKEND_DIR = CURRENT_FILE.parent
-PROJECT_ROOT = BACKEND_DIR.parent
-
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parents[3] 
 
 # 2. IMPORTS
-# Core Adapters
-try:
-    from ML_models.adapters.yolo_adapter import vision_adapter
-    from ML_models.adapters.ocr_adapter import ocr_adapter
-    from ML_models.tts_service.message_reasoning import process_adapter_output
-except ImportError as e:
-    print(f"❌ Adapter Import Error: {e}")
+# Core Adapters (vision, ocr, tts)
+from adapters import vision_adapter, ocr_adapter
+from tts_service.message_reasoning import process_adapter_output
 
 # Slow Lane Modules (The "Smart" logic)
-# Ensure 'slow_lane' folder is inside 'backend'
-from slow_lane.slowlanellm import SlowLaneLLM
-from slow_lane.memorybuffer import NavigationMemory
-import slow_lane.safetygate as safetygate
+from slow_lane import SlowLaneLLM, NavigationMemory, safe_or_stop_recommendation
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -72,7 +60,7 @@ async def startup_event():
 
 @app.get("/")
 def root():
-    return {"status": "online", "brain": "Unified Two-Brain"}
+    return {"status": "online", "brain": "Unified Two-Brain (go to /docs)"}
 
 # --- VISION ENDPOINT (Perception + Memory) ---
 @app.post("/vision")
@@ -176,7 +164,7 @@ async def chat_endpoint(query: dict):
 
     # 1. SAFETY GATE
     recent_events = list(memory.buffer)[-10:]
-    hazard_msg = safetygate.safe_or_stop_recommendation(recent_events)
+    hazard_msg = safe_or_stop_recommendation(recent_events)
     if hazard_msg:
          return {"response": hazard_msg}
 
