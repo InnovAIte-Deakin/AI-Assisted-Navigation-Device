@@ -17,42 +17,48 @@ The ML component provides "contextual awareness" for the navigation device by ha
 - **Performance Metrics**: Tracks accuracy with CER, WER, and BLEU scores
 - **Privacy-Focused**: Designed for on-device processing to protect user privacy
 
-
 ## Slow Lane Setup (Two-Brain API)
 
 To run the full Two-Brain API (`/two_brain`, `/reason`), you need the Llama 3.2 1B Instruct GGUF model.
 Since this file is large, it is not included in the git repository.
 
 ### Option 1: Automatic Download (Recommended)
+
 Run the setup script:
+
 ```bash
 python setup_models.py
 ```
 
 ### Option 2: Manual Download
+
 1.  Download `Llama-3.2-1B-Instruct-Q4_K_M.gguf` from [HuggingFace](https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf).
 2.  Place it in: `ML_side/models/llama-3.2-1b-instruct-q4_k_m.gguf`.
 
-
 ## Slow Lane Setup (Two-Brain API)
 
 To run the full Two-Brain API (`/two_brain`, `/reason`), you need the Llama 3.2 1B Instruct GGUF model.
 Since this file is large, it is not included in the git repository.
 
 ### Option 1: Automatic Download (Recommended)
+
 Run the setup script:
+
 ```bash
 python setup_models.py
 ```
 
 ### Option 2: Manual Download
+
 1.  Download `Llama-3.2-1B-Instruct-Q4_K_M.gguf` from [HuggingFace](https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf).
 2.  Place it in: `ML_side/models/llama-3.2-1b-instruct-q4_k_m.gguf`.
 
 ## Dataset
 
 ### Object Classes
+
 The model is trained to detect 7 different object classes:
+
 - `book` - Individual books
 - `books` - Multiple books or book collections
 - `monitor` - Computer monitors and displays
@@ -61,13 +67,15 @@ The model is trained to detect 7 different object classes:
 - `table` - Tables and work surfaces
 - `tv` - Television screens and displays
 - `couch` - Sofa lounges and couches
-  
+
 ### Dataset Structure
+
 - **Training Set**: 3285 images with corresponding YOLO format labels
 - **Validation Set**: 202 images with corresponding YOLO format labels
 - **Combined Dataset**: Merged custom dataset with Roboflow dataset (3285 train, 202 val, 42 test images)
 
 ### Data Format
+
 - **Images**: JPG format, various resolutions
 - **Labels**: YOLO format with normalized coordinates
   - Format: `class_id center_x center_y width height`
@@ -76,6 +84,7 @@ The model is trained to detect 7 different object classes:
 ## Model Architecture
 
 ### YOLO Models Used
+
 1. **YOLOv8s** - Primary model for object detection (heavy augmentation)
 2. **YOLOv8n** - Lightweight model for comparison
 3. **YOLOv11n** - Latest YOLO version
@@ -83,6 +92,7 @@ The model is trained to detect 7 different object classes:
 5. **YOLOv5s** - Small model variant
 
 ### Training Configuration
+
 - **Epochs**: 100-250 (depending on model)
 - **Image Size**: 640x640 pixels
 - **Batch Size**: 16-32
@@ -92,12 +102,14 @@ The model is trained to detect 7 different object classes:
 ## Performance Metrics
 
 ### Best Model Results (YOLOv8s)
+
 - **mAP50**: 0.921 (92.1%)
 - **mAP50-95**: 0.784 (78.4%)
 - **Precision**: 0.986
 - **Recall**: 0.892
 
 ### Per-Class Performance
+
 - **Books**: 77.7% mAP50-95
 - **Monitor**: 88.1% mAP50-95
 - **Office-chair**: 51.1% mAP50-95
@@ -145,18 +157,21 @@ ML_side/
 ## Training Process
 
 ### 1. Data Preparation
+
 - Converted HEIC images to JPG format
 - Split dataset into train/validation/test sets (70%/20%/10%)
 - Merged custom dataset with Roboflow dataset for increased diversity
 - Combined book and books classes for better performance
 
 ### 2. Model Training
+
 - Used transfer learning with pre-trained YOLO models
 - Implemented data augmentation techniques
 - Applied heavy augmentation for improved generalization
 - Monitored training with validation metrics
 
 ### 3. Evaluation
+
 - Generated confusion matrices and precision-recall curves
 - Calculated per-class and overall mAP metrics
 - Tested on validation and test sets
@@ -165,18 +180,21 @@ ML_side/
 ## Real-Time Implementation
 
 ### Object Detection + OCR Integration
+
 - **Dual-mode processing**: Object detection and text recognition simultaneously
 - **EasyOCR integration**: Real-time text extraction from camera feed
 - **Performance metrics**: CER, WER, and BLEU scores for OCR evaluation
 - **Threaded processing**: Non-blocking TTS with queue-based architecture
 
 ### Text-to-Speech Integration
+
 - **Multiple TTS engines**: Google TTS (online) and pyttsx3 (offline)
 - **Confidence thresholds**: Per object class and text confidence filtering
 - **Persistence logic**: Avoids repetitive announcements
 - **Cooldown periods**: Configurable delays between announcements
 
 ### Live Camera Processing
+
 - **Real-time detection**: Object detection and OCR on webcam feed
 - **Visual annotations**: Bounding boxes for both objects and text
 - **Audio feedback**: Spoken descriptions of detected objects and text
@@ -185,12 +203,14 @@ ML_side/
 ## Usage
 
 ### Training a New Model
+
 1. Prepare your dataset in YOLO format
 2. Update `newdata.yaml` with your dataset paths
 3. Run the training cells in `04_training_and_depth_estimation.ipynb`
 4. Monitor training progress and adjust hyperparameters
 
 ### Using the Trained Model
+
 ```python
 from ultralytics import YOLO
 
@@ -205,6 +225,7 @@ results[0].show()
 ```
 
 ### Real-Time Detection with OCR
+
 ```python
 # For live camera detection with both object detection and OCR
 from src.models.object_detector import ObjectDetector
@@ -212,7 +233,7 @@ from src.models.text_recognizer import TextRecognizer
 from src.audio.tts_engine import TTSEngine
 
 # Initialize components
-detector = ObjectDetector('models/object_detection/best.pt')
+detector = ObjectDetector('models/best.pt')
 ocr = TextRecognizer(['en'])
 tts = TTSEngine()
 
@@ -221,6 +242,7 @@ tts = TTSEngine()
 ```
 
 ### OCR-Only Mode
+
 ```python
 # For text recognition only
 import cv2
@@ -238,6 +260,7 @@ while True:
 ## Technical Requirements
 
 ### Core Dependencies
+
 - Python 3.8+
 - PyTorch
 - Ultralytics YOLO
@@ -246,11 +269,13 @@ while True:
 - Pillow (for image processing)
 
 ### Audio Processing
+
 - pyttsx3 (offline TTS)
 - Google Text-to-Speech (gTTS) - optional
 - jiwer (OCR metrics)
 
 ### Additional Libraries
+
 - NLTK (BLEU scoring)
 - Gradio (for web interface)
 - NumPy, Pandas (data processing)
@@ -258,12 +283,14 @@ while True:
 ## Privacy and Ethics
 
 This implementation is designed with privacy in mind:
+
 - **On-device processing**: All inference runs locally
 - **No data transmission**: Images are not sent to external servers
 - **Local storage**: Model weights and data remain on the device
 - **User control**: Users can disable features or adjust sensitivity
 
 ## Future Improvements
+
 - [ ] Add support for more object classes
 - [ ] Optimize model for mobile deployment
 - [ ] Add support for depth estimation
@@ -277,6 +304,7 @@ This implementation is designed with privacy in mind:
 ## Contributing
 
 When contributing to this ML component:
+
 1. Follow the existing code structure and naming conventions
 2. Add appropriate documentation for new features
 3. Test changes with the validation dataset

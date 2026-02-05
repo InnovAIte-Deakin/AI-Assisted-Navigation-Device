@@ -17,7 +17,7 @@ from slow_lane import safetygate
 app = FastAPI(title="AIAND Two-Brain API", description="Fast Lane (YOLO) + Slow Lane (LLM) Service")
 
 # --- Configuration ---
-YOLO_MODEL_PATH = "models/object_detection/best.pt"
+YOLO_MODEL_PATH = "models/best.pt"
 LLM_MODEL_PATH = "models/llama-3.2-1b-instruct-q4_k_m.gguf"
 
 # --- Global State ---
