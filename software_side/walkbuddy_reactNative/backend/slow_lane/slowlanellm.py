@@ -1,5 +1,5 @@
 from llama_cpp import Llama
-from .prompts import build_prompt
+from slow_lane.prompts import build_prompt
 
 
 class SlowLaneLLM:
