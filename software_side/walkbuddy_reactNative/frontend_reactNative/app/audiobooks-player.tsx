@@ -20,7 +20,7 @@ import * as Speech from "expo-speech";
 // import { API_BASE } from "@/src/config";
 import { addToHistory } from "@/src/utils/audiobookStorage";
 import { speakWeb, stopWebSpeech } from "@/src/utils/webTTS";
-const API_BASE = "http://127.0.0.1:8003";
+const API_BASE = "http://127.0.0.1:8000";
 
 interface Chapter {
   id: string;

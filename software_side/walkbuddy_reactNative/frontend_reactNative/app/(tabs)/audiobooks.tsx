@@ -16,11 +16,21 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // import { API_BASE } from "@/src/config";
-import { addFavorite, removeFavorite, addToListenLater, removeFromListenLater, getFavorites, getListenLater } from "@/src/utils/audiobookStorage";
-import FilterBar, { FilterOptions, ActiveFilters } from "@/components/FilterBar";
+import {
+  addFavorite,
+  removeFavorite,
+  addToListenLater,
+  removeFromListenLater,
+  getFavorites,
+  getListenLater,
+} from "@/src/utils/audiobookStorage";
+import FilterBar, {
+  FilterOptions,
+  ActiveFilters,
+} from "@/components/FilterBar";
 import FilterModal from "@/components/FilterModal";
 import UserGuideModal from "@/components/UserGuideModal";
-const API_BASE = "http://127.0.0.1:8003";
+const API_BASE = "http://127.0.0.1:8000";
 
 // Debounce hook
 function useDebouncedValue<T>(value: T, delay: number = 500): T {
@@ -64,29 +74,39 @@ export default function AudiobooksScreen() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [listenLaterIds, setListenLaterIds] = useState<Set<string>>(new Set());
   const [showMenu, setShowMenu] = useState(false);
-  const [failedCoverUrls, setFailedCoverUrls] = useState<Set<string>>(new Set());
-  const [openLibraryCovers, setOpenLibraryCovers] = useState<Map<string, string>>(new Map()); // bookId -> coverUrl
-  const [loadingOpenLibraryCovers, setLoadingOpenLibraryCovers] = useState<Set<string>>(new Set()); // bookId
-  
+  const [failedCoverUrls, setFailedCoverUrls] = useState<Set<string>>(
+    new Set(),
+  );
+  const [openLibraryCovers, setOpenLibraryCovers] = useState<
+    Map<string, string>
+  >(new Map()); // bookId -> coverUrl
+  const [loadingOpenLibraryCovers, setLoadingOpenLibraryCovers] = useState<
+    Set<string>
+  >(new Set()); // bookId
+
   // Filter state
-  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(
+    null,
+  );
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [currentFilterType, setCurrentFilterType] = useState<"language" | "genre" | "duration" | "sort" | null>(null);
-  
+  const [currentFilterType, setCurrentFilterType] = useState<
+    "language" | "genre" | "duration" | "sort" | null
+  >(null);
+
   // Voice input state
   const [isListening, setIsListening] = useState(false);
   const [sttAvailable, setSttAvailable] = useState(false);
   const recognitionRef = useRef<any>(null);
-  
+
   // User guide state
   const [showUserGuide, setShowUserGuide] = useState(false);
   const [showAsFirstTime, setShowAsFirstTime] = useState(false);
-  
+
   // Debounce search query (500ms delay)
   const debouncedQuery = useDebouncedValue(query, 500);
-  
+
   // AbortController ref for canceling requests
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -104,7 +124,9 @@ export default function AudiobooksScreen() {
   useEffect(() => {
     const checkFirstTimeUser = async () => {
       try {
-        const hasSeenGuide = await AsyncStorage.getItem("@audiobooks_has_seen_guide");
+        const hasSeenGuide = await AsyncStorage.getItem(
+          "@audiobooks_has_seen_guide",
+        );
         if (!hasSeenGuide) {
           // Show guide after a short delay for better UX
           setTimeout(() => {
@@ -141,7 +163,7 @@ export default function AudiobooksScreen() {
         return Promise.race([
           fetch(url),
           new Promise<Response>((_, reject) =>
-            setTimeout(() => reject(new Error("Request timeout")), timeout)
+            setTimeout(() => reject(new Error("Request timeout")), timeout),
           ),
         ]);
       };
@@ -170,7 +192,14 @@ export default function AudiobooksScreen() {
             languages: ["English"],
             genres: ["fiction", "non-fiction"],
             durationBuckets: ["<1h", "1-3h", "3-10h", "10h+"],
-            sortOptions: ["relevance", "popular", "newest", "longest", "title_az", "author_az"],
+            sortOptions: [
+              "relevance",
+              "popular",
+              "newest",
+              "longest",
+              "title_az",
+              "author_az",
+            ],
           });
         }
       } catch (error) {
@@ -180,7 +209,14 @@ export default function AudiobooksScreen() {
           languages: ["English"],
           genres: ["fiction", "non-fiction"],
           durationBuckets: ["<1h", "1-3h", "3-10h", "10h+"],
-          sortOptions: ["relevance", "popular", "newest", "longest", "title_az", "author_az"],
+          sortOptions: [
+            "relevance",
+            "popular",
+            "newest",
+            "longest",
+            "title_az",
+            "author_az",
+          ],
         });
       } finally {
         setLoadingFilters(false);
@@ -189,13 +225,21 @@ export default function AudiobooksScreen() {
       // Handle popular books
       setLoadingPopular(true);
       try {
-        if (popularResponse.status === "fulfilled" && popularResponse.value.ok) {
+        if (
+          popularResponse.status === "fulfilled" &&
+          popularResponse.value.ok
+        ) {
           const data: SearchResponse = await popularResponse.value.json();
           const books = data.results || data.books || [];
           setPopularBooks(books);
           console.log(`[Popular] Loaded ${books.length} popular books`);
         } else {
-          console.error("Failed to load popular books:", popularResponse.status === "fulfilled" ? popularResponse.value.status : "rejected");
+          console.error(
+            "Failed to load popular books:",
+            popularResponse.status === "fulfilled"
+              ? popularResponse.value.status
+              : "rejected",
+          );
         }
       } catch (error) {
         console.error("Error loading popular books:", error);
@@ -203,7 +247,7 @@ export default function AudiobooksScreen() {
         setLoadingPopular(false);
       }
     };
-    
+
     loadInitialData();
   }, []);
 
@@ -212,182 +256,226 @@ export default function AudiobooksScreen() {
     const loadStatus = async () => {
       const favorites = await getFavorites();
       const listenLater = await getListenLater();
-      setFavoriteIds(new Set(favorites.map(f => f.id)));
-      setListenLaterIds(new Set(listenLater.map(l => l.id)));
+      setFavoriteIds(new Set(favorites.map((f) => f.id)));
+      setListenLaterIds(new Set(listenLater.map((l) => l.id)));
     };
-    const booksToCheck = searchResults.length > 0 ? searchResults : popularBooks;
+    const booksToCheck =
+      searchResults.length > 0 ? searchResults : popularBooks;
     if (booksToCheck.length > 0) {
       loadStatus();
     }
   }, [searchResults, popularBooks]);
 
-  const searchAudiobooks = useCallback(async (searchQuery: string) => {
-    const trimmedQuery = searchQuery.trim();
-    const hasAnyFilter = Object.values(activeFilters).some(v => v !== undefined && v !== "");
-    
-    console.log(`[Search] Starting search for: "${trimmedQuery}"`);
-    console.log(`[Search] Active filters:`, activeFilters);
-    console.log(`[Search] Has any filter: ${hasAnyFilter}`);
-    
-    // Cancel previous request if still pending
-    if (abortControllerRef.current) {
-      console.log(`[Search] Cancelling previous search request`);
-      abortControllerRef.current.abort();
-    }
-    
-    // Create new AbortController for this request
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    // Clear previous results immediately when starting new search
-    console.log(`[Search] Clearing previous results`);
-    setSearchResults([]);
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Build search URL with filters
-      // Allow empty query if filters are present
-      const queryParam = trimmedQuery || "";
-      const params = new URLSearchParams({
-        q: queryParam,
-        limit: "25",
-      });
-      
-      // Add filters to params
-      if (activeFilters.language) {
-        params.append("language", activeFilters.language);
-        console.log(`[Search] ✅ Adding language filter: ${activeFilters.language}`);
-      }
-      if (activeFilters.genre) {
-        params.append("genre", activeFilters.genre);
-        console.log(`[Search] ✅ Adding genre filter: ${activeFilters.genre}`);
-      }
-      if (activeFilters.duration) {
-        // Convert duration bucket to min/max seconds
-        const durationMap: Record<string, { min?: number; max?: number }> = {
-          "<1h": { max: 3600 },
-          "1-3h": { min: 3600, max: 10800 },
-          "3-10h": { min: 10800, max: 36000 },
-          "10h+": { min: 36000 },
-        };
-        const durationRange = durationMap[activeFilters.duration];
-        if (durationRange) {
-          if (durationRange.min !== undefined) {
-            params.append("min_duration", durationRange.min.toString());
-            console.log(`[Search] ✅ Adding min_duration filter: ${durationRange.min}s`);
-          }
-          if (durationRange.max !== undefined) {
-            params.append("max_duration", durationRange.max.toString());
-            console.log(`[Search] ✅ Adding max_duration filter: ${durationRange.max}s`);
-          }
-        }
-      }
-      if (activeFilters.sort) {
-        params.append("sort", activeFilters.sort);
-        console.log(`[Search] ✅ Adding sort filter: ${activeFilters.sort}`);
-      }
-      
-      const searchUrl = `${API_BASE}/audiobooks/search?${params.toString()}`;
-      console.log(`[Search] 🔍 Full search URL: ${searchUrl}`);
-      
-      const response = await fetch(
-        searchUrl,
-        { signal: controller.signal }
+  const searchAudiobooks = useCallback(
+    async (searchQuery: string) => {
+      const trimmedQuery = searchQuery.trim();
+      const hasAnyFilter = Object.values(activeFilters).some(
+        (v) => v !== undefined && v !== "",
       );
 
-      if (!response.ok) {
-        // Try to extract backend error detail for better error messages
-        let detail = "";
-        try {
-          const errorData = await response.json();
-          detail = errorData?.detail ? ` (${errorData.detail})` : "";
-        } catch {
-          // If JSON parsing fails, use status text
-          detail = response.statusText ? ` (${response.statusText})` : "";
-        }
-        throw new Error(`HTTP ${response.status}${detail}`);
+      console.log(`[Search] Starting search for: "${trimmedQuery}"`);
+      console.log(`[Search] Active filters:`, activeFilters);
+      console.log(`[Search] Has any filter: ${hasAnyFilter}`);
+
+      // Cancel previous request if still pending
+      if (abortControllerRef.current) {
+        console.log(`[Search] Cancelling previous search request`);
+        abortControllerRef.current.abort();
       }
 
-      const data: SearchResponse = await response.json();
-      
-      // Debug: Log the raw response structure
-      console.log(`[Search] Raw response keys:`, Object.keys(data));
-      console.log(`[Search] Response has 'results':`, 'results' in data, data.results?.length || 0);
-      console.log(`[Search] Response has 'books':`, 'books' in data, data.books?.length || 0);
-      
-      // IMPORTANT: Backend returns {"results": [...]}, so use data.results first
-      const results = data.results || data.books || [];
-      
-      // Debug logging to verify search results
-      console.log(`[Search] Query: "${searchQuery}"`);
-      console.log(`[Search] Results count: ${results.length}`);
-      if (results.length > 0) {
-        console.log(`[Search] First 5 result titles:`, results.slice(0, 5).map(b => b.title.substring(0, 40)));
-        console.log(`[Search] First 5 result IDs:`, results.slice(0, 5).map(b => b.id));
-      } else {
-        console.log(`[Search] WARNING: No results found in response!`);
-        console.log(`[Search] Full response:`, JSON.stringify(data, null, 2).substring(0, 500));
-      }
-      
-      // Verify this request wasn't cancelled before setting results
-      if (controller.signal.aborted) {
-        console.log(`[Search] Request was cancelled, not setting results`);
-        return;
-      }
-      
-      // Set results - this should trigger re-render
-      console.log(`[Search] Setting searchResults state with ${results.length} items for query: "${searchQuery}"`);
-      setSearchResults(results);
-      
-      // Verify state was set correctly (async, but helps debug)
-      setTimeout(() => {
-        console.log(`[Search] State check - searchResults should now have ${results.length} items`);
-      }, 100);
-      
-      if (data.message && data.count === 0) {
-        setError(data.message);
-      } else {
-        setError(null);
-      }
-    } catch (err: any) {
-      // Ignore abort errors (they're expected when canceling)
-      if (err.name === "AbortError") {
-        console.log("Search request cancelled");
-        return;
-      }
-      console.error("Search error:", err);
-      setError(err instanceof Error ? err.message : "Failed to search audiobooks");
+      // Create new AbortController for this request
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      // Clear previous results immediately when starting new search
+      console.log(`[Search] Clearing previous results`);
       setSearchResults([]);
-    } finally {
-      // Only update loading state if this request wasn't cancelled
-      if (!controller.signal.aborted) {
-        setLoading(false);
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Build search URL with filters
+        // Allow empty query if filters are present
+        const queryParam = trimmedQuery || "";
+        const params = new URLSearchParams({
+          q: queryParam,
+          limit: "25",
+        });
+
+        // Add filters to params
+        if (activeFilters.language) {
+          params.append("language", activeFilters.language);
+          console.log(
+            `[Search] ✅ Adding language filter: ${activeFilters.language}`,
+          );
+        }
+        if (activeFilters.genre) {
+          params.append("genre", activeFilters.genre);
+          console.log(
+            `[Search] ✅ Adding genre filter: ${activeFilters.genre}`,
+          );
+        }
+        if (activeFilters.duration) {
+          // Convert duration bucket to min/max seconds
+          const durationMap: Record<string, { min?: number; max?: number }> = {
+            "<1h": { max: 3600 },
+            "1-3h": { min: 3600, max: 10800 },
+            "3-10h": { min: 10800, max: 36000 },
+            "10h+": { min: 36000 },
+          };
+          const durationRange = durationMap[activeFilters.duration];
+          if (durationRange) {
+            if (durationRange.min !== undefined) {
+              params.append("min_duration", durationRange.min.toString());
+              console.log(
+                `[Search] ✅ Adding min_duration filter: ${durationRange.min}s`,
+              );
+            }
+            if (durationRange.max !== undefined) {
+              params.append("max_duration", durationRange.max.toString());
+              console.log(
+                `[Search] ✅ Adding max_duration filter: ${durationRange.max}s`,
+              );
+            }
+          }
+        }
+        if (activeFilters.sort) {
+          params.append("sort", activeFilters.sort);
+          console.log(`[Search] ✅ Adding sort filter: ${activeFilters.sort}`);
+        }
+
+        const searchUrl = `${API_BASE}/audiobooks/search?${params.toString()}`;
+        console.log(`[Search] 🔍 Full search URL: ${searchUrl}`);
+
+        const response = await fetch(searchUrl, { signal: controller.signal });
+
+        if (!response.ok) {
+          // Try to extract backend error detail for better error messages
+          let detail = "";
+          try {
+            const errorData = await response.json();
+            detail = errorData?.detail ? ` (${errorData.detail})` : "";
+          } catch {
+            // If JSON parsing fails, use status text
+            detail = response.statusText ? ` (${response.statusText})` : "";
+          }
+          throw new Error(`HTTP ${response.status}${detail}`);
+        }
+
+        const data: SearchResponse = await response.json();
+
+        // Debug: Log the raw response structure
+        console.log(`[Search] Raw response keys:`, Object.keys(data));
+        console.log(
+          `[Search] Response has 'results':`,
+          "results" in data,
+          data.results?.length || 0,
+        );
+        console.log(
+          `[Search] Response has 'books':`,
+          "books" in data,
+          data.books?.length || 0,
+        );
+
+        // IMPORTANT: Backend returns {"results": [...]}, so use data.results first
+        const results = data.results || data.books || [];
+
+        // Debug logging to verify search results
+        console.log(`[Search] Query: "${searchQuery}"`);
+        console.log(`[Search] Results count: ${results.length}`);
+        if (results.length > 0) {
+          console.log(
+            `[Search] First 5 result titles:`,
+            results.slice(0, 5).map((b) => b.title.substring(0, 40)),
+          );
+          console.log(
+            `[Search] First 5 result IDs:`,
+            results.slice(0, 5).map((b) => b.id),
+          );
+        } else {
+          console.log(`[Search] WARNING: No results found in response!`);
+          console.log(
+            `[Search] Full response:`,
+            JSON.stringify(data, null, 2).substring(0, 500),
+          );
+        }
+
+        // Verify this request wasn't cancelled before setting results
+        if (controller.signal.aborted) {
+          console.log(`[Search] Request was cancelled, not setting results`);
+          return;
+        }
+
+        // Set results - this should trigger re-render
+        console.log(
+          `[Search] Setting searchResults state with ${results.length} items for query: "${searchQuery}"`,
+        );
+        setSearchResults(results);
+
+        // Verify state was set correctly (async, but helps debug)
+        setTimeout(() => {
+          console.log(
+            `[Search] State check - searchResults should now have ${results.length} items`,
+          );
+        }, 100);
+
+        if (data.message && data.count === 0) {
+          setError(data.message);
+        } else {
+          setError(null);
+        }
+      } catch (err: any) {
+        // Ignore abort errors (they're expected when canceling)
+        if (err.name === "AbortError") {
+          console.log("Search request cancelled");
+          return;
+        }
+        console.error("Search error:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to search audiobooks",
+        );
+        setSearchResults([]);
+      } finally {
+        // Only update loading state if this request wasn't cancelled
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
-    }
-  }, [activeFilters]);
+    },
+    [activeFilters],
+  );
 
   // Trigger search when debounced query changes or filters change
   useEffect(() => {
     const trimmedQuery = debouncedQuery.trim();
-    const hasAnyFilter = Object.values(activeFilters).some(v => v !== undefined && v !== "");
-    
-    console.log(`[useEffect] Debounced query changed: "${trimmedQuery}", hasAnyFilter: ${hasAnyFilter}`);
-    
+    const hasAnyFilter = Object.values(activeFilters).some(
+      (v) => v !== undefined && v !== "",
+    );
+
+    console.log(
+      `[useEffect] Debounced query changed: "${trimmedQuery}", hasAnyFilter: ${hasAnyFilter}`,
+    );
+
     // Search if query is at least 3 characters OR if filters are applied
     if (trimmedQuery.length >= 3 || hasAnyFilter) {
       const searchQuery = trimmedQuery.length >= 3 ? trimmedQuery : "";
-      console.log(`[useEffect] Triggering search for: "${searchQuery}" with filters`);
+      console.log(
+        `[useEffect] Triggering search for: "${searchQuery}" with filters`,
+      );
       searchAudiobooks(searchQuery);
     } else if (trimmedQuery.length === 0 && !hasAnyFilter) {
       // Clear results when query is empty and no filters
-      console.log(`[useEffect] Query is empty and no filters, clearing results`);
+      console.log(
+        `[useEffect] Query is empty and no filters, clearing results`,
+      );
       setSearchResults([]);
       setError(null);
       setLoading(false);
     } else {
       // Query too short and no filters - clear results but don't show error
-      console.log(`[useEffect] Query too short (${trimmedQuery.length} chars) and no filters, clearing results`);
+      console.log(
+        `[useEffect] Query too short (${trimmedQuery.length} chars) and no filters, clearing results`,
+      );
       setSearchResults([]);
       setError(null);
       setLoading(false);
@@ -402,13 +490,13 @@ export default function AudiobooksScreen() {
       fromQuery: query.trim(),
       currentResultsCount: searchResults.length,
     });
-    
+
     // Verify the book ID matches what we expect
     if (!book.id) {
       console.error("[BookPress] ERROR: Book has no ID!", book);
       return;
     }
-    
+
     router.push({
       pathname: "/audiobooks-player",
       params: {
@@ -425,28 +513,30 @@ export default function AudiobooksScreen() {
   // Voice input handlers - Fixed implementation
   const startListening = useCallback(() => {
     console.log(`[Voice] startListening called, Platform.OS: ${Platform.OS}`);
-    
+
     if (Platform.OS !== "web") {
       Alert.alert(
         "Voice Input",
-        "Voice input requires a custom dev client or production build. For now, please type your search."
+        "Voice input requires a custom dev client or production build. For now, please type your search.",
       );
       return;
     }
 
     const W = globalThis as any;
     const SR = W.SpeechRecognition || W.webkitSpeechRecognition;
-    
+
     // Check browser support
     if (!SR) {
-      console.warn(`[Voice] SpeechRecognition not available. Check: ${('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window)}`);
+      console.warn(
+        `[Voice] SpeechRecognition not available. Check: ${"SpeechRecognition" in window || "webkitSpeechRecognition" in window}`,
+      );
       Alert.alert(
         "Voice Search Not Supported",
-        "Speech recognition is not available in this browser. Please use Chrome or Edge for voice search."
+        "Speech recognition is not available in this browser. Please use Chrome or Edge for voice search.",
       );
       return;
     }
-    
+
     try {
       // Stop any existing recognition
       if (recognitionRef.current) {
@@ -457,48 +547,54 @@ export default function AudiobooksScreen() {
         }
         recognitionRef.current = null;
       }
-      
+
       const rec = new SR();
       recognitionRef.current = rec;
-      
+
       // Configure recognition
       rec.lang = "en-US"; // Default to English, could match language filter if available
       rec.continuous = false; // Stop after user stops speaking
       rec.interimResults = true; // Show interim results for real-time feedback
-      
+
       // Track accumulated transcript
       let accumulatedTranscript = "";
-      
+
       rec.onresult = (event: any) => {
-        console.log(`[Voice] onresult called, resultIndex: ${event.resultIndex}, results.length: ${event.results.length}`);
-        
+        console.log(
+          `[Voice] onresult called, resultIndex: ${event.resultIndex}, results.length: ${event.results.length}`,
+        );
+
         // Process results starting from resultIndex (only new results)
         let transcript = "";
         let hasFinal = false;
-        
+
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           const resultTranscript = result[0].transcript;
-          
+
           transcript += resultTranscript;
-          
+
           if (result.isFinal) {
             hasFinal = true;
           }
         }
-        
+
         // Accumulate transcript
         accumulatedTranscript = transcript.trim();
-        
+
         // Update React state immediately (controlled input)
         if (accumulatedTranscript) {
-          console.log(`[Voice] Setting query to: "${accumulatedTranscript}" (isFinal: ${hasFinal})`);
+          console.log(
+            `[Voice] Setting query to: "${accumulatedTranscript}" (isFinal: ${hasFinal})`,
+          );
           setQuery(accumulatedTranscript);
         }
-        
+
         // If final result, stop listening after a brief delay
         if (hasFinal) {
-          console.log(`[Voice] Final result received: "${accumulatedTranscript}"`);
+          console.log(
+            `[Voice] Final result received: "${accumulatedTranscript}"`,
+          );
           setTimeout(() => {
             if (recognitionRef.current) {
               try {
@@ -509,10 +605,12 @@ export default function AudiobooksScreen() {
             }
             setIsListening(false);
             recognitionRef.current = null;
-            
+
             // Optionally auto-trigger search if query is long enough
             if (accumulatedTranscript.trim().length >= 3) {
-              console.log(`[Voice] Auto-triggering search for: "${accumulatedTranscript}"`);
+              console.log(
+                `[Voice] Auto-triggering search for: "${accumulatedTranscript}"`,
+              );
               setTimeout(() => {
                 searchAudiobooks(accumulatedTranscript.trim());
               }, 500);
@@ -520,33 +618,37 @@ export default function AudiobooksScreen() {
           }, 500);
         }
       };
-      
+
       rec.onend = () => {
         console.log(`[Voice] Recognition ended`);
         setIsListening(false);
         recognitionRef.current = null;
       };
-      
+
       rec.onerror = (error: any) => {
         console.error(`[Voice] Recognition error:`, error);
         setIsListening(false);
         recognitionRef.current = null;
-        
+
         const errorType = error.error || "unknown";
         let errorMessage = "Speech recognition failed. Please try again.";
-        
+
         switch (errorType) {
           case "not-allowed":
-            errorMessage = "Microphone permission denied. Please allow microphone access in your browser settings and try again.";
+            errorMessage =
+              "Microphone permission denied. Please allow microphone access in your browser settings and try again.";
             break;
           case "no-speech":
-            errorMessage = "No speech detected. Please speak clearly into the microphone.";
+            errorMessage =
+              "No speech detected. Please speak clearly into the microphone.";
             break;
           case "audio-capture":
-            errorMessage = "No microphone found. Please connect a microphone and try again.";
+            errorMessage =
+              "No microphone found. Please connect a microphone and try again.";
             break;
           case "network":
-            errorMessage = "Network error. Please check your connection and try again.";
+            errorMessage =
+              "Network error. Please check your connection and try again.";
             break;
           case "aborted":
             // User stopped manually, don't show error
@@ -555,20 +657,21 @@ export default function AudiobooksScreen() {
           default:
             errorMessage = `Speech recognition error: ${errorType}. Please try again.`;
         }
-        
+
         Alert.alert("Voice Search Error", errorMessage);
       };
-      
+
       // Start recognition
       setIsListening(true);
       rec.start();
-      console.log(`[Voice] ✅ Started listening (lang: ${rec.lang}, continuous: ${rec.continuous}, interim: ${rec.interimResults})`);
-      
+      console.log(
+        `[Voice] ✅ Started listening (lang: ${rec.lang}, continuous: ${rec.continuous}, interim: ${rec.interimResults})`,
+      );
     } catch (error: any) {
       console.error(`[Voice] Failed to start recognition:`, error);
       Alert.alert(
         "Error",
-        `Failed to start speech recognition: ${error.message || "Unknown error"}. Please try typing instead.`
+        `Failed to start speech recognition: ${error.message || "Unknown error"}. Please try typing instead.`,
       );
       setIsListening(false);
       recognitionRef.current = null;
@@ -599,17 +702,25 @@ export default function AudiobooksScreen() {
   }, []);
 
   // Filter handlers
-  const handleFilterPress = (filterType: "language" | "genre" | "duration" | "sort" | "more") => {
+  const handleFilterPress = (
+    filterType: "language" | "genre" | "duration" | "sort" | "more",
+  ) => {
     if (filterType === "more") {
       // Could open additional filters modal if needed
       return;
     }
-    console.log(`[Filter] Opening ${filterType} filter modal, filterOptions:`, filterOptions);
+    console.log(
+      `[Filter] Opening ${filterType} filter modal, filterOptions:`,
+      filterOptions,
+    );
     setCurrentFilterType(filterType);
     setFilterModalVisible(true);
   };
 
-  const handleFilterSelect = (filterType: string, value: string | undefined) => {
+  const handleFilterSelect = (
+    filterType: string,
+    value: string | undefined,
+  ) => {
     setActiveFilters((prev) => {
       const next = { ...prev };
       if (value) {
@@ -637,10 +748,10 @@ export default function AudiobooksScreen() {
       }
       return text.substring(0, 2).toUpperCase();
     };
-    
+
     const titleInitials = getInitials(title);
     const authorInitials = getInitials(author);
-    
+
     return (
       <View style={styles.textCover}>
         <View style={styles.textCoverIcon}>
@@ -661,67 +772,81 @@ export default function AudiobooksScreen() {
     if (!coverUrl || !coverUrl.trim()) {
       return null;
     }
-    
+
     // Convert http to https for web compatibility
     let url = coverUrl.trim();
     if (url.startsWith("http://")) {
       url = url.replace("http://", "https://", 1);
     }
-    
+
     // If cover failed to load before, use proxy
     if (failedCoverUrls.has(coverUrl) || failedCoverUrls.has(url)) {
       return `${API_BASE}/audiobooks/cover-proxy?url=${encodeURIComponent(url)}`;
     }
-    
+
     return url;
   };
 
   // Fetch Open Library cover for a book when LibriVox doesn't provide one
   const fetchOpenLibraryCover = async (book: Audiobook) => {
     const bookKey = book.id;
-    
+
     // Skip if already have cover or already loading
-    if (openLibraryCovers.has(bookKey) || loadingOpenLibraryCovers.has(bookKey)) {
+    if (
+      openLibraryCovers.has(bookKey) ||
+      loadingOpenLibraryCovers.has(bookKey)
+    ) {
       return;
     }
-    
+
     // Skip if LibriVox already provided a cover URL
     if (book.cover_url && book.cover_url.trim()) {
       return;
     }
-    
-    setLoadingOpenLibraryCovers(prev => new Set(prev).add(bookKey));
-    
+
+    setLoadingOpenLibraryCovers((prev) => new Set(prev).add(bookKey));
+
     try {
       const params = new URLSearchParams({
         title: book.title,
         author: book.author || "",
       });
-      
-      console.log(`[Audiobooks] 🔍 Fetching Open Library cover for: "${book.title}" by ${book.author}`);
-      
-      const response = await fetch(`${API_BASE}/audiobooks/cover?${params.toString()}`);
-      
+
+      console.log(
+        `[Audiobooks] 🔍 Fetching Open Library cover for: "${book.title}" by ${book.author}`,
+      );
+
+      const response = await fetch(
+        `${API_BASE}/audiobooks/cover?${params.toString()}`,
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.cover_url) {
-        console.log(`[Audiobooks] ✅ Found Open Library cover: ${data.cover_url}`);
-        setOpenLibraryCovers(prev => {
+        console.log(
+          `[Audiobooks] ✅ Found Open Library cover: ${data.cover_url}`,
+        );
+        setOpenLibraryCovers((prev) => {
           const next = new Map(prev);
           next.set(bookKey, data.cover_url);
           return next;
         });
       } else {
-        console.log(`[Audiobooks] ❌ No Open Library cover found for: "${book.title}"`);
+        console.log(
+          `[Audiobooks] ❌ No Open Library cover found for: "${book.title}"`,
+        );
       }
     } catch (error) {
-      console.error(`[Audiobooks] ❌ Error fetching Open Library cover:`, error);
+      console.error(
+        `[Audiobooks] ❌ Error fetching Open Library cover:`,
+        error,
+      );
     } finally {
-      setLoadingOpenLibraryCovers(prev => {
+      setLoadingOpenLibraryCovers((prev) => {
         const next = new Set(prev);
         next.delete(bookKey);
         return next;
@@ -730,30 +855,37 @@ export default function AudiobooksScreen() {
   };
 
   // Handle cover image load error
-  const handleCoverError = (coverUrl: string | undefined | null, originalUrl: string) => {
+  const handleCoverError = (
+    coverUrl: string | undefined | null,
+    originalUrl: string,
+  ) => {
     if (!coverUrl) return;
-    
+
     console.log(`[Audiobooks] Cover image failed to load: ${coverUrl}`);
-    
+
     // If not already using proxy, try proxy
     if (!coverUrl.includes("/audiobooks/cover?")) {
       const proxyUrl = `${API_BASE}/audiobooks/cover?url=${encodeURIComponent(originalUrl)}`;
       console.log(`[Audiobooks] Retrying with proxy: ${proxyUrl}`);
-      setFailedCoverUrls(prev => new Set(prev).add(originalUrl));
+      setFailedCoverUrls((prev) => new Set(prev).add(originalUrl));
       // Force re-render by updating state
       return proxyUrl;
     }
-    
+
     // Already tried proxy, mark as failed
-    setFailedCoverUrls(prev => new Set(prev).add(originalUrl));
+    setFailedCoverUrls((prev) => new Set(prev).add(originalUrl));
     return null;
   };
 
   // Determine what to display - show search results if query exists, otherwise show popular books
   // Consider it a query if there's a search term OR if filters are active
-  const hasAnyFilter = Object.values(activeFilters).some(v => v !== undefined && v !== "");
-  const hasQuery = query.trim().length >= 3 || (searchResults.length > 0 && hasAnyFilter);
-  const displayBooks = (hasQuery || searchResults.length > 0) ? searchResults : popularBooks;
+  const hasAnyFilter = Object.values(activeFilters).some(
+    (v) => v !== undefined && v !== "",
+  );
+  const hasQuery =
+    query.trim().length >= 3 || (searchResults.length > 0 && hasAnyFilter);
+  const displayBooks =
+    hasQuery || searchResults.length > 0 ? searchResults : popularBooks;
 
   const handleToggleFavorite = async (book: Audiobook, e: any) => {
     e.stopPropagation();
@@ -761,7 +893,7 @@ export default function AudiobooksScreen() {
       const isFav = favoriteIds.has(book.id);
       if (isFav) {
         await removeFavorite(book.id);
-        setFavoriteIds(prev => {
+        setFavoriteIds((prev) => {
           const next = new Set(prev);
           next.delete(book.id);
           return next;
@@ -777,10 +909,10 @@ export default function AudiobooksScreen() {
           description: book.description,
           cover_url: book.cover_url,
         });
-        setFavoriteIds(prev => new Set(prev).add(book.id));
+        setFavoriteIds((prev) => new Set(prev).add(book.id));
       }
     } catch (error) {
-      console.error('Failed to toggle favorite:', error);
+      console.error("Failed to toggle favorite:", error);
     }
   };
 
@@ -790,7 +922,7 @@ export default function AudiobooksScreen() {
       const isInList = listenLaterIds.has(book.id);
       if (isInList) {
         await removeFromListenLater(book.id);
-        setListenLaterIds(prev => {
+        setListenLaterIds((prev) => {
           const next = new Set(prev);
           next.delete(book.id);
           return next;
@@ -806,155 +938,188 @@ export default function AudiobooksScreen() {
           description: book.description,
           cover_url: book.cover_url,
         });
-        setListenLaterIds(prev => new Set(prev).add(book.id));
+        setListenLaterIds((prev) => new Set(prev).add(book.id));
       }
     } catch (error) {
-      console.error('Failed to toggle listen later:', error);
+      console.error("Failed to toggle listen later:", error);
     }
   };
 
-  const renderBookItem = ({ item, index }: { item: Audiobook; index: number }) => {
+  const renderBookItem = ({
+    item,
+    index,
+  }: {
+    item: Audiobook;
+    index: number;
+  }) => {
     // Debug log to verify which book is being rendered
     if (index < 3) {
-      console.log(`[RenderItem] Index ${index}: ID=${item.id}, Title="${item.title.substring(0, 30)}"`);
+      console.log(
+        `[RenderItem] Index ${index}: ID=${item.id}, Title="${item.title.substring(0, 30)}"`,
+      );
     }
-    
+
     const isFav = favoriteIds.has(item.id);
     const isInList = listenLaterIds.has(item.id);
-    
+
     return (
-    <Pressable
-      style={styles.bookCard}
-      onPress={() => {
-        console.log(`[Press] Clicked index ${index}, book ID: ${item.id}, title: "${item.title}"`);
-        handleBookPress(item);
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={`Play ${item.title} by ${item.author}`}
-    >
-      {(() => {
-        // Check for Open Library cover first (fallback when LibriVox has no cover)
-        const openLibraryCover = openLibraryCovers.get(item.id);
-        const libriVoxCover = getCoverUrl(item.cover_url);
-        
-        // Determine which cover to use: Open Library > LibriVox > Text Cover
-        let coverUrl: string | null = null;
-        let coverSource = "none";
-        
-        if (openLibraryCover) {
-          coverUrl = openLibraryCover;
-          coverSource = "openlibrary";
-        } else if (libriVoxCover) {
-          coverUrl = libriVoxCover;
-          coverSource = "librivox";
-        }
-        
-        // If no LibriVox cover and haven't tried Open Library yet, fetch it
-        if (!libriVoxCover && !openLibraryCover && !loadingOpenLibraryCovers.has(item.id)) {
-          fetchOpenLibraryCover(item);
-        }
-        
-        // Show placeholder if no URL or if proxy also failed
-        const originalUrl = item.cover_url || "";
-        const proxyFailed = failedCoverUrls.has(originalUrl) && coverUrl?.includes("/audiobooks/cover-proxy?");
-        
-        if (!coverUrl || proxyFailed) {
-          // Show text-based cover when image is missing or failed
-          return <TextCover title={item.title} author={item.author} />;
-        }
-        
-        return (
-          <Image
-            source={{ uri: coverUrl }}
-            style={styles.coverImage}
-            onError={(e) => {
-              const error = e.nativeEvent.error;
-              console.error(`[Audiobooks] ❌ Cover image failed to load`);
-              console.error(`[Audiobooks]   Title: "${item.title}"`);
-              console.error(`[Audiobooks]   Author: "${item.author}"`);
-              console.error(`[Audiobooks]   Cover URL: ${coverUrl}`);
-              console.error(`[Audiobooks]   Cover Source: ${coverSource}`);
-              console.error(`[Audiobooks]   Original URL: ${originalUrl}`);
-              console.error(`[Audiobooks]   Error:`, error);
-              console.error(`[Audiobooks]   Using proxy: ${coverUrl.includes("/audiobooks/cover-proxy?")}`);
-              
-              // If not already using proxy, mark original URL as failed to trigger proxy on next render
-              if (!coverUrl.includes("/audiobooks/cover-proxy?")) {
-                console.log(`[Audiobooks] 🔄 Retrying with proxy endpoint...`);
-                setFailedCoverUrls(prev => new Set(prev).add(coverUrl || originalUrl));
-              } else {
-                // Proxy also failed, mark as failed to show text cover
-                console.error(`[Audiobooks] ⚠️ Proxy also failed, showing text-based cover`);
-                setFailedCoverUrls(prev => new Set(prev).add(coverUrl || originalUrl));
-              }
-            }}
-            onLoad={() => {
-              console.log(`[Audiobooks] ✅ Cover image loaded successfully`);
-              console.log(`[Audiobooks]   Title: "${item.title}"`);
-              console.log(`[Audiobooks]   Cover URL: ${coverUrl}`);
-              console.log(`[Audiobooks]   Cover Source: ${coverSource}`);
-              // Clear failure state on successful load
-              const urlToCheck = coverUrl || originalUrl;
-              if (failedCoverUrls.has(urlToCheck)) {
-                setFailedCoverUrls(prev => {
-                  const next = new Set(prev);
-                  next.delete(urlToCheck);
-                  return next;
-                });
-              }
-            }}
-          />
-        );
-      })()}
-      <View style={styles.bookInfo}>
-        <Text style={styles.bookTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.bookAuthor} numberOfLines={1}>
-          {item.author}
-        </Text>
-        <View style={styles.bookMeta}>
-          <Text style={styles.bookDuration}>{item.duration_formatted}</Text>
-          <Text style={styles.bookLanguage}>{item.language}</Text>
+      <Pressable
+        style={styles.bookCard}
+        onPress={() => {
+          console.log(
+            `[Press] Clicked index ${index}, book ID: ${item.id}, title: "${item.title}"`,
+          );
+          handleBookPress(item);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`Play ${item.title} by ${item.author}`}
+      >
+        {(() => {
+          // Check for Open Library cover first (fallback when LibriVox has no cover)
+          const openLibraryCover = openLibraryCovers.get(item.id);
+          const libriVoxCover = getCoverUrl(item.cover_url);
+
+          // Determine which cover to use: Open Library > LibriVox > Text Cover
+          let coverUrl: string | null = null;
+          let coverSource = "none";
+
+          if (openLibraryCover) {
+            coverUrl = openLibraryCover;
+            coverSource = "openlibrary";
+          } else if (libriVoxCover) {
+            coverUrl = libriVoxCover;
+            coverSource = "librivox";
+          }
+
+          // If no LibriVox cover and haven't tried Open Library yet, fetch it
+          if (
+            !libriVoxCover &&
+            !openLibraryCover &&
+            !loadingOpenLibraryCovers.has(item.id)
+          ) {
+            fetchOpenLibraryCover(item);
+          }
+
+          // Show placeholder if no URL or if proxy also failed
+          const originalUrl = item.cover_url || "";
+          const proxyFailed =
+            failedCoverUrls.has(originalUrl) &&
+            coverUrl?.includes("/audiobooks/cover-proxy?");
+
+          if (!coverUrl || proxyFailed) {
+            // Show text-based cover when image is missing or failed
+            return <TextCover title={item.title} author={item.author} />;
+          }
+
+          return (
+            <Image
+              source={{ uri: coverUrl }}
+              style={styles.coverImage}
+              onError={(e) => {
+                const error = e.nativeEvent.error;
+                console.error(`[Audiobooks] ❌ Cover image failed to load`);
+                console.error(`[Audiobooks]   Title: "${item.title}"`);
+                console.error(`[Audiobooks]   Author: "${item.author}"`);
+                console.error(`[Audiobooks]   Cover URL: ${coverUrl}`);
+                console.error(`[Audiobooks]   Cover Source: ${coverSource}`);
+                console.error(`[Audiobooks]   Original URL: ${originalUrl}`);
+                console.error(`[Audiobooks]   Error:`, error);
+                console.error(
+                  `[Audiobooks]   Using proxy: ${coverUrl.includes("/audiobooks/cover-proxy?")}`,
+                );
+
+                // If not already using proxy, mark original URL as failed to trigger proxy on next render
+                if (!coverUrl.includes("/audiobooks/cover-proxy?")) {
+                  console.log(
+                    `[Audiobooks] 🔄 Retrying with proxy endpoint...`,
+                  );
+                  setFailedCoverUrls((prev) =>
+                    new Set(prev).add(coverUrl || originalUrl),
+                  );
+                } else {
+                  // Proxy also failed, mark as failed to show text cover
+                  console.error(
+                    `[Audiobooks] ⚠️ Proxy also failed, showing text-based cover`,
+                  );
+                  setFailedCoverUrls((prev) =>
+                    new Set(prev).add(coverUrl || originalUrl),
+                  );
+                }
+              }}
+              onLoad={() => {
+                console.log(`[Audiobooks] ✅ Cover image loaded successfully`);
+                console.log(`[Audiobooks]   Title: "${item.title}"`);
+                console.log(`[Audiobooks]   Cover URL: ${coverUrl}`);
+                console.log(`[Audiobooks]   Cover Source: ${coverSource}`);
+                // Clear failure state on successful load
+                const urlToCheck = coverUrl || originalUrl;
+                if (failedCoverUrls.has(urlToCheck)) {
+                  setFailedCoverUrls((prev) => {
+                    const next = new Set(prev);
+                    next.delete(urlToCheck);
+                    return next;
+                  });
+                }
+              }}
+            />
+          );
+        })()}
+        <View style={styles.bookInfo}>
+          <Text style={styles.bookTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.bookAuthor} numberOfLines={1}>
+            {item.author}
+          </Text>
+          <View style={styles.bookMeta}>
+            <Text style={styles.bookDuration}>{item.duration_formatted}</Text>
+            <Text style={styles.bookLanguage}>{item.language}</Text>
+          </View>
         </View>
-      </View>
-      <View style={styles.bookActions}>
-        <Pressable
-          onPress={(e) => handleToggleFavorite(item, e)}
-          style={styles.actionButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons 
-            name={isFav ? "heart" : "heart-outline"} 
-            size={24} 
-            color={isFav ? "#FF6B6B" : "#888"} 
-          />
-        </Pressable>
-        <Pressable
-          onPress={(e) => handleToggleListenLater(item, e)}
-          style={styles.actionButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons 
-            name={isInList ? "bookmark" : "bookmark-outline"} 
-            size={24} 
-            color={isInList ? "#F9A826" : "#888"} 
-          />
-        </Pressable>
-        <Ionicons name="play-circle" size={32} color="#F9A826" />
-      </View>
-    </Pressable>
+        <View style={styles.bookActions}>
+          <Pressable
+            onPress={(e) => handleToggleFavorite(item, e)}
+            style={styles.actionButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isFav ? "heart" : "heart-outline"}
+              size={24}
+              color={isFav ? "#FF6B6B" : "#888"}
+            />
+          </Pressable>
+          <Pressable
+            onPress={(e) => handleToggleListenLater(item, e)}
+            style={styles.actionButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons
+              name={isInList ? "bookmark" : "bookmark-outline"}
+              size={24}
+              color={isInList ? "#F9A826" : "#888"}
+            />
+          </Pressable>
+          <Ionicons name="play-circle" size={32} color="#F9A826" />
+        </View>
+      </Pressable>
     );
   };
 
-  
   // Debug logging for rendering - track when searchResults actually changes
   useEffect(() => {
-    console.log(`[Render] Query: "${query.trim()}", searchResults.length: ${searchResults.length}, displayBooks.length: ${displayBooks.length}`);
+    console.log(
+      `[Render] Query: "${query.trim()}", searchResults.length: ${searchResults.length}, displayBooks.length: ${displayBooks.length}`,
+    );
     console.log(`[Render] Mode: ${hasQuery ? "search" : "empty"}`);
     if (searchResults.length > 0) {
-      console.log(`[Render] searchResults IDs (first 5):`, searchResults.map(b => b.id).slice(0, 5));
-      console.log(`[Render] searchResults titles (first 3):`, searchResults.slice(0, 3).map(b => b.title.substring(0, 40)));
+      console.log(
+        `[Render] searchResults IDs (first 5):`,
+        searchResults.map((b) => b.id).slice(0, 5),
+      );
+      console.log(
+        `[Render] searchResults titles (first 3):`,
+        searchResults.slice(0, 3).map((b) => b.title.substring(0, 40)),
+      );
     } else if (query.trim().length >= 3) {
       console.log(`[Render] WARNING: Query exists but searchResults is empty!`);
     }
@@ -977,8 +1142,8 @@ export default function AudiobooksScreen() {
             AUDIOBOOKS
           </Text>
           <View style={styles.headerRightButtons}>
-            <Pressable 
-              onPress={() => setShowMenu(!showMenu)} 
+            <Pressable
+              onPress={() => setShowMenu(!showMenu)}
               style={styles.iconBtn}
               accessibilityRole="button"
               accessibilityLabel="Menu"
@@ -991,7 +1156,11 @@ export default function AudiobooksScreen() {
               accessibilityRole="button"
               accessibilityLabel="User Guide and Settings"
             >
-              <Ionicons name="information-circle-outline" size={24} color="#F9A826" />
+              <Ionicons
+                name="information-circle-outline"
+                size={24}
+                color="#F9A826"
+              />
             </Pressable>
           </View>
         </View>
@@ -999,7 +1168,7 @@ export default function AudiobooksScreen() {
         {/* Dropdown Menu - Positioned absolutely */}
         {showMenu && (
           <View style={styles.dropdownMenu}>
-            <Pressable 
+            <Pressable
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
@@ -1009,7 +1178,7 @@ export default function AudiobooksScreen() {
               <Ionicons name="heart" size={20} color="#FF6B6B" />
               <Text style={styles.menuItemText}>Favourites</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               style={styles.menuItem}
               onPress={() => {
                 setShowMenu(false);
@@ -1019,7 +1188,7 @@ export default function AudiobooksScreen() {
               <Ionicons name="time" size={20} color="#F9A826" />
               <Text style={styles.menuItemText}>History</Text>
             </Pressable>
-            <Pressable 
+            <Pressable
               style={[styles.menuItem, styles.menuItemLast]}
               onPress={() => {
                 setShowMenu(false);
@@ -1033,7 +1202,12 @@ export default function AudiobooksScreen() {
         )}
 
         <View style={styles.searchWrap}>
-          <Ionicons name="search" size={16} color="#888" style={{ marginRight: 8 }} />
+          <Ionicons
+            name="search"
+            size={16}
+            color="#888"
+            style={{ marginRight: 8 }}
+          />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -1042,7 +1216,9 @@ export default function AudiobooksScreen() {
             accessibilityLabel="Search audiobooks"
             style={styles.searchInput}
             returnKeyType="search"
-            onSubmitEditing={() => query.trim().length >= 3 && searchAudiobooks(query.trim())}
+            onSubmitEditing={() =>
+              query.trim().length >= 3 && searchAudiobooks(query.trim())
+            }
           />
           {/* Microphone button */}
           <View style={styles.micButtonContainer}>
@@ -1051,17 +1227,19 @@ export default function AudiobooksScreen() {
               style={[styles.micButton, isListening && styles.micButtonActive]}
               disabled={Platform.OS !== "web" && !sttAvailable}
               accessibilityRole="button"
-              accessibilityLabel={isListening ? "Stop listening" : "Start voice input"}
+              accessibilityLabel={
+                isListening ? "Stop listening" : "Start voice input"
+              }
               accessibilityLiveRegion="polite"
             >
-              <Ionicons 
-                name={isListening ? "mic" : "mic-outline"} 
-                size={20} 
-                color={isListening ? "#FFF" : "#888"} 
+              <Ionicons
+                name={isListening ? "mic" : "mic-outline"}
+                size={20}
+                color={isListening ? "#FFF" : "#888"}
               />
             </Pressable>
             {isListening && (
-              <Text 
+              <Text
                 style={styles.listeningText}
                 accessibilityLiveRegion="polite"
                 accessibilityLabel="Listening"
@@ -1071,8 +1249,8 @@ export default function AudiobooksScreen() {
             )}
           </View>
           {query.trim() && (
-            <Pressable 
-              onPress={() => searchAudiobooks(query.trim())} 
+            <Pressable
+              onPress={() => searchAudiobooks(query.trim())}
               style={styles.searchButton}
               disabled={loading || query.trim().length < 3}
             >
@@ -1090,11 +1268,14 @@ export default function AudiobooksScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
-        {(loading && query.trim().length >= 3) || (loadingPopular && !query.trim()) ? (
+        {(loading && query.trim().length >= 3) ||
+        (loadingPopular && !query.trim()) ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#F9A826" />
             <Text style={styles.loadingText}>
-              {query.trim().length >= 3 ? "Searching Librivox..." : "Loading popular books..."}
+              {query.trim().length >= 3
+                ? "Searching Librivox..."
+                : "Loading popular books..."}
             </Text>
           </View>
         ) : null}
@@ -1108,7 +1289,9 @@ export default function AudiobooksScreen() {
         onClearFilters={handleClearFilters}
         onSearch={() => {
           // Trigger search with current query or empty string if filters are active
-          const hasAnyFilter = Object.values(activeFilters).some(v => v !== undefined && v !== "");
+          const hasAnyFilter = Object.values(activeFilters).some(
+            (v) => v !== undefined && v !== "",
+          );
           if (hasAnyFilter) {
             const searchQuery = query.trim().length >= 3 ? query.trim() : "";
             searchAudiobooks(searchQuery);
@@ -1121,22 +1304,33 @@ export default function AudiobooksScreen() {
       <View style={styles.searchButtonContainer}>
         <Pressable
           style={[
-            styles.searchButtonMain, 
-            (loading || (!query.trim() && !hasAnyFilter)) && styles.searchButtonDisabled
+            styles.searchButtonMain,
+            (loading || (!query.trim() && !hasAnyFilter)) &&
+              styles.searchButtonDisabled,
           ]}
           onPress={() => {
             const trimmedQuery = query.trim();
-            
-            console.log(`[SearchButton] Clicked - Query: "${trimmedQuery}", HasFilters: ${hasAnyFilter}`, activeFilters);
-            
+
+            console.log(
+              `[SearchButton] Clicked - Query: "${trimmedQuery}", HasFilters: ${hasAnyFilter}`,
+              activeFilters,
+            );
+
             // Search if query is valid OR if filters are active
             if (trimmedQuery.length >= 3 || hasAnyFilter) {
               const searchQuery = trimmedQuery.length >= 3 ? trimmedQuery : "";
-              console.log(`[SearchButton] ✅ Triggering search with query: "${searchQuery}" and filters:`, activeFilters);
+              console.log(
+                `[SearchButton] ✅ Triggering search with query: "${searchQuery}" and filters:`,
+                activeFilters,
+              );
               searchAudiobooks(searchQuery);
             } else {
-              console.log(`[SearchButton] ❌ No query or filters - cannot search`);
-              setError("Please enter a search query (at least 3 characters) or select filters to search.");
+              console.log(
+                `[SearchButton] ❌ No query or filters - cannot search`,
+              );
+              setError(
+                "Please enter a search query (at least 3 characters) or select filters to search.",
+              );
             }
           }}
           disabled={loading || (!query.trim() && !hasAnyFilter)}
@@ -1154,19 +1348,22 @@ export default function AudiobooksScreen() {
           <Text style={styles.popularHeaderText}>Popular Audiobooks</Text>
         </View>
       )}
-      
+
       {/* Filtered Results Header */}
       {hasAnyFilter && searchResults.length > 0 && (
         <View style={styles.popularHeader}>
           <Text style={styles.popularHeaderText}>
-            {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} found
+            {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}{" "}
+            found
           </Text>
         </View>
       )}
 
       <FlatList
         data={displayBooks}
-        extraData={(hasQuery || searchResults.length > 0) ? searchResults : popularBooks} // Force re-render when data changes
+        extraData={
+          hasQuery || searchResults.length > 0 ? searchResults : popularBooks
+        } // Force re-render when data changes
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 24 }}
         renderItem={renderBookItem}
@@ -1175,21 +1372,26 @@ export default function AudiobooksScreen() {
             <View style={styles.emptyContainer}>
               <Ionicons name="book-outline" size={64} color="#666" />
               <Text style={styles.emptyText}>
-                {error || (hasAnyFilter && !query.trim()
-                  ? `No books found matching your filters. Try adjusting your filters or search for a specific book.`
-                  : query.trim().length < 3 
-                  ? "Type at least 3 characters to search..." 
-                  : `Ooh! Sorry, the book with the title "${query.trim()}" not found.`)}
+                {error ||
+                  (hasAnyFilter && !query.trim()
+                    ? `No books found matching your filters. Try adjusting your filters or search for a specific book.`
+                    : query.trim().length < 3
+                      ? "Type at least 3 characters to search..."
+                      : `Ooh! Sorry, the book with the title "${query.trim()}" not found.`)}
               </Text>
             </View>
-          ) : (!loading && !loadingPopular && !query.trim() && !hasAnyFilter && popularBooks.length === 0 ? (
+          ) : !loading &&
+            !loadingPopular &&
+            !query.trim() &&
+            !hasAnyFilter &&
+            popularBooks.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="book-outline" size={64} color="#666" />
               <Text style={styles.emptyText}>
                 Failed to load popular books. Please try again.
               </Text>
             </View>
-          ) : null)
+          ) : null
         }
       />
 

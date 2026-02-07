@@ -25,13 +25,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-@router.get("/")
-def root():
-    return {"status": "online", "brain": "Unified Two-Brain (go to /docs)"}
-
 # --- VISION ENDPOINT (Perception + Memory) ---
-@router.post("/vision")
+@router.post("/vision", tags=['AI inference'])
 async def vision_endpoint(file: UploadFile = File(...)):
     if not file.content_type.startswith('image/'):
         raise HTTPException(400, "File must be an image")
@@ -85,7 +80,7 @@ async def vision_endpoint(file: UploadFile = File(...)):
             os.unlink(temp_path)
 
 # --- OCR ENDPOINT ---
-@router.post("/ocr")
+@router.post("/ocr", tags=['AI inference'])
 async def ocr_endpoint(file: UploadFile = File(...)):
     if not file.content_type.startswith('image/'):
         raise HTTPException(400, "File must be an image")
@@ -121,7 +116,7 @@ async def ocr_endpoint(file: UploadFile = File(...)):
             os.unlink(temp_path)
 
 # --- CHAT ENDPOINT (The "Brain") ---
-@router.post("/chat")
+@router.post("/chat",tags=['AI inference'])
 async def chat_endpoint(query: dict):
     """
     Uses Memory + LLM.

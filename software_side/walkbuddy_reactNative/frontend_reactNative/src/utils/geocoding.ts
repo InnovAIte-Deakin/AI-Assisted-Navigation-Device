@@ -1,7 +1,7 @@
 // Geocoding utilities
 // import { API_BASE } from '../config';
 
-const API_BASE = "http://0.0.0.0:8003";
+const API_BASE = "http://0.0.0.0:8000";
 
 export interface GeocodeResult {
   name: string;
@@ -18,7 +18,7 @@ export async function geocodePlaceName(
 ): Promise<GeocodeResult> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/geocode?q=${encodeURIComponent(placeName)}`,
+      `${API_BASE}geocode?q=${encodeURIComponent(placeName)}`,
     );
 
     if (!response.ok) {
