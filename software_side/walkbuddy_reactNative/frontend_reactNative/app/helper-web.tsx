@@ -25,7 +25,7 @@ import {
 // import { API_BASE } from "@/src/config";
 import { Ionicons } from "@expo/vector-icons";
 
-const API_BASE = "http://127.0.0.1:8003";
+const API_BASE = "http://127.0.0.1:8000";
 
 // Connection state machine
 type ConnectionState =
@@ -149,7 +149,7 @@ export default function HelperWebScreen() {
   // Verify authentication token
   const verifyToken = async (token: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/helpers/me`, {
+      const response = await fetch(`${API_BASE}helpers/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -184,7 +184,7 @@ export default function HelperWebScreen() {
   const fetchHelperData = async () => {
     if (!authToken) return;
     try {
-      const response = await fetch(`${API_BASE}/api/helpers/me`, {
+      const response = await fetch(`${API_BASE}helpers/me`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
@@ -220,7 +220,7 @@ export default function HelperWebScreen() {
 
     try {
       console.log("[HelperWeb] 🗑️ Deleting account...");
-      const response = await fetch(`${API_BASE}/api/helpers/delete-account`, {
+      const response = await fetch(`${API_BASE}helpers/delete-account`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${authToken}`,
@@ -352,7 +352,7 @@ export default function HelperWebScreen() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/helpers/signup`, {
+      const response = await fetch(`${API_BASE}helpers/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -440,7 +440,7 @@ export default function HelperWebScreen() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/helpers/login`, {
+      const response = await fetch(`${API_BASE}helpers/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -480,7 +480,7 @@ export default function HelperWebScreen() {
   const handleLogout = async () => {
     if (authToken) {
       try {
-        await fetch(`${API_BASE}/api/helpers/logout`, {
+        await fetch(`${API_BASE}helpers/logout`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${authToken}`,

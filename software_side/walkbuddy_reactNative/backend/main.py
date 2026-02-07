@@ -155,10 +155,6 @@ async def startup_event():
     # C. Start Background Tasks
     asyncio.create_task(cleanup_expired_sessions())
 
-@app.get("/")
-def root():
-    return {"status": "online", "system": "WalkBuddy Unified Backend"}
-
 # ============================================================================
 #  SECTION 8: AUTHENTICATION & HELPERS (Ported from ask_a_friend.py)
 # ============================================================================
@@ -245,12 +241,8 @@ def get_helper_by_token(token: str) -> Optional[Dict]:
         return dict(row)
     return None
 
-@app.get("/health")
-def health():
-    return {"ok": True}
-
 # --- Auth Routes ---
-@app.post("/api/helpers/signup", response_model=LoginResponse)
+@app.post("/helpers/signup", response_model=LoginResponse, tags=['helpers'])
 async def signup_helper(helper_data: HelperSignup):
     try:
         if get_helper_by_email(helper_data.email):
@@ -287,7 +279,7 @@ async def signup_helper(helper_data: HelperSignup):
         logger.error(f"Signup error: {e}")
         raise HTTPException(500, f"Signup failed: {str(e)}")
 
-@app.post("/api/helpers/login", response_model=LoginResponse)
+@app.post("/helpers/login", response_model=LoginResponse, tags=['helpers'])
 async def login_helper(login_data: HelperLogin):
     try:
         helper = get_helper_by_email(login_data.email)
@@ -307,13 +299,13 @@ async def login_helper(login_data: HelperLogin):
     except Exception as e:
         raise HTTPException(500, f"Login failed: {e}")
 
-@app.get("/api/helpers/me", response_model=HelperResponse)
+@app.get("/helpers/me", response_model=HelperResponse, tags=['helpers'])
 async def get_current_helper(credentials: HTTPAuthorizationCredentials = Depends(security)):
     helper = get_helper_by_token(credentials.credentials)
     if not helper: raise HTTPException(401, "Invalid token")
     return HelperResponse(**helper)
 
-@app.post("/api/helpers/logout")
+@app.post("/helpers/logout", tags=['helpers'])
 async def logout_helper(credentials: HTTPAuthorizationCredentials = Depends(security)):
     conn = get_db_connection()
     conn.execute("DELETE FROM helper_sessions WHERE token = ?", (credentials.credentials,))
@@ -321,7 +313,7 @@ async def logout_helper(credentials: HTTPAuthorizationCredentials = Depends(secu
     conn.close()
     return {"message": "Logged out"}
 
-@app.delete("/api/helpers/delete-account")
+@app.delete("/helpers/delete-account", tags=['helpers'])
 async def delete_helper_account(credentials: HTTPAuthorizationCredentials = Depends(security)):
     helper = get_helper_by_token(credentials.credentials)
     if not helper: raise HTTPException(401, "Invalid token")
@@ -343,7 +335,7 @@ class RoutingRequest(BaseModel):
     destination: List[float]
     profile: str = "foot-walking"
 
-@app.get("/api/geocode")
+@app.get("/geocode", tags=['routing'])
 async def geocode_place(q: str = Query(..., description="Place name")):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -410,7 +402,7 @@ async def get_osm_route(origin: List[float], destination: List[float], profile: 
         logger.error(f"Routing error: {e}")
     return None
 
-@app.post("/api/routing")
+@app.post("/routing", tags=['routing'])
 async def get_route(request: RoutingRequest):
     # Try OSM
     osm_route = await get_osm_route(request.origin, request.destination, request.profile)
@@ -431,7 +423,7 @@ async def get_route(request: RoutingRequest):
 def normalize_session_id(sid: str) -> str: return sid.strip().upper() if sid else ""
 def validate_session_id(sid: str) -> bool: return len(normalize_session_id(sid)) == 8
 
-@app.post("/collaboration/create-session")
+@app.post("/collaboration/create-session", tags=['collaboration'])
 async def create_collaboration_session():
     session_id = str(uuid.uuid4())[:8].upper()
     expires_at = datetime.now() + timedelta(hours=SESSION_EXPIRY_HOURS)
@@ -446,7 +438,7 @@ async def create_collaboration_session():
     logger.info(f"[Collaboration] Created session {session_id}")
     return {"session_id": session_id, "expires_at": expires_at.isoformat()}
 
-@app.get("/collaboration/session/{session_id}/status")
+@app.get("/collaboration/session/{session_id}/status", tags=['collaboration'])
 async def get_session_status(session_id: str):
     sid = normalize_session_id(session_id)
     if not validate_session_id(sid): raise HTTPException(400, "Invalid ID")

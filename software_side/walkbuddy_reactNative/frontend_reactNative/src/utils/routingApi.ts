@@ -11,7 +11,7 @@ export interface RoutingOptions {
   profile?: "foot-walking" | "driving-car" | "cycling-regular";
 }
 
-const API_BASE = "http://0.0.0.0:8003";
+const API_BASE = "http://0.0.0.0:8000";
 
 // Convert OpenRouteService maneuver type to our ManeuverType
 function convertManeuverType(orsType: string): ManeuverType {
@@ -35,7 +35,7 @@ function convertManeuverType(orsType: string): ManeuverType {
 // Fetch route from backend API
 export async function fetchRoute(options: RoutingOptions): Promise<Route> {
   try {
-    const response = await fetch(`${API_BASE}/api/routing`, {
+    const response = await fetch(`${API_BASE}routing`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
