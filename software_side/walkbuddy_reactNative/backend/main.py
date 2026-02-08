@@ -116,6 +116,10 @@ def normalize_session_id(sid: str) -> str:
 def validate_session_id(sid: str) -> bool:
     return len(normalize_session_id(sid)) == 8
 
+@app.get("/ping")
+async def ping():
+    return {"ok": True}
+
 @app.post("/collaboration/create-session", tags=["collaboration"])
 async def create_collaboration_session():
     session_id = str(uuid.uuid4())[:8].upper()
