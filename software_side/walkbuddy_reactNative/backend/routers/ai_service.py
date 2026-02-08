@@ -1,143 +1,108 @@
-import sys
 import os
-import logging
-from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException
 import tempfile
+import logging
+import anyio
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 
-# 1. SETUP PATHS
-PROJECT_ROOT = Path(__file__).resolve().parents[4] 
-
-# 2. IMPORTS
-# Core Adapters (vision, ocr, tts)
-from adapters import vision_adapter, ocr_adapter
+from adapters.vision_adapter import vision_adapter
+from adapters.ocr_adapter import ocr_adapter
+from internal import state
 from tts_service.message_reasoning import process_adapter_output
-
-# Slow Lane Modules (The "Smart" logic)
 from slow_lane import safe_or_stop_recommendation
 
-# State 
-from internal import state 
-
-# Logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 
-# --- VISION ENDPOINT (Perception + Memory) ---
-@router.post("/vision", tags=['AI inference'])
-async def vision_endpoint(file: UploadFile = File(...)):
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(400, "File must be an image")
-    
-    # CRITICAL FIX: Check for empty files
+@router.post("/vision")
+async def vision_endpoint(request: Request, file: UploadFile = File(...)):
     content = await file.read()
-    if len(content) == 0:
-         logger.warning("Received empty image file.")
-         return {"detections": [], "guidance_message": ""}
+    if not content:
+        return {"detections": [], "guidance_message": ""}
 
-    temp_file = None
+    temp_path = None
     try:
-        suffix = os.path.splitext(file.filename)[1] or '.jpg'
+        suffix = os.path.splitext(file.filename)[1] or ".jpg"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
             f.write(content)
             temp_path = f.name
-        
-        # 1. PERCEIVE (YOLO)
-        result = vision_adapter(temp_path)
-        
-        # 2. REMEMBER (Update Memory)
-        detections = result.get("detections", [])
-        for d in detections:
-            state.memory.add_event(
-                label=d["category"],
-                direction="ahead", 
-                distance_m=None,
-                confidence=d["confidence"]
+
+        async with request.app.state.vision_limiter:
+            result = await anyio.to_thread.run_sync(
+                vision_adapter,
+                request.app.state.yolo,
+                temp_path,
             )
 
-        # 3. REASON (Generate Guidance for TTS)
+        for d in result["detections"]:
+            state.memory.add_event(
+                label=d["category"],
+                direction="ahead",
+                distance_m=None,
+                confidence=d["confidence"],
+            )
+
         msgs = process_adapter_output(result, max_messages=1)
-        
-        guidance = "Path clear"
-        if msgs:
-            guidance = msgs[0].message
-        elif detections:
-             guidance = f"{len(detections)} objects detected"
+        guidance = msgs[0].message if msgs else "Path clear"
 
         return {
-            "detections": detections,
+            "detections": result["detections"],
             "guidance_message": guidance,
-            "image_id": result.get("image_id", "")
+            "image_id": result["image_id"],
         }
-    
-    except Exception as e:
-        logger.error(f"Vision error: {e}")
-        raise HTTPException(500, f"Processing failed: {e}")
+
     finally:
-        if temp_file and os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
 
-# --- OCR ENDPOINT ---
-@router.post("/ocr", tags=['AI inference'])
-async def ocr_endpoint(file: UploadFile = File(...)):
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(400, "File must be an image")
-
-    # CRITICAL FIX: Check for empty files
+@router.post("/ocr")
+async def ocr_endpoint(request: Request, file: UploadFile = File(...)):
     content = await file.read()
-    if len(content) == 0:
-         logger.warning("Received empty image file.")
-         return {"detections": [], "guidance_message": "Image error"}
-        
-    temp_file = None
+    if not content:
+        return {"detections": [], "guidance_message": "Image error"}
+
+    temp_path = None
     try:
-        suffix = os.path.splitext(file.filename)[1] or '.jpg'
+        suffix = os.path.splitext(file.filename)[1] or ".jpg"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
             f.write(content)
             temp_path = f.name
-            
-        result = ocr_adapter(temp_path)
-        
-        texts = [d["category"] for d in result.get("detections", [])]
-        guidance = " ".join(texts) if texts else "No text detected."
-        
+
+        async with request.app.state.ocr_limiter:
+            result = await anyio.to_thread.run_sync(
+                ocr_adapter,
+                request.app.state.ocr_reader,
+                temp_path,
+            )
+
+        texts = [d["category"] for d in result["detections"]]
         return {
-            "detections": result.get("detections", []),
-            "guidance_message": guidance
+            "detections": result["detections"],
+            "guidance_message": " ".join(texts) if texts else "No text detected.",
         }
-    except Exception as e:
-        logger.error(f"OCR Error: {e}")
-        # Return empty safe response instead of 500 crash
-        return {"detections": [], "guidance_message": "Text scan failed"}
+
     finally:
-        if temp_file and os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
 
-# --- CHAT ENDPOINT (The "Brain") ---
-@router.post("/chat", tags=['AI inference'])
-async def chat_endpoint(query: dict):
+@router.post("/chat")
+async def chat_endpoint(request: Request, query: dict):
     user_q = query.get("query", "").strip()
     if not user_q:
         return {"response": "I didn't hear a question."}
 
-    # Access memory via the state module (optional, but consistent)
-    recent_events = list(state.memory.buffer)
+    events = list(state.memory.buffer)
+    hazard = safe_or_stop_recommendation(events[-10:])
+    if hazard:
+        return {"response": hazard}
 
-    # Safety Gate 
-    hazard_msg = safe_or_stop_recommendation(recent_events[-10:])
-    if hazard_msg:
-         return {"response": hazard_msg}
-
-    # CHANGE 2: Check the state module dynamically
     if not state.llm_brain:
-        return {"response": "My reasoning brain is offline."}
+        return {"response": "Brain offline."}
 
-    try:
-        # CHANGE 3: Call the brain from the state module
-        final_text = state.llm_brain.ask(recent_events, user_q)
-        return {"response": final_text}
-    except Exception as e:
-        logger.error(f"LLM error: {e}")
-        return {"response": "I'm having trouble thinking right now."}
+    async with request.app.state.llm_limiter:
+        response = await anyio.to_thread.run_sync(
+            state.llm_brain.ask,
+            events,
+            user_q,
+        )
+
+    return {"response": response}
