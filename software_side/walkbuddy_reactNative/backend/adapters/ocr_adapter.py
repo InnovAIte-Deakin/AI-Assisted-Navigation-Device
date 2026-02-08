@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import cv2
 import numpy as np
+from opentelemetry import trace
+
+# Initialize Tracer
+tracer = trace.get_tracer("ocr.adapter")
 
 # Try to import EasyOCR
 try:
@@ -56,14 +60,20 @@ def ocr_adapter(image_path: str) -> Dict[str, Any]:
     reader = _load_ocr_reader()
     
     print("[OCR Adapter] Running inference...")
-    try:
-        raw_results = reader.readtext(str(image_path))
-    except Exception as e:
-        print(f"[OCR Adapter] Inference failed: {e}")
-        return {
-            "image_id": image_path_obj.stem,
-            "detections": []
-        }
+    
+    # WRAP INFERENCE
+    # This is the heavy lifting part we want to measure
+    with tracer.start_as_current_span("ocr.read_text") as span:
+        span.set_attribute("gpu_enabled", GPU_AVAILABLE)
+        try:
+            raw_results = reader.readtext(str(image_path))
+        except Exception as e:
+            print(f"[OCR Adapter] Inference failed: {e}")
+            span.record_exception(e)
+            return {
+                "image_id": image_path_obj.stem,
+                "detections": []
+            }
 
     clean_output = {
         "image_id": image_path_obj.stem,

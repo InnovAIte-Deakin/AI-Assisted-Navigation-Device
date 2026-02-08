@@ -17,7 +17,7 @@ from tts_service.message_reasoning import process_adapter_output
 from slow_lane import safe_or_stop_recommendation
 
 # State 
-from internal.state import memory,llm_brain 
+from internal import state 
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -50,9 +50,9 @@ async def vision_endpoint(file: UploadFile = File(...)):
         # 2. REMEMBER (Update Memory)
         detections = result.get("detections", [])
         for d in detections:
-            memory.add_event(
+            state.memory.add_event(
                 label=d["category"],
-                direction="ahead", # Adapter doesn't currently calculate X-pos, defaulting
+                direction="ahead", 
                 distance_m=None,
                 confidence=d["confidence"]
             )
@@ -122,21 +122,21 @@ async def chat_endpoint(query: dict):
     if not user_q:
         return {"response": "I didn't hear a question."}
 
-    # 1. Access the Single Source of Truth (Memory)
-    recent_events = list(memory.buffer)
+    # Access memory via the state module (optional, but consistent)
+    recent_events = list(state.memory.buffer)
 
-    # 2. Safety Gate (Uses raw dicts)
+    # Safety Gate 
     hazard_msg = safe_or_stop_recommendation(recent_events[-10:])
     if hazard_msg:
          return {"response": hazard_msg}
 
-    # 3. LLM Reasoning
-    if not llm_brain:
+    # CHANGE 2: Check the state module dynamically
+    if not state.llm_brain:
         return {"response": "My reasoning brain is offline."}
 
     try:
-        # Pass the raw events list directly
-        final_text = llm_brain.ask(recent_events, user_q)
+        # CHANGE 3: Call the brain from the state module
+        final_text = state.llm_brain.ask(recent_events, user_q)
         return {"response": final_text}
     except Exception as e:
         logger.error(f"LLM error: {e}")
