@@ -3,41 +3,49 @@
 import sys
 from pathlib import Path
 import os
-from typing import List, Optional, Dict
-import httpx
 import logging
 import asyncio
 import sqlite3
-import hashlib
-import secrets
 import uuid
 import json
 from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from ultralytics import YOLO
+import easyocr
 
-# 1. SETUP PATHS & LOGGING
+
+# =========================
+# 1. PATHS & LOGGING
+# =========================
 CURRENT_FILE = Path(__file__).resolve()
 BACKEND_DIR = CURRENT_FILE.parent
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = CURRENT_FILE.parents[3]
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-ML_MODELS_DIR = PROJECT_ROOT / "ML_models"
 LLM_MODEL_PATH = PROJECT_ROOT / "ML_side/models/llama-3.2-1b-instruct-q4_k_m.gguf"
+YOLO_MODEL_PATH = PROJECT_ROOT / "ML_side/models/best.pt"
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# =========================
 # 2. IMPORTS
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, Depends, status
+# =========================
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
 
-# Internal Imports
-from internal.state import collaboration_sessions, llm_brain
-from slow_lane import SlowLaneBrain
+# Internal
 import internal.state as app_state
+from internal.state import collaboration_sessions
+from slow_lane import SlowLaneBrain
 
 # Routers
 from routers import audiobooks as audiobooks_router
@@ -47,10 +55,97 @@ from routers import ai_service as ai_router
 from telemetry import init_telemetry
 from opentelemetry import trace
 
-# 3. CREATE APP
-app = FastAPI(title="WalkBuddy Unified Backend")
+# AnyIO (for limiters)
+import anyio
 
-# 4. MIDDLEWARE (your middleware first)
+# =========================
+# 3. CONSTANTS
+# =========================
+SESSION_EXPIRY_HOURS = 1
+DB_PATH = BACKEND_DIR / "helpers.db"
+
+tracer = trace.get_tracer("main.websocket")
+
+# =========================
+# 4. DB HELPERS
+# =========================
+def init_database():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS helpers (id INTEGER PRIMARY KEY, email TEXT)"
+    )
+    conn.commit()
+    conn.close()
+
+async def cleanup_expired_sessions():
+    # unchanged placeholder
+    pass
+
+# =========================
+# 5. APP LIFESPAN (PHASE B)
+# =========================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("🚀 Backend startup")
+
+    # --- init DB ---
+    init_database()
+
+    # --- load YOLO ---
+    try:
+        logger.info(f"Loading YOLO from {YOLO_MODEL_PATH}")
+        app.state.yolo = YOLO(str(YOLO_MODEL_PATH))
+        logger.info("✅ YOLO ready")
+    except Exception as e:
+        logger.error(f"❌ YOLO load failed: {e}")
+        app.state.yolo = None
+
+    # --- load EasyOCR ---
+    try:
+        logger.info("Loading EasyOCR reader")
+        app.state.ocr_reader = easyocr.Reader(["en"], gpu=True)
+        logger.info("✅ EasyOCR ready")
+    except Exception as e:
+        logger.error(f"❌ EasyOCR load failed: {e}")
+        app.state.ocr_reader = None
+
+    # --- load LLM ---
+    if not LLM_MODEL_PATH.exists():
+        logger.warning(f"⚠️ LLM not found at {LLM_MODEL_PATH}")
+        app_state.llm_brain = None
+    else:
+        try:
+            logger.info(f"Loading LLM from {LLM_MODEL_PATH}")
+            app_state.llm_brain = SlowLaneBrain(str(LLM_MODEL_PATH))
+            logger.info("✅ LLM ready")
+        except Exception as e:
+            logger.error(f"❌ Failed to load LLM: {e}")
+            app_state.llm_brain = None
+
+    # --- execution capacity ---
+    app.state.vision_limiter = anyio.CapacityLimiter(2)
+    app.state.ocr_limiter = anyio.CapacityLimiter(2)
+    app.state.llm_limiter = anyio.CapacityLimiter(1)
+
+    asyncio.create_task(cleanup_expired_sessions())
+
+    yield
+
+    logger.info("🛑 Backend shutdown")
+
+
+# =========================
+# 6. CREATE APP
+# =========================
+app = FastAPI(
+    title="WalkBuddy Unified Backend",
+    lifespan=lifespan,
+)
+
+# =========================
+# 7. MIDDLEWARE
+# =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -59,66 +154,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 5. MOUNT ROUTERS
+# =========================
+# 8. ROUTERS
+# =========================
 app.include_router(audiobooks_router.router)
 app.include_router(ai_router.router)
 
-# 6. TELEMETRY (instrument last so it wraps the final middleware stack)
+# =========================
+# 9. TELEMETRY
+# =========================
 init_telemetry(app)
 
-# Tracer for manual spans (e.g., websocket lifecycle)
-tracer = trace.get_tracer("main.websocket")
-
-# 7. CONSTANTS
-SESSION_EXPIRY_HOURS = 1
-DB_PATH = BACKEND_DIR / "helpers.db"
-
-# 8. LIFECYCLE EVENTS
-def init_database():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS helpers (id INTEGER PRIMARY KEY, email TEXT)"
-    )  # Simplified
-    conn.commit()
-    conn.close()
-
-async def cleanup_expired_sessions():
-    # ... (Existing cleanup logic) ...
-    pass
-
-@app.on_event("startup")
-async def startup_event():
-    # A. Init Database
-    init_database()
-
-    # B. Load LLM Brain
-    if os.path.exists(LLM_MODEL_PATH):
-        logger.info(f"Loading Slow Lane LLM from {LLM_MODEL_PATH}...")
-        try:
-            app_state.llm_brain = SlowLaneBrain(str(LLM_MODEL_PATH))
-            logger.info("✅ Slow Lane LLM Ready.")
-        except Exception as e:
-            logger.error(f"❌ Failed to load LLM: {e}")
-    else:
-        logger.warning(f"⚠️ LLM not found at {LLM_MODEL_PATH}")
-
-    asyncio.create_task(cleanup_expired_sessions())
-
-# ... (Auth & Navigation sections omitted for brevity, they are unchanged) ...
-
-# ============================================================================
-#  SECTION 10: COLLABORATION / WEBSOCKETS (Updated)
-# ============================================================================
-def normalize_session_id(sid: str) -> str:
-    return sid.strip().upper() if sid else ""
-
-def validate_session_id(sid: str) -> bool:
-    return len(normalize_session_id(sid)) == 8
-
+# =========================
+# 10. HEALTH
+# =========================
 @app.get("/ping")
 async def ping():
     return {"ok": True}
+
+# =========================
+# 11. COLLABORATION
+# =========================
+def normalize_session_id(sid: str) -> str:
+    return sid.strip().upper() if sid else ""
 
 @app.post("/collaboration/create-session", tags=["collaboration"])
 async def create_collaboration_session():
@@ -132,6 +190,7 @@ async def create_collaboration_session():
         "guide_name": None,
         "last_frame_time": 0,
     }
+
     return {"session_id": session_id, "expires_at": expires_at.isoformat()}
 
 @app.get("/collaboration/session/{session_id}/status", tags=["collaboration"])
@@ -140,6 +199,7 @@ async def get_session_status(session_id: str):
     session = collaboration_sessions.get(sid)
     if not session:
         raise HTTPException(404, "Session not found")
+
     return {
         "session_id": sid,
         "user_connected": session["user_ws"] is not None,
@@ -149,23 +209,20 @@ async def get_session_status(session_id: str):
 
 @app.websocket("/collaboration/ws/{session_id}/{role}")
 async def collaboration_websocket(websocket: WebSocket, session_id: str, role: str):
-    # One span for the lifetime of the websocket connection
     with tracer.start_as_current_span(f"ws.session.{role}") as span:
         sid = normalize_session_id(session_id)
         span.set_attribute("session_id", sid)
 
-        if role not in ["user", "guide"]:
+        if role not in {"user", "guide"}:
             await websocket.close(1008, "Invalid role")
-            span.set_status(trace.Status(trace.StatusCode.ERROR, "Invalid role"))
             return
 
         session = collaboration_sessions.get(sid)
         if not session:
             await websocket.close(1008, "Session not found")
-            span.set_status(trace.Status(trace.StatusCode.ERROR, "Session not found"))
             return
 
-        if datetime.now() > (session["created_at"] + timedelta(hours=SESSION_EXPIRY_HOURS)):
+        if datetime.now() > session["created_at"] + timedelta(hours=SESSION_EXPIRY_HOURS):
             await websocket.close(1008, "Expired")
             del collaboration_sessions[sid]
             return
@@ -178,25 +235,13 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
             return
 
         await websocket.accept()
-        if role == "user":
-            session["user_ws"] = websocket
-        else:
-            session["guide_ws"] = websocket
-
-        logger.info(f"[WS] {role} connected to {sid}")
-        span.add_event("connected")
-
-        # Notify peer
-        other_peer = session["guide_ws"] if role == "user" else session["user_ws"]
-        if other_peer:
-            await other_peer.send_json({"type": f"{role}_connected", "session_id": sid})
+        session[f"{role}_ws"] = websocket
 
         try:
             while True:
                 data = await websocket.receive_json()
                 msg_type = data.get("type")
 
-                # Not tracing frames individually (noise control)
                 if msg_type == "ping":
                     await websocket.send_json({"type": "pong"})
                     continue
@@ -212,7 +257,7 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
                     if session["guide_ws"]:
                         await session["guide_ws"].send_json(data)
 
-                elif msg_type in ["webrtc_offer", "webrtc_answer", "webrtc_ice"]:
+                elif msg_type in {"webrtc_offer", "webrtc_answer", "webrtc_ice"}:
                     target = session["guide_ws"] if role == "user" else session["user_ws"]
                     if target:
                         await target.send_json(data)
@@ -222,25 +267,13 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
                         await session["user_ws"].send_json(data)
 
         except WebSocketDisconnect:
-            logger.info(f"[WS] {role} disconnected {sid}")
-            span.add_event("client_disconnected")
-        except Exception as e:
-            logger.error(f"[WS] Error {sid}: {e}")
-            span.record_exception(e)
-            span.set_status(trace.Status(trace.StatusCode.ERROR))
+            pass
         finally:
-            if role == "user":
-                session["user_ws"] = None
-            else:
-                session["guide_ws"] = None
+            session[f"{role}_ws"] = None
 
-            other = session["guide_ws"] if role == "user" else session["user_ws"]
-            if other:
-                try:
-                    await other.send_json({"type": f"{role}_disconnected"})
-                except Exception:
-                    pass
-
+# =========================
+# 12. DEV ENTRYPOINT
+# =========================
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
