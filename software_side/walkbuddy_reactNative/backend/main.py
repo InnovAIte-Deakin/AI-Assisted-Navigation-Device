@@ -37,7 +37,7 @@ from pydantic import BaseModel, EmailStr
 
 # Internal Imports (The "Brain" & State)
 from internal.state import collaboration_sessions, llm_brain
-from slow_lane import SlowLaneLLM
+from slow_lane import SlowLaneBrain  
 import internal.state as app_state # For setting the singleton
 
 # Routers
@@ -145,7 +145,7 @@ async def startup_event():
         logger.info(f"Loading Slow Lane LLM from {LLM_MODEL_PATH}...")
         try:
             # Set the global variable in the state module
-            app_state.llm_brain = SlowLaneLLM(str(LLM_MODEL_PATH))
+            app_state.llm_brain = SlowLaneBrain(str(LLM_MODEL_PATH))
             logger.info("✅ Slow Lane LLM Ready.")
         except Exception as e:
             logger.error(f"❌ Failed to load LLM: {e}")

@@ -116,41 +116,28 @@ async def ocr_endpoint(file: UploadFile = File(...)):
             os.unlink(temp_path)
 
 # --- CHAT ENDPOINT (The "Brain") ---
-@router.post("/chat",tags=['AI inference'])
+@router.post("/chat", tags=['AI inference'])
 async def chat_endpoint(query: dict):
-    """
-    Uses Memory + LLM.
-    """
     user_q = query.get("query", "").strip()
     if not user_q:
         return {"response": "I didn't hear a question."}
 
-    # 1. SAFETY GATE
-    recent_events = list(memory.buffer)[-10:]
-    hazard_msg = safe_or_stop_recommendation(recent_events)
+    # 1. Access the Single Source of Truth (Memory)
+    recent_events = list(memory.buffer)
+
+    # 2. Safety Gate (Uses raw dicts)
+    hazard_msg = safe_or_stop_recommendation(recent_events[-10:])
     if hazard_msg:
          return {"response": hazard_msg}
 
-    # 2. LLM REASONING
+    # 3. LLM Reasoning
     if not llm_brain:
         return {"response": "My reasoning brain is offline."}
 
     try:
-        context_str = memory.to_context_text(n=20)
-        json_response_str = llm_brain.answer(context_str, user_q)
-        
-        # Cleanup markdown
-        clean_resp = json_response_str.replace("```json", "").replace("```", "").strip()
-        
-        import json
-        try:
-            parsed = json.loads(clean_resp)
-            final_text = parsed.get("suggested_action", parsed.get("summary", clean_resp))
-        except:
-            final_text = clean_resp 
-
+        # Pass the raw events list directly
+        final_text = llm_brain.ask(recent_events, user_q)
         return {"response": final_text}
-        
     except Exception as e:
         logger.error(f"LLM error: {e}")
         return {"response": "I'm having trouble thinking right now."}
