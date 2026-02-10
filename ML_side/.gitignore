@@ -12,6 +12,7 @@ venv/
 
 # Models (keep small ones, ignore large ones)
 *.pt
+ML_side/models/*.gguf
 !models/best.pt
 
 # Data (if too large)
