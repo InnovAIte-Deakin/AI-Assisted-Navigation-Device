@@ -1,0 +1,5 @@
+# Leave blank for LAN dev 
+# Set this to a Cloudflare tunnel URL only if testing on hotspot
+# Run the tunnel with: cloudflared tunnel --url http://localhost:8000
+
+# EXPO_PUBLIC_API_BASE=https://your-tunnel.trycloudflare.com

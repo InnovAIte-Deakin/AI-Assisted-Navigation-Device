@@ -1,5 +1,5 @@
 // Real routing API integration
-// import { API_BASE } from '../config';
+import { API_BASE } from '../config';
 import { Route, RouteStep, ManeuverType } from "../types/navigation";
 import { stepToText } from "./navigationHelpers";
 
@@ -10,8 +10,6 @@ export interface RoutingOptions {
   destLng: number;
   profile?: "foot-walking" | "driving-car" | "cycling-regular";
 }
-
-const API_BASE = "http://0.0.0.0:8000";
 
 // Convert OpenRouteService maneuver type to our ManeuverType
 function convertManeuverType(orsType: string): ManeuverType {

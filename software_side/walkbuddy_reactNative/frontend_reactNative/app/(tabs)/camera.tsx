@@ -23,9 +23,7 @@ import {
 // Ensure these paths match your project structure
 import { getTTSService, RiskLevel } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
-
-// Use your Tunnel URL (easiest for mobile testing right now)
-const API_BASE = "http://localhost:8000";
+import { API_BASE } from "../../src/config";
 
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");

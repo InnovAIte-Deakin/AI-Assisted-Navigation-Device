@@ -19,6 +19,11 @@ export default ({ config }) => ({
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: true,
+    infoPlist: {
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+      },
+    },
   },
   android: {
     adaptiveIcon: {
@@ -32,8 +37,5 @@ export default ({ config }) => ({
       "Content-Security-Policy":
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",
     },
-  },
-  extra: {
-    apiBaseUrl: "http://192.168.1.122:8000",
   },
 });
