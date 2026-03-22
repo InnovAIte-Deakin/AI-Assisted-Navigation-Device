@@ -7,4 +7,6 @@ node_modules
 *.pyd
 *.db
 *.log
+*.DS_Store
 .env
+
