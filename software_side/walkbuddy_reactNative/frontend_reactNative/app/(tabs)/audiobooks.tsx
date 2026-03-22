@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// import { API_BASE } from "@/src/config";
+import { API_BASE } from "@/src/config";
 import {
   addFavorite,
   removeFavorite,
@@ -30,7 +30,6 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FilterModal from "@/components/FilterModal";
 import UserGuideModal from "@/components/UserGuideModal";
-const API_BASE = "http://127.0.0.1:8000";
 
 // Debounce hook
 function useDebouncedValue<T>(value: T, delay: number = 500): T {

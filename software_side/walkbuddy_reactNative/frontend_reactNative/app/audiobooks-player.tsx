@@ -17,10 +17,9 @@ import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Speech from "expo-speech";
-// import { API_BASE } from "@/src/config";
+import { API_BASE } from "@/src/config";
 import { addToHistory } from "@/src/utils/audiobookStorage";
 import { speakWeb, stopWebSpeech } from "@/src/utils/webTTS";
-const API_BASE = "http://127.0.0.1:8000";
 
 interface Chapter {
   id: string;

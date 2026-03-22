@@ -1,7 +1,5 @@
 // Geocoding utilities
-// import { API_BASE } from '../config';
-
-const API_BASE = "http://0.0.0.0:8000";
+import { API_BASE } from '../config';
 
 export interface GeocodeResult {
   name: string;

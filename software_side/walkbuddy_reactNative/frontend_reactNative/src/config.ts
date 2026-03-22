@@ -1,11 +1,17 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 
-const extra = (Constants.expoConfig?.extra ?? {}) as any;
+// If EXPO_PUBLIC_API_BASE is set (e.g. a Cloudflare tunnel URL for hotspot use),
+// use it. Otherwise derive the backend host from Metro's LAN IP automatically.
+const tunnelOverride = process.env.EXPO_PUBLIC_API_BASE;
 
-// IMPORTANT: phones cannot access localhost on your laptop
-const defaultApiBase =
-  extra.apiBaseUrl ??
-  (process.env.EXPO_PUBLIC_API_BASE as string) ??
-  "http://172.20.10.2:8000";
+const lanHost = Constants.expoConfig?.hostUri?.split(":")[0];
+const isIp = (h?: string) => !!h && /^\d+\.\d+\.\d+\.\d+$/.test(h);
 
-export const API_BASE = defaultApiBase;
+export const API_BASE =
+  tunnelOverride ||
+  (Platform.OS === "web"
+    ? "http://localhost:8000"
+    : isIp(lanHost)
+      ? `http://${lanHost}:8000`
+      : "http://172.20.10.2:8000");

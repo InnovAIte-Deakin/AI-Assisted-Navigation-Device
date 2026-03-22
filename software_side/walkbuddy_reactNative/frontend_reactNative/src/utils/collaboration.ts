@@ -1,9 +1,7 @@
 // src/utils/collaboration.ts
 // WebSocket client service for collaborative assistance
 
-// import { API_BASE } from "../config";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { API_BASE } from "../config";
 
 export type CollaborationRole = "user" | "guide";
 export type MessageType =
