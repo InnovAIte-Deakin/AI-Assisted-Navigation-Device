@@ -26,8 +26,9 @@ def init_telemetry(app, service_name="walkbuddy-backend"):
     # 3. Configure the Exporter (Sends data to Jaeger via OTLP gRPC)
     # Since you are running the backend on localhost and Jaeger in Docker exposing port 4317,
     # localhost:4317 is the correct endpoint.
+    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
     otlp_exporter = OTLPSpanExporter(
-        endpoint="http://localhost:4317", 
+        endpoint=endpoint,
         insecure=True
     )
     
@@ -46,4 +47,4 @@ def init_telemetry(app, service_name="walkbuddy-backend"):
     # This captures all incoming HTTP requests to your API
     FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
     
-    print(f"[Telemetry] OTel initialized for {service_name} -> http://localhost:4317")
+    print(f"[Telemetry] OTel initialized for {service_name} -> {endpoint}")

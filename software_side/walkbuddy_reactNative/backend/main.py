@@ -19,13 +19,19 @@ import easyocr
 # =========================
 CURRENT_FILE = Path(__file__).resolve()
 BACKEND_DIR = CURRENT_FILE.parent
-PROJECT_ROOT = CURRENT_FILE.parents[3]
 
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    PROJECT_ROOT = CURRENT_FILE.parents[3]
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+except IndexError:
+    PROJECT_ROOT = BACKEND_DIR  # running in Docker — path is too shallow
 
-LLM_MODEL_PATH = PROJECT_ROOT / "ML_side/models/llama-3.2-1b-instruct-q4_k_m.gguf"
-YOLO_MODEL_PATH = PROJECT_ROOT / "ML_side/models/best.pt"
+# WALKBUDDY_MODEL_DIR env var lets Docker mount models without relying on
+# the repo path structure (parents[3] is only 2 levels deep in containers).
+_model_base = Path(os.environ["WALKBUDDY_MODEL_DIR"]) if "WALKBUDDY_MODEL_DIR" in os.environ else PROJECT_ROOT / "ML_side/models"
+LLM_MODEL_PATH = _model_base / "llama-3.2-1b-instruct-q4_k_m.gguf"
+YOLO_MODEL_PATH = _model_base / "best.pt"
 
 
 logging.basicConfig(level=logging.INFO)

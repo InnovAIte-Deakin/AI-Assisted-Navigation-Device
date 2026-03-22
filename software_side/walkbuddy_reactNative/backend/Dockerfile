@@ -1,7 +1,6 @@
-# backend/Dockerfile
+# backend/Dockerfile  (build context: backend/)
 FROM python:3.11-slim
 
-# System deps: CV/ML + TTS (eSpeak-ng + ALSA)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1 \
@@ -15,20 +14,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Python deps
-COPY backend/requirements.txt /app/requirements.txt
+COPY requirements.txt .
+# Filter out macOS-only packages (pyobjc*) that can't build on Linux.
+# Remove this grep when requirements.txt is regenerated on Linux/CI.
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r /app/requirements.txt
+    grep -iv "pyobjc" requirements.txt > /tmp/requirements-linux.txt && \
+    pip install --no-cache-dir -r /tmp/requirements-linux.txt
 
-# App code + models
-COPY backend /app
-COPY ML_models /app/ML_models
+# llama-cpp-python is excluded from requirements.txt because it compiles
+# differently per platform (Metal on macOS, CPU here). Kept as a separate
+# cached layer so other dep changes don't trigger a recompile.
+RUN pip install --no-cache-dir llama-cpp-python==0.3.16
 
-# Helpful defaults for pyttsx3/espeak in containers
+COPY . .
+
 ENV PYTTSX3_DRIVER=espeak
 ENV TTS_RATE=170
 
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD curl -f http://localhost:8000/docs || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+  CMD curl -f http://localhost:8000/docs || exit 1
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
