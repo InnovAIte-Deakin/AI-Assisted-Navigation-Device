@@ -11,4 +11,5 @@ node_modules
 *.gguf
 .env
 expo-env.d.ts
-
+ML_side/data/train_dataset/
+ML_side/data/val_dataset/
