@@ -7,6 +7,8 @@ node_modules
 *.pyd
 *.db
 *.log
-*.DS_Store
+.DS_Store
+*.gguf
 .env
+expo-env.d.ts
 
