@@ -28,11 +28,12 @@ Large binary files do not belong in the repo. Code, configs, and logs do.
 |---|---|---|
 | Dataset images (train/val) | Teams SharePoint | Never commit to repo |
 | Model weights (`.pt`, `.tflite`, `.gguf`) | Teams SharePoint | Never commit to repo |
-| Training configs (`args.yaml`, `dataset.yaml`) | Repo | Text, version-controlled |
-| Notebooks (`.ipynb`) | Repo | Commit with cleared or minimal outputs |
-| Experiment logs (`results.csv`) | Repo | Authoritative metrics — always commit |
-| Analysis/integrity scripts (`.py`) | Repo | Code belongs here |
 | PDF reports | Teams SharePoint | Historical reference only, never authoritative |
+| Training configs (`args.yaml`, `dataset.yaml`) | Repo | Text, version-controlled |
+| Experiment logs (`results.csv`) | Repo | Authoritative metrics — always commit |
+| Notebooks (`.ipynb`) | Repo | Commit with cleared or minimal outputs |
+| Analysis/integrity scripts (`.py`) | Repo | Code belongs here |
+
 
 ### Dataset Versioning Convention
 

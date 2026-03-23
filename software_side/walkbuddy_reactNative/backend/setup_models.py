@@ -3,7 +3,7 @@ import requests
 from tqdm import tqdm
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MODEL_DIR = PROJECT_ROOT / "ML_side" / "models"
 MODEL_FILENAME = "llama-3.2-1b-instruct-q4_k_m.gguf"
 MODEL_PATH = MODEL_DIR / MODEL_FILENAME
