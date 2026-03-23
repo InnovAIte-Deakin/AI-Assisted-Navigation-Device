@@ -20,6 +20,8 @@ The result was that each person's work was hard to compare or combine with anyon
 
 ## Collaboration & Storage Guidelines
 
+The full contribution workflow — opening a GitHub issue with the right label, updating the [AIAND Progress Tracker](https://docs.google.com/spreadsheets/d/1NogkKQmUfVSwdF_XZ5LVf-zvVt_XMrCdbr67mCDDbcI/edit?usp=sharing), notifying the team on Microsoft Teams, and opening a PR — is documented in the [root README](../README.md#how-we-work). The rules below cover storage and versioning specific to the ML side.
+
 ### Storage Policy
 
 Large binary files do not belong in the repo. Code, configs, and logs do.
