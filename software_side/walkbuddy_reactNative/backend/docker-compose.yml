@@ -5,13 +5,13 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
 
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     container_name: walkbuddy-backend
     ports:
@@ -20,6 +20,6 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - WALKBUDDY_MODEL_DIR=/models
     volumes:
-      - ../../ML_side/models:/models
+      - ../../../ML_side/models:/models
     depends_on:
       - jaeger
