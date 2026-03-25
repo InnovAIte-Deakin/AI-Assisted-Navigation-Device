@@ -8,4 +8,5 @@ Your PR should target the `dev` branch.
 Add your details on a new line below in this format:
 Name | Student ID | GitHub Username
 ------------------------------------------------------------
-Auritro Sami | s226219941 | AuritroS
+Hasindu Mediwaka | s224742583 | hasindumediwaka
+
