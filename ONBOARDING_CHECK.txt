@@ -9,3 +9,4 @@ Add your details on a new line below in this format:
 Name | Student ID | GitHub Username
 ------------------------------------------------------------
 Auritro Sami | s226219941 | AuritroS
+ARJUN BIJU | s223663972 | Rinzle-r
