@@ -92,6 +92,61 @@ Current status of every major feature as it exists in the codebase today.
 
 ---
 
+## Open Issues
+
+All active work is tracked as GitHub Issues organised into four milestones. Start with **Stage 0** — every issue there is open now with no dependencies.
+
+| Stage | Milestone | Issues |
+|-------|-----------|--------|
+| 0 | [Ready — No Dependencies](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/milestone/1) | 19 issues (#49–#67) |
+| 1 | [Blocked: Awaiting Class Spec or Auth](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/milestone/2) | 4 issues (#68–#71) |
+| 2 | [Blocked: Awaiting Stage 1](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/milestone/3) | 2 issues (#72–#73) |
+| 3 | [Final: Integration & Validation](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/milestone/4) | 1 issue (#74) |
+
+### Why Stages 1–3 are blocked
+
+```
+Stage 0 — open now (19 issues)
+  │
+  ├─ close #65 (class spec) ──────────── unlocks #68 #69 #70
+  ├─ close #61 + #62 (auth) ──────────── unlocks #71
+  └─ close #66 (depth module) ────────── unlocks #73
+                                                    │
+                                                    ▼
+Stage 1 unlocks ──────────────────────────────── #68 #69 #70 #71
+  │
+  └─ close #70 (hazard annotations)
+                    │
+                    ▼
+Stage 2 unlocks ── #72 #73
+  │
+  └─ close #68 + #69 + #72 (safety gate chain)
+                    │
+                    ▼
+Stage 3 unlocks ── #74
+```
+
+### Good First Issues
+
+New to the project? These issues touch a single file and have clear acceptance criteria.
+
+- [#49](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/issues/49) — Fix broken API endpoint URLs in `client.ts` (Frontend)
+- [#51](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/issues/51) — Fix hardcoded greeting "Hi Daniel" on the home screen (Frontend)
+- [#52](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/issues/52) — Remove unimplemented Screen Reader tile (Frontend)
+- [#53](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/issues/53) — Replace hardcoded developer IP in `config.ts` (Frontend)
+- [#54](https://github.com/InnovAIte-Deakin/AI-Assisted-Navigation-Device/issues/54) — Fix EasyOCR hardcoded `gpu=True` in `main.py` (Backend)
+
+### How to claim an issue
+
+1. Check the issue is not already assigned.
+2. Leave a comment on the issue: "Taking this one."
+3. Post in the Teams channel: "Starting #N — [title] ([layer])"
+4. Update the AIAND Progress Tracker with the issue number.
+
+See [How We Work](#how-we-work) for the full contribution process.
+
+---
+
 ## Cross-Cutting Postmortem
 
 Each component README has a postmortem for failures within that component. This section covers the failures that happened *between* components — the ones that required multiple people's work to be broken at the same time.
@@ -246,7 +301,7 @@ This prevents two people starting the same work in parallel and gives everyone a
 
 ### Step 4 — Do the work and open a PR
 
-Branch from `main`. When ready, open a PR that:
+Branch from `dev`. When ready, open a PR targeting `dev` that:
 - References the issue (`Closes #N` or `Fixes #N` in the description)
 - Describes what changed, why, and how to test it
 - Has the smoke test passing if you touched the backend
