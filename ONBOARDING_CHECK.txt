@@ -10,3 +10,6 @@ Name | Student ID | GitHub Username
 ------------------------------------------------------------
 Auritro Sami | s226219941 | AuritroS
 Ghaith Fahad | s223752262 | Ghaithotb
+ARJUN BIJU | s223663972 | Rinzle-r
+Hasindu Mediwaka | s224742583 | hasindumediwaka
+
