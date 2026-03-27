@@ -110,8 +110,8 @@ async def lifespan(app: FastAPI):
     # --- load EasyOCR ---
     try:
         logger.info("Loading EasyOCR reader")
-        app.state.ocr_reader = easyocr.Reader(["en"], gpu=True)
-        logger.info("✅ EasyOCR ready")
+        app.state.ocr_reader = easyocr.Reader(["en"], gpu=False)
+        logger.info("✅ EasyOCR ready (CPU mode)")
     except Exception as e:
         logger.error(f"❌ EasyOCR load failed: {e}")
         app.state.ocr_reader = None
