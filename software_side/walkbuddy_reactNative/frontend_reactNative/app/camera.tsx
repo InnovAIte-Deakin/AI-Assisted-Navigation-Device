@@ -93,22 +93,36 @@ const triggerAccessibilityFeedback = useCallback(
       enableSpeech = true,
       minIntervalMs = 800,
       dedupeLabelMs = 1500,
-      // confidence, minConfidence  // keep unused for now (mentor wants finalize only)
+      confidence, 
+      minConfidence
     } = opts;
 
     const now = Date.now();
 
+    if (
+   typeof confidence === "number" &&
+   typeof minConfidence === "number" &&
+   confidence < minConfidence
+) {
+  return;
+}
+
     // global throttle
     if (now - lastAlertAtRef.current < minIntervalMs) return;
+    
+    const normalizedLabel = label.trim().toLowerCase();
 
     // dedupe same label
-    if (label === lastLabelRef.current && now - lastLabelAtRef.current < dedupeLabelMs) {
-      return;
-    }
+   if (
+   normalizedLabel === lastLabelRef.current &&
+   now - lastLabelAtRef.current < dedupeLabelMs
+) {
+  return;
+}
 
     // update refs
     lastAlertAtRef.current = now;
-    lastLabelRef.current = label;
+    lastLabelRef.current = normalizedLabel;
     lastLabelAtRef.current = now;
 
     // haptics

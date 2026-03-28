@@ -155,7 +155,7 @@
 // -------------------
 
 // src/components/ModelWebView.tsx
-import React, { memo, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { Platform, View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { WebView } from "react-native-webview";
 
@@ -167,6 +167,35 @@ type Props = {
 
 function ModelWebView({ url, loading, onObjectDetected }: Props) {
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+  if (Platform.OS !== "web" || typeof onObjectDetected !== "function") return;
+
+  const handleMessage = (event: any) => {
+    const raw = event.data;
+
+    try {
+      const msg = typeof raw === "string" ? JSON.parse(raw) : raw;
+
+      if (msg?.type === "DETECTION" && typeof msg?.label === "string") {
+        onObjectDetected(msg.label, msg.confidence);
+        return;
+      }
+
+      if (typeof msg?.label === "string") {
+        onObjectDetected(msg.label);
+        return;
+      }
+    } catch {
+      if (typeof raw === "string") {
+        onObjectDetected(raw);
+      }
+    }
+  };
+
+  window.addEventListener("message", handleMessage);
+  return () => window.removeEventListener("message", handleMessage);
+}, [onObjectDetected]);
 
   if (Platform.OS === "web") {
     // IMPORTANT:
