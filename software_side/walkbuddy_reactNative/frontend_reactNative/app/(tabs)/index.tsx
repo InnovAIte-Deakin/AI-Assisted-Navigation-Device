@@ -2,8 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import {
-  Alert,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -41,15 +39,6 @@ export default function HomePage() {
   const goToCameraOCR = () =>
     router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
 
-  const goToScreenReader = () => {
-    const title = "Coming soon";
-    const msg = "Screen Reader is not implemented yet.";
-    if (Platform.OS === "web") {
-      (globalThis as any).alert?.(`${title}\n\n${msg}`);
-    } else {
-      Alert.alert(title, msg);
-    }
-  };
 
   useEffect(() => {
     if (!visionEnabled) {
@@ -114,11 +103,7 @@ export default function HomePage() {
               label="PLACES"
               onPress={goToSavedPlaces}
             />
-            <ActionTile
-              icon="volume-up"
-              label="SCREEN READER"
-              onPress={goToScreenReader}
-            />
+
             <ActionTile
               icon="file-text"
               label="TEXT READER"
