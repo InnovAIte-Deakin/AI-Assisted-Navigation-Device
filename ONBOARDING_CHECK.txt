@@ -6,7 +6,11 @@ Instructions are in GitHub Issue #75.
 Your PR should target the `dev` branch.
 
 Add your details on a new line below in this format:
-Name | Student ID | GitHub Username
+KIRAN VERMA | s225210254 | KUKKUDEAKIN
 ------------------------------------------------------------
 Auritro Sami | s226219941 | AuritroS
 Zehong Li | s223926313 | ZeL1218
+Ghaith Fahad | s223752262 | Ghaithotb
+ARJUN BIJU | s223663972 | Rinzle-r
+Hasindu Mediwaka | s224742583 | hasindumediwaka
+Nirja Manoj Sabara | s223988976 | NirjaSabara
