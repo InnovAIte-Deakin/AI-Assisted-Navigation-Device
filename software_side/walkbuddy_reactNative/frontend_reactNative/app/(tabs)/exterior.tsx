@@ -1,10 +1,22 @@
+/*
+   NOTE:
+   The speech recognition feature (expo-speech-recognition) has been temporarily
+   commented out due to build/runtime issues encountered when running the
+   application on Android (Expo Go environment).
+
+   This feature requires native module support, which is not fully compatible
+   with the current setup, leading to errors during execution.
+
+   This will be fixed and added back in future updates.
+*/
+
 // Exterior Navigation Screen with Production Features
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import { useFocusEffect } from "expo-router";
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
+// import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import React, {
   useCallback,
   useEffect,
@@ -907,7 +919,7 @@ export default function ExteriorNavigationScreen() {
   }, []);
 
   // Handle speech recognition results for native platforms
-  useSpeechRecognitionEvent('result', useCallback((event: any) => {
+ /* useSpeechRecognitionEvent('result', useCallback((event: any) => {
     if (isListeningDestination && event.results && event.results.length > 0) {
       const transcript = event.results[0]?.transcript || "";
       if (transcript.trim()) {
@@ -939,6 +951,7 @@ export default function ExteriorNavigationScreen() {
       nativeRecognitionResultRef.current = "";
     }
   }, [isListeningDestination]));
+*/
 
   // Handle voice input for destination
   const handleVoiceInput = useCallback(async () => {
@@ -952,12 +965,18 @@ export default function ExteriorNavigationScreen() {
             recognitionRef.current.stop();
           } catch {}
         }
-      } else {
+      } /*else { // removed for testing purpose
         try {
           await ExpoSpeechRecognitionModule.stop();
         } catch (error) {
           console.error("Error stopping recognition:", error);
         }
+      }*/
+      else {
+        Alert.alert(
+          "Unavailable",
+          "Speech recognition not supported in Expo Go (Android)."
+        );
       }
       setIsListeningDestination(false);
       nativeRecognitionResultRef.current = "";
@@ -1018,7 +1037,7 @@ export default function ExteriorNavigationScreen() {
       } catch (error) {
         Alert.alert("Error", "Failed to start speech recognition. Please try typing instead.");
       }
-    } else {
+    }/* else {
       // Native implementation using expo-speech-recognition
       try {
         // Request permissions
@@ -1043,8 +1062,14 @@ export default function ExteriorNavigationScreen() {
         setIsListeningDestination(false);
         const errorMsg = error?.message || "Failed to start speech recognition";
         Alert.alert("Error", `${errorMsg}. Please try typing instead.`);
-      }
-    }
+      } removed for testing purpose
+    }*/
+        else {
+          Alert.alert(
+            "Unavailable",
+            "Speech recognition is not supported in Expo Go on Android right now."
+          );
+}
   }, [isListeningDestination, handleSearchRoute]);
 
   // Format ETA
