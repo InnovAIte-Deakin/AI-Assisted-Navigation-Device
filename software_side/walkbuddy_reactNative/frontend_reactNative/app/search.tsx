@@ -6,6 +6,7 @@ import {
   Text,
   View,
   Pressable,
+  ScrollView,
   TextInput,
   useWindowDimensions,
   Alert,
@@ -14,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import HomeHeader from "./HomeHeader";
+import { getRecentPlaces, markUsed, type PlaceItem } from "./lib/placesStore";
 
 /*
   NOTE:
@@ -56,6 +58,8 @@ export default function SearchPage() {
 
   const hasDestination = query.trim().length > 0;
 
+  const [recentPlaces, setRecentPlaces] = useState<PlaceItem[]>([]);
+
   // Prefill search field when coming from Places
   useEffect(() => {
     if (typeof presetDestination !== "string") return;
@@ -69,6 +73,26 @@ export default function SearchPage() {
       setDestinationType(null);
     }
   }, [presetDestination, presetType]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await getRecentPlaces(6);
+        setRecentPlaces(list);
+      } catch {
+      }
+    })();
+  }, []);
+
+  const selectRecentPlace = async (place: PlaceItem) => {
+    await markUsed(place.id);
+    const list = await getRecentPlaces(6);
+    setRecentPlaces(list);
+
+    const trimmed = place.title.trim();
+    setQuery(trimmed);
+    setDestinationType(place.kind);
+  };
 
   function onPressInterior() {
     if (!hasDestination) return;
@@ -149,6 +173,30 @@ export default function SearchPage() {
               returnKeyType="search"
             />
           </View>
+
+          {!hasDestination && recentPlaces.length > 0 && (
+            <View style={styles.recentWrap}>
+              <Text style={styles.recentTitle}>Recent destinations</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.recentRow}
+              >
+                {recentPlaces.map((place) => (
+                  <Pressable
+                    key={place.id}
+                    onPress={() => selectRecentPlace(place)}
+                    style={styles.recentPill}
+                    accessibilityLabel={`Recent destination: ${place.title}`}
+                  >
+                    <Text style={styles.recentPillText} numberOfLines={1}>
+                      {place.title}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Result display area */}
           <View style={styles.resultCard}>
@@ -301,6 +349,38 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     gap: 12,
+  },
+
+  recentWrap: {
+    width: "100%",
+    marginTop: 10,
+  },
+  recentTitle: {
+    color: tokens.text,
+    opacity: 0.85,
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  recentRow: {
+    gap: 10,
+    paddingBottom: 4,
+  },
+  recentPill: {
+    borderWidth: 2,
+    borderColor: tokens.gold,
+    backgroundColor: tokens.tile,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recentPillText: {
+    color: tokens.text,
+    fontWeight: "800",
+    fontSize: 13,
+    maxWidth: 200,
   },
 
   modeBtn: {
