@@ -3,7 +3,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import React, {
   useCallback,
@@ -95,6 +95,11 @@ export default function ExteriorNavigationScreen() {
   const [eta, setEta] = useState<number | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
 
+  const { presetDestination, presetType } = useLocalSearchParams<{
+    presetDestination?: string;
+    presetType?: string;
+  }>();
+
   const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
     null
   );
@@ -108,6 +113,7 @@ export default function ExteriorNavigationScreen() {
   const deviationCheckRef = useRef<number>(0);
   const lastLocationRef = useRef<LocationType | null>(null);
   const lastRouteUpdateRef = useRef<number>(0);
+  const lastPrefilledDestKeyRef = useRef<string>("");
 
   // Navigation constants - thresholds for route following
   const ARRIVAL_THRESHOLD_M = 20; // meters - when to advance to next step (maneuver reached)
@@ -146,6 +152,45 @@ export default function ExteriorNavigationScreen() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const destText =
+      typeof presetDestination === "string" ? presetDestination.trim() : "";
+    if (!destText) return;
+    if (isNavigating) return;
+
+    const type = typeof presetType === "string" ? presetType : "E";
+    if (type === "I") return;
+
+    const destKey = `${type}:${destText}`;
+    if (destKey === lastPrefilledDestKeyRef.current) return;
+    lastPrefilledDestKeyRef.current = destKey;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const destResult = await geocodePlaceName(destText);
+        if (cancelled) return;
+        setDestination({
+          lat: destResult.lat,
+          lng: destResult.lng,
+          name: destResult.name,
+        });
+        setShowDestinationModal(false);
+        setToInput(destText);
+      } catch (error: any) {
+        if (cancelled) return;
+        console.error("[Exterior] Failed to prefill destination:", error);
+        Alert.alert("Error", error?.message || "Failed to resolve that destination.");
+        // Allow retry if the same dest is passed again.
+        lastPrefilledDestKeyRef.current = "";
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [presetDestination, presetType, isNavigating]);
 
   // Update ETA based on actual remaining distance along route
   useEffect(() => {

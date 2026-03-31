@@ -47,6 +47,15 @@ export async function getPlacesSorted() {
   return sortPlaces(list);
 }
 
+export async function getRecentPlaces(max = 5) {
+  const list = await readAll();
+  const recents = list
+    .filter((p) => !p.isFav && p.lastUsed > 0)
+    .sort((a, b) => b.lastUsed - a.lastUsed);
+
+  return recents.slice(0, max);
+}
+
 export async function saveCurrentLocation(
   title: string,
   kind: PlaceKind = "E"
