@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Switch } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useRouter, useSegments } from "expo-router";
-import { useCurrentLocation } from "./lib/locationSaver";
+import { useCurrentLocation } from "../src/utils/locationSaver";
 
 type Props = {
   greeting?: string;

@@ -18,7 +18,7 @@ import {
   toggleFavourite,
   markUsed,
   PlaceItem,
-} from "../lib/placesStore";
+} from "../../src/utils/placesStore"
 
 /*
   TEMPORARY TESTING ONLY
