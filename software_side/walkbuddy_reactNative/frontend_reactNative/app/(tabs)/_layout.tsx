@@ -12,7 +12,6 @@ export default function TabLayout() {
       <Tabs.Screen name="indoor" options={{ title: "Indoor" }} />
       <Tabs.Screen name="exterior" options={{ title: "Exterior" }} />
       <Tabs.Screen name="camera" options={{ title: "Camera" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
       <Tabs.Screen name="places" options={{ title: "Places" }} />
     </Tabs>
   );
