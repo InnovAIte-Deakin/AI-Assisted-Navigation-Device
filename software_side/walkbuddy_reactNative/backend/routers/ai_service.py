@@ -36,7 +36,7 @@ async def vision_endpoint(request: Request, file: UploadFile = File(...)):
         for d in result["detections"]:
             state.memory.add_event(
                 label=d["category"],
-                direction="ahead",
+                direction = d.get("direction", "ahead"), # using computed direction instead of ahead
                 distance_m=None,
                 confidence=d["confidence"],
             )
