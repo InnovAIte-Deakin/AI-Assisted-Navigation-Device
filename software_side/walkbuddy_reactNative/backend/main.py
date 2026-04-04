@@ -152,9 +152,19 @@ app = FastAPI(
 # =========================
 # 7. MIDDLEWARE
 # =========================
+origins_env = os.getenv("WALKBUDDY_ALLOWED_ORIGINS")
+
+if origins_env:
+    allow_origins = [origin.strip() for origin in origins_env.split(",")]
+else:
+    allow_origins = [
+        "http://localhost:8081",
+        "http://localhost:8000"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins = allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
