@@ -171,7 +171,7 @@ function ModelWebView({ url, loading, onObjectDetected }: Props) {
   useEffect(() => {
   if (Platform.OS !== "web" || typeof onObjectDetected !== "function") return;
 
-  const handleMessage = (event: any) => {
+  const handleMessage = (event: MessageEvent) => {
     const raw = event.data;
 
     try {
@@ -283,27 +283,21 @@ function ModelWebView({ url, loading, onObjectDetected }: Props) {
        // Only handle string messages
        if (typeof raw !== "string" || raw.length === 0) return;
 
-       try {
-       const msg = JSON.parse(raw);
+        try {
+    const msg = JSON.parse(raw);
 
-       // Expected structured message
-       if (msg?.type === "DETECTION" && typeof msg?.label === "string") {
-       onObjectDetected(msg.label, msg.confidence);
-       return;
-    }
+    if (!msg || typeof msg !== "object") return;
+    if (!msg.type || msg.type !== "DETECTION") return;
+    if (typeof msg.label !== "string") return;
 
-       // Backward-compatible fallback (some send only {label: "..."} )
-       if (typeof msg?.label === "string") {
-      onObjectDetected(msg.label);
-      return;
-    }
+    onObjectDetected(msg.label, msg.confidence);
+    return;
   } catch {
     // Backward-compatible fallback (plain string label)
     onObjectDetected(raw);
   }
 }}
-
-      />
+/>
       
     </View>
   );

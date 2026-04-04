@@ -75,6 +75,7 @@ export default function CameraAssistScreen() {
 const lastAlertAtRef = useRef(0);
 const lastLabelRef = useRef<string>("");
 const lastLabelAtRef = useRef(0);
+const recentLabelsRef = useRef<string[]>([]);
 
 type FeedbackOptions = {
   enableHaptics?: boolean;
@@ -108,9 +109,32 @@ const triggerAccessibilityFeedback = useCallback(
 }
 
     // global throttle
-    if (now - lastAlertAtRef.current < minIntervalMs) return;
-    
     const normalizedLabel = label.trim().toLowerCase();
+    
+    const priorityMap: Record<string, "high" | "medium" | "low"> = {
+  person: "high",
+  car: "high",
+  chair: "medium",
+  unknown: "low",
+};
+
+const priority = priorityMap[normalizedLabel] || "medium";
+
+   if (priority === "low") return; 
+
+    const dynamicInterval = priority === "high" ? 300 : 1200;
+
+   if (now - lastAlertAtRef.current < dynamicInterval) return;
+    
+   if (recentLabelsRef.current.includes(normalizedLabel)) return;
+
+   recentLabelsRef.current.push(normalizedLabel);
+
+   setTimeout(() => {
+   recentLabelsRef.current = recentLabelsRef.current.filter(
+    (l) => l !== normalizedLabel
+  );
+}, 2000);
 
     // dedupe same label
    if (
@@ -124,7 +148,7 @@ const triggerAccessibilityFeedback = useCallback(
     lastAlertAtRef.current = now;
     lastLabelRef.current = normalizedLabel;
     lastLabelAtRef.current = now;
-
+      
     // haptics
     if (enableHaptics) {
       try {
