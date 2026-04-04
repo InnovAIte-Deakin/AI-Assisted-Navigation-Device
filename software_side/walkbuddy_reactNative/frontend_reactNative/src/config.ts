@@ -11,7 +11,7 @@ const isIp = (h?: string) => !!h && /^\d+\.\d+\.\d+\.\d+$/.test(h);
 export const API_BASE =
   tunnelOverride ||
   (Platform.OS === "web"
-    ? "http://localhost:8000"
+    ? "http://localhost:8000/"
     : isIp(lanHost)
-      ? `http://${lanHost}:8000`
-      : "http://172.20.10.2:8000");
+      ? `http://${lanHost}:8000/`
+      : "http://172.20.10.2:8000/");
