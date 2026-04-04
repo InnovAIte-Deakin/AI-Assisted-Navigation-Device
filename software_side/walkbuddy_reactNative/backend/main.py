@@ -68,6 +68,7 @@ import anyio
 # 3. CONSTANTS
 # =========================
 SESSION_EXPIRY_HOURS = 1
+SESSION_TIMEOUT_MINUTES = 30
 DB_PATH = BACKEND_DIR / "helpers.db"
 
 tracer = trace.get_tracer("main.websocket")
@@ -84,9 +85,27 @@ def init_database():
     conn.commit()
     conn.close()
 
+# Remove inactive sessions with no connections after a timeout
 async def cleanup_expired_sessions():
-    # unchanged placeholder
-    pass
+    while True:
+        await asyncio.sleep(60)
+
+        now = datetime.now()
+        expired_sessions = []
+
+        for sid, session in list(collaboration_sessions.items()):
+            user_active = session["user_ws"] is not None
+            guide_active = session["guide_ws"] is not None
+
+            last_active = session.get("last_active", session["created_at"])
+
+            if (not user_active and not guide_active) and \
+               (now - last_active > timedelta(minutes=SESSION_TIMEOUT_MINUTES)):
+                expired_sessions.append(sid)
+
+        for sid in expired_sessions:
+            del collaboration_sessions[sid]
+            logger.info(f"Removed expired session: {sid}")
 
 # =========================
 # 5. APP LIFESPAN (PHASE B)
@@ -191,6 +210,7 @@ async def create_collaboration_session():
 
     collaboration_sessions[session_id] = {
         "created_at": datetime.now(),
+        "last_active": datetime.now(),
         "user_ws": None,
         "guide_ws": None,
         "guide_name": None,
@@ -246,6 +266,7 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
         try:
             while True:
                 data = await websocket.receive_json()
+                session["last_active"] = datetime.now()
                 msg_type = data.get("type")
 
                 if msg_type == "ping":
