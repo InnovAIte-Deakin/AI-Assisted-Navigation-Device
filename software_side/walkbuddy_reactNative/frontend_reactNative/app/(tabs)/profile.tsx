@@ -19,7 +19,7 @@ import { useRouter } from "expo-router";
 
 import HomeHeader from "../HomeHeader";
 
-import { useSession, ProfileRecord } from "../SessionContext";
+import { useSession } from "../../src/context/SessionContext";
 
 const tokens = {
   bg: "#0D1B2A",
