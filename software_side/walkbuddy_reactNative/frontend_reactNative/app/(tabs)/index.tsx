@@ -2,8 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import {
-  Alert,
-  Platform,
   StyleSheet,
   Text,
   View,
@@ -17,10 +15,19 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import HomeHeader from "../HomeHeader";
 import ModelWebView from "../../src/components/ModelWebView";
 import { API_BASE } from "../../src/config";
+import { useSession } from "../SessionContext";
 
 export default function HomePage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const { auth } = useSession();
+
+  const displayName = useMemo(() => {
+    if (auth.status === "loggedInWithProfile" && auth.profile.displayName) {
+      return auth.profile.displayName;
+    }
+    return "there";
+  }, [auth]);
 
   const [visionEnabled, setVisionEnabled] = useState(true);
   const [visionPreviewOn, setVisionPreviewOn] = useState(false);
@@ -41,15 +48,6 @@ export default function HomePage() {
   const goToCameraOCR = () =>
     router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
 
-  const goToScreenReader = () => {
-    const title = "Coming soon";
-    const msg = "Screen Reader is not implemented yet.";
-    if (Platform.OS === "web") {
-      (globalThis as any).alert?.(`${title}\n\n${msg}`);
-    } else {
-      Alert.alert(title, msg);
-    }
-  };
 
   useEffect(() => {
     if (!visionEnabled) {
@@ -91,7 +89,7 @@ export default function HomePage() {
     <SafeAreaView style={styles.screen}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
-          greeting="Hi Daniel"
+          greeting={`Hi ${displayName}`}
           appTitle="WalkBuddy"
           onPressProfile={goToAccount}
           showDivider
@@ -114,11 +112,7 @@ export default function HomePage() {
               label="PLACES"
               onPress={goToSavedPlaces}
             />
-            <ActionTile
-              icon="volume-up"
-              label="SCREEN READER"
-              onPress={goToScreenReader}
-            />
+
             <ActionTile
               icon="file-text"
               label="TEXT READER"
