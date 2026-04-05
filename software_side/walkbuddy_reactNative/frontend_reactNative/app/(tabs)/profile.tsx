@@ -16,10 +16,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
-
 import HomeHeader from "../HomeHeader";
-
-import { useSession } from "../../src/context/SessionContext";
+import { useSession, ProfileRecord } from "../../src/context/SessionContext";
 
 const tokens = {
   bg: "#0D1B2A",
