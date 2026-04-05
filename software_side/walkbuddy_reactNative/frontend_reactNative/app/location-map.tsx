@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCurrentLocation } from "./lib/locationSaver";
+import { useCurrentLocation } from "../src/utils/locationSaver";
 
 // This screen is web-safe.
 // Web uses a Leaflet iframe (same concept as the working exterior map panel).
