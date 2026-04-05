@@ -82,11 +82,11 @@ export default function ExteriorNavigationScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [fromAutocompleteSuggestions, setFromAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [showFromSuggestions, setShowFromSuggestions] = useState(false);
-  const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const fromAutocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autocompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fromAutocompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
   const nativeRecognitionResultRef = useRef<string>("");
-  const routeSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const routeSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeCacheRef = useRef<Map<string, Route>>(new Map());
   const [route, setRoute] = useState<Route | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -139,7 +139,7 @@ export default function ExteriorNavigationScreen() {
         const newLocation: LocationType = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
-          accuracy: loc.coords.accuracy,
+          accuracy: loc.coords.accuracy ?? undefined,
         };
         setCurrentLocation(newLocation);
         lastLocationRef.current = newLocation;
@@ -336,20 +336,27 @@ export default function ExteriorNavigationScreen() {
 
     setIsLoadingRoute(true);
     try {
-      const options: RoutingOptions = {
-        originLat: startOrigin.lat,
-        originLng: startOrigin.lng,
-        destLat: destination.lat,
-        destLng: destination.lng,
-        profile: "foot-walking",
-      };
-
       // Update origin state to reflect what we're actually using
       setOrigin(startOrigin);
 
-      const newRoute = await fetchRoute(options);
-      setRoute(newRoute);
-      routeRef.current = newRoute;
+      // Reuse existing route if already fetched (from handleSearchRoute),
+      // otherwise fetch a new one
+      let navRoute = route;
+      if (!navRoute) {
+        const options: RoutingOptions = {
+          originLat: startOrigin.lat,
+          originLng: startOrigin.lng,
+          destLat: destination.lat,
+          destLng: destination.lng,
+          profile: "foot-walking",
+        };
+        navRoute = await fetchRoute(options);
+        setRoute(navRoute);
+        routeRef.current = navRoute;
+      } else {
+        routeRef.current = navRoute;
+      }
+
       setCurrentStepIndex(0);
       currentStepIndexRef.current = 0;
       setIsNavigating(true);
@@ -361,8 +368,8 @@ export default function ExteriorNavigationScreen() {
       deviationCheckRef.current = 0;
 
       // Speak first instruction
-      if (newRoute.steps[0]) {
-        speakInstruction(newRoute.steps[0].instructionText);
+      if (navRoute.steps[0]) {
+        speakInstruction(navRoute.steps[0].instructionText);
         lastSpokenStepRef.current = 0;
       }
 
@@ -390,8 +397,8 @@ export default function ExteriorNavigationScreen() {
           const newLocation: LocationType = {
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
-            accuracy: loc.coords.accuracy,
-            heading: loc.coords.heading,
+            accuracy: loc.coords.accuracy ?? undefined,
+            heading: loc.coords.heading ?? undefined,
           };
           setCurrentLocation(newLocation);
 
@@ -582,6 +589,7 @@ export default function ExteriorNavigationScreen() {
     originMode,
     originCoords,
     origin,
+    route,
     speakInstruction,
     checkDeviation,
     checkMilestones,
@@ -754,7 +762,7 @@ export default function ExteriorNavigationScreen() {
         // Limit cache size (keep last 10 routes)
         if (routeCacheRef.current.size > 10) {
           const firstKey = routeCacheRef.current.keys().next().value;
-          routeCacheRef.current.delete(firstKey);
+          if (firstKey) routeCacheRef.current.delete(firstKey);
         }
       } else {
         console.log("[Exterior] Using cached route");
@@ -1447,7 +1455,14 @@ export default function ExteriorNavigationScreen() {
             style={[styles.controlBtn, styles.stopBtn]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              stopNavigation();
+              Alert.alert(
+                "End Navigation",
+                "Are you sure you want to end active navigation?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "End", style: "destructive", onPress: () => stopNavigation() }
+                ]
+              );
             }}
           >
             <MaterialIcons name="stop" size={32} color={GOLD} />
