@@ -109,12 +109,36 @@ async def lifespan(app: FastAPI):
 
     # --- load EasyOCR ---
     try:
-        logger.info("Loading EasyOCR reader")
-        app.state.ocr_reader = easyocr.Reader(["en"], gpu=True)
-        logger.info("✅ EasyOCR ready")
+        # 检测GPU可用性
+        import torch
+        gpu_available = torch.cuda.is_available()
+        gpu_status = "GPU" if gpu_available else "CPU"
+        
+        logger.info(f"Loading EasyOCR reader ({gpu_status} mode)")
+        
+        # 动态设置gpu参数
+        app.state.ocr_reader = easyocr.Reader(["en"], gpu=gpu_available)
+        
+        logger.info(f"✅ EasyOCR ready ({gpu_status} mode)")
+        
+        # 记录GPU信息（如果可用）
+        if gpu_available:
+            logger.info(f"GPU Device: {torch.cuda.get_device_name(0)}")
+            logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+        else:
+            logger.info("Running in CPU mode - GPU not available")
+            
     except Exception as e:
         logger.error(f"❌ EasyOCR load failed: {e}")
-        app.state.ocr_reader = None
+        
+        # 尝试回退到CPU模式（如果GPU模式失败）
+        try:
+            logger.info("Attempting fallback to CPU mode...")
+            app.state.ocr_reader = easyocr.Reader(["en"], gpu=False)
+            logger.info("✅ EasyOCR fallback to CPU mode successful")
+        except Exception as fallback_error:
+            logger.error(f"❌ EasyOCR fallback also failed: {fallback_error}")
+            app.state.ocr_reader = None
 
     # --- load LLM ---
     if not LLM_MODEL_PATH.exists():
