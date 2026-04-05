@@ -16,7 +16,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import HomeHeader from "../HomeHeader";
 import ModelWebView from "../../src/components/ModelWebView";
 import { API_BASE } from "../../src/config";
-import { useSession } from "../SessionContext";
+import { useSession } from "../../src/context/SessionContext";
 
 export default function HomePage() {
   const router = useRouter();
@@ -44,10 +44,8 @@ export default function HomePage() {
   const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
-  const goToCameraVoice = () =>
-    router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
-  const goToCameraOCR = () =>
-    router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
+  const goToCameraVoice = () => router.push("/camera" as any);
+  const goToCameraOCR = () => router.push("/camera" as any);
 
   useEffect(() => {
     if (!visionEnabled) {

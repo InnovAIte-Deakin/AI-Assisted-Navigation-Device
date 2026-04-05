@@ -173,8 +173,11 @@ async def lifespan(app: FastAPI):
             app_state.llm_brain = None
 
     # --- execution capacity ---
-    app.state.vision_limiter = anyio.CapacityLimiter(2)
-    app.state.ocr_limiter = anyio.CapacityLimiter(2)
+    # vision: capacity=1 serialises YOLO — one inference at a time is faster
+    # than two competing threads on a single CPU, and anyio's CapacityLimiter
+    # queues waiters in FIFO order so multiple WS clients share it fairly.
+    app.state.vision_limiter = anyio.CapacityLimiter(1)
+    app.state.ocr_limiter = anyio.CapacityLimiter(1)
     app.state.llm_limiter = anyio.CapacityLimiter(1)
 
     asyncio.create_task(cleanup_expired_sessions())
