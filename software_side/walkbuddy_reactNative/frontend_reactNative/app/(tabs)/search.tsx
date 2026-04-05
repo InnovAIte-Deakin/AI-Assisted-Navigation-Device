@@ -10,11 +10,11 @@ import {
   useWindowDimensions,
   Alert,
   Platform,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
-import HomeHeader from "./HomeHeader";
-
+import HomeHeader from "../HomeHeader";
 /*
   NOTE:
   This screen was originally UI-first.
@@ -37,7 +37,7 @@ type DestinationType = "I" | "E";
 export default function SearchPage() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
-  const resultFontSize = Math.max(26, Math.min(36, height * 0.045));
+  const resultFontSize = Math.max(20, Math.min(28, height * 0.035));
 
   const { presetDestination, presetType } = useLocalSearchParams<{
     presetDestination?: string;
@@ -116,7 +116,13 @@ export default function SearchPage() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
-      <View style={[styles.content, { width: contentWidth }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { width: contentWidth },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <HomeHeader
           appTitle="WalkBuddy"
           onPressProfile={() => router.push("/profile" as any)}
@@ -124,10 +130,7 @@ export default function SearchPage() {
           showLocation
         />
 
-        {/* Spacer below header (visual breathing room) */}
-        <View style={{ height: 2 }} />
-        <View style={{ height: 2 }} />
-
+        <View style={{ height: 4 }} />
         <View style={styles.mainArea}>
           <Text style={styles.sectionTitle}>Enter Your Search</Text>
 
@@ -209,11 +212,8 @@ export default function SearchPage() {
               </Text>
             </Pressable>
           </View>
-
-          <View style={{ height: 1 }} />
-          <View style={{ height: 1 }} />
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -226,9 +226,9 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flex: 1,
     paddingHorizontal: 12,
     paddingTop: 8,
+    paddingBottom: 40,
   },
 
   mainArea: {
@@ -236,7 +236,6 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     paddingHorizontal: 14,
     gap: 18,
-    flexGrow: 1,
   },
 
   sectionTitle: {
@@ -272,13 +271,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: tokens.gold,
     borderRadius: 18,
-    paddingVertical: 26,
+    paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    flexGrow: 1,
-    minHeight: 200,
+    height: 180,
   },
 
   resultTitle: {
