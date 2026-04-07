@@ -91,6 +91,12 @@ export default function AskAFriendWebScreen() {
       return;
     }
 
+    // If user has navigated away (e.g., via footer/tab press), do not force-return.
+    if (pathname && pathname !== "/ask-a-friend-web") {
+      isNavigatingAwayRef.current = true;
+      return;
+    }
+
     // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
     // Check if pathname changed away from ask-a-friend-web
     if (
@@ -119,6 +125,9 @@ export default function AskAFriendWebScreen() {
   // Monitor segments to catch redirects to tabs/home
   useEffect(() => {
     if (Platform.OS === "web") {
+      // Only enforce while we are on the Ask page.
+      if (pathname !== "/ask-a-friend-web") return;
+
       // If segments indicate we're being redirected to tabs/home, prevent it
       if (segments.length > 0) {
         const isRedirectingToTabs =
@@ -1616,14 +1625,17 @@ export default function AskAFriendWebScreen() {
 
     // Redirect to home screen immediately
     console.log("[AskAFriend] 🏠 Redirecting to home screen...");
-    // setTimeout(() => {
-    //   router.replace("/home");
-    //   // Also update window location for web
-    //   if (Platform.OS === "web" && typeof window !== "undefined") {
-    //     window.location.href = "/home";
-    //   }
-    //   isDisconnectingRef.current = false;
-    // }, 100);
+    setTimeout(() => {
+      const canGoBack = (router as any)?.canGoBack?.() ?? false;
+      if (canGoBack) router.back();
+      else router.replace("/" as any);
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.history.replaceState(null, "", "/");
+      }
+
+      isDisconnectingRef.current = false;
+    }, 50);
   };
 
   if (Platform.OS !== "web") {
@@ -1637,18 +1649,24 @@ export default function AskAFriendWebScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.scrollContainer}
-      contentContainerStyle={styles.container}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={handleDisconnect} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#F9A826" />
-        </Pressable>
-        <Text style={styles.headerTitle}>Ask a Friend</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.container}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable
+            onPress={handleDisconnect}
+            style={styles.backBtnFloating}
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={24} color="#F9A826" />
+          </Pressable>
+          <View style={{ width: 32 }} />
+          <Text style={styles.headerTitle}>Ask a Friend</Text>
+          <View style={{ width: 32 }} />
+        </View>
 
       {/* Status Bar */}
       <View style={styles.statusBar}>
@@ -2002,11 +2020,17 @@ export default function AskAFriendWebScreen() {
         <Ionicons name="close-circle" size={24} color="#FF6B6B" />
         <Text style={styles.disconnectButtonText}>Disconnect</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    position: "relative",
+    backgroundColor: "#1B263B",
+  },
   scrollContainer: {
     flex: 1,
     backgroundColor: "#1B263B",
@@ -2017,6 +2041,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
@@ -2024,11 +2049,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#2A2A2A",
   },
-  backButton: {
-    width: 32,
-    height: 32,
+  backBtnFloating: {
+    position: "absolute",
+    top: 4,
+    left: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: "#F9A826",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 20,
   },
   headerTitle: {
     flex: 1,

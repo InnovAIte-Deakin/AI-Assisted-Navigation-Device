@@ -1,6 +1,6 @@
 // app/search.tsx
-import React, { useEffect, useMemo, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   StyleSheet,
   Text,
@@ -9,12 +9,17 @@ import {
   TextInput,
   useWindowDimensions,
   Alert,
-  Platform,
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import HomeHeader from "../HomeHeader";
+import {
+  dismissRecentPlace,
+  getRecentPlaces,
+  PlaceItem,
+  upsertPlaceUsed,
+} from "../../src/utils/placesStore";
 /*
   NOTE:
   This screen was originally UI-first.
@@ -53,6 +58,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [destinationType, setDestinationType] =
     useState<DestinationType | null>(null);
+  const [recents, setRecents] = useState<PlaceItem[]>([]);
 
   const hasDestination = query.trim().length > 0;
 
@@ -70,6 +76,37 @@ export default function SearchPage() {
     }
   }, [presetDestination, presetType]);
 
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      getRecentPlaces(6).then((list) => {
+        if (!alive) return;
+        setRecents(list);
+      });
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+
+  const applyRecent = (p: PlaceItem) => {
+    setQuery(p.title);
+    setDestinationType(p.kind);
+  };
+
+  const removeRecent = async (p: PlaceItem) => {
+    setRecents((prev) => prev.filter((x) => x.id !== p.id));
+    await dismissRecentPlace(p.id);
+    const next = await getRecentPlaces(6);
+    setRecents(next);
+  };
+
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.() ?? false;
+    if (canGoBack) router.back();
+    else router.replace("/" as any);
+  };
+
   function onPressInterior() {
     if (!hasDestination) return;
 
@@ -77,6 +114,9 @@ export default function SearchPage() {
       Alert.alert("Error!!", "This is an External destination");
       return;
     }
+
+    const destinationText = query.trim();
+    void upsertPlaceUsed(destinationText, "I");
 
     router.push({
       pathname: "/indoor",
@@ -98,7 +138,8 @@ export default function SearchPage() {
     }
 
     const destinationText = query.trim();
-    const encoded = encodeURIComponent(destinationText);
+
+    void upsertPlaceUsed(destinationText, "E");
 
     // Web: open exterior in a new empty window/tab
     // if (Platform.OS === "web") {
@@ -116,6 +157,13 @@ export default function SearchPage() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
+      <Pressable
+        onPress={handleBack}
+        style={styles.backBtnFloating}
+        accessibilityLabel="Go back"
+      >
+        <Icon name="arrow-left" size={20} color={tokens.gold} />
+      </Pressable>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -152,6 +200,38 @@ export default function SearchPage() {
               returnKeyType="search"
             />
           </View>
+
+          {!hasDestination && recents.length > 0 && (
+            <View style={styles.recentsCard}>
+              <Text style={styles.recentsTitle}>Recent destinations</Text>
+              <View style={styles.recentsGrid}>
+                {recents.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    style={styles.recentChip}
+                    onPress={() => applyRecent(p)}
+                    accessibilityLabel={`Recent destination ${p.title}`}
+                  >
+                    <Text style={styles.recentChipType}>{p.kind}</Text>
+                    <Text style={styles.recentChipText} numberOfLines={1}>
+                      {p.title}
+                    </Text>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        void removeRecent(p);
+                      }}
+                      hitSlop={10}
+                      style={styles.recentRemoveBtn}
+                      accessibilityLabel={`Remove ${p.title} from recents`}
+                    >
+                      <Text style={styles.recentRemoveText}>×</Text>
+                    </Pressable>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Result display area */}
           <View style={styles.resultCard}>
@@ -223,12 +303,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.bg,
     alignItems: "center",
+    position: "relative",
   },
 
   content: {
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 14,
     paddingBottom: 40,
+  },
+
+  backBtnFloating: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: tokens.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
 
   mainArea: {
@@ -263,6 +359,84 @@ const styles = StyleSheet.create({
     color: tokens.text,
     fontSize: 16,
     fontWeight: "700",
+  },
+
+  recentsCard: {
+    width: "100%",
+    backgroundColor: tokens.tile,
+    borderWidth: 2,
+    borderColor: tokens.gold,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+
+  recentsTitle: {
+    color: tokens.text,
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+
+  recentsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+
+  recentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#0b0f14",
+    borderWidth: 1,
+    borderColor: tokens.gold,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    maxWidth: "100%",
+  },
+
+  recentChipType: {
+    width: 18,
+    height: 18,
+    textAlign: "center",
+    textAlignVertical: "center",
+    borderRadius: 9,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: tokens.text,
+    color: tokens.text,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  recentChipText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "800",
+    maxWidth: 240,
+  },
+
+  recentRemoveBtn: {
+    marginLeft: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(252,163,17,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(252,163,17,0.45)",
+  },
+
+  recentRemoveText: {
+    color: tokens.text,
+    fontSize: 18,
+    fontWeight: "900",
+    lineHeight: 18,
+    marginTop: -1,
   },
 
   resultCard: {
