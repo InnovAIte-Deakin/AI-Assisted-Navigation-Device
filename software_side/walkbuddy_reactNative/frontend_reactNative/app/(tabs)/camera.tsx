@@ -2,7 +2,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -54,6 +54,7 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 export default function CameraAssistScreen() {
+  const router = useRouter();
   const tts = useMemo(() => getTTSService({ cooldownSeconds: 1.2 }), []);
   const [perm, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -499,6 +500,17 @@ export default function CameraAssistScreen() {
   if (!perm.granted) {
     return (
       <View style={styles.centerDark}>
+        <Pressable
+          onPress={() => {
+            const canGoBack = (router as any)?.canGoBack?.() ?? false;
+            if (canGoBack) router.back();
+            else router.replace("/" as any);
+          }}
+          style={styles.backBtn}
+          accessibilityLabel="Go back"
+        >
+          <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+        </Pressable>
         <Text style={{ color: "#fff", marginBottom: 12 }}>
           Camera access is required.
         </Text>
@@ -518,6 +530,18 @@ export default function CameraAssistScreen() {
         setPreviewLayout({ w: width, h: height });
       }}
     >
+      <Pressable
+        onPress={() => {
+          const canGoBack = (router as any)?.canGoBack?.() ?? false;
+          if (canGoBack) router.back();
+          else router.replace("/" as any);
+        }}
+        style={styles.backBtn}
+        accessibilityLabel="Go back"
+      >
+        <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+      </Pressable>
+
       {/* Full-screen camera */}
       <CameraView
         ref={cameraRef}
@@ -605,6 +629,20 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: "#000",
+  },
+  backBtn: {
+    position: "absolute",
+    top: 44,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
   statusDot: {
     position: "absolute",
