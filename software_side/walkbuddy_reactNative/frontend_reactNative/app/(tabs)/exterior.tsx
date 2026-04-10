@@ -15,7 +15,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 // import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import React, {
   useCallback,
@@ -64,6 +64,7 @@ const { height: SCREEN_H } = Dimensions.get("window");
 const MILESTONES = [200, 100, 50];
 
 export default function ExteriorNavigationScreen() {
+  const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [settings, setSettings] = useState<NavigationSettings>({
@@ -1125,9 +1126,22 @@ export default function ExteriorNavigationScreen() {
     return 0;
   })();
 
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.() ?? false;
+    if (canGoBack) router.back();
+    else router.replace("/" as any);
+  };
+
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
+        <Pressable
+          onPress={handleBack}
+          style={styles.backBtnFloating}
+          accessibilityLabel="Go back"
+        >
+          <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+        </Pressable>
         <Text style={styles.headerTitle}>EXTERIOR NAVIGATION</Text>
         {destination && (
           <Pressable
@@ -1502,6 +1516,7 @@ export default function ExteriorNavigationScreen() {
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: "#1B263B" },
   header: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1511,7 +1526,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: GOLD,
   },
-  headerTitle: { color: GOLD, fontSize: 20, fontWeight: "800", flex: 1 },
+  backBtnFloating: {
+    position: "absolute",
+    top: 4,
+    left: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  headerTitle: {
+    color: GOLD,
+    fontSize: 20,
+    fontWeight: "800",
+    flex: 1,
+    paddingLeft: 52,
+  },
   destinationBtn: {
     padding: 8,
   },
