@@ -21,6 +21,7 @@ import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -262,19 +263,38 @@ public class SearchActivityWorking extends AppCompatActivity implements OnMapRea
 
     private void getCurrentLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            fusedClient.getLastLocation().addOnSuccessListener(this, location -> {
-                if (location != null) {
-                    currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
-                    updateCurrentLocationDisplay();
-                    announcer.speak("Current location found: " + currentAddress);
-                } else {
-                    // Fallback to Melbourne CBD for testing
-                    currentLocation = new LatLng(-37.8136, 144.9631);
-                    currentAddress = "Melbourne CBD (simulated)";
-                    txtCurrentLocation.setText("Current: " + currentAddress);
-                    announcer.speak("Using simulated location: " + currentAddress);
-                }
-            });
+
+            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener(this, location -> {
+                        if (location != null) {
+                            currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                            updateCurrentLocationDisplay();
+
+                            if (googleMap != null) {
+                                googleMap.clear();
+                                googleMap.addMarker(new MarkerOptions()
+                                        .position(currentLocation)
+                                        .title("Current Location"));
+                                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 15));
+                            }
+
+                            announcer.speak("Current location found: " + currentAddress);
+                        } else {
+                            currentLocation = new LatLng(-37.8136, 144.9631);
+                            currentAddress = "Melbourne CBD (simulated)";
+                            txtCurrentLocation.setText("Current: " + currentAddress);
+
+                            if (googleMap != null) {
+                                googleMap.clear();
+                                googleMap.addMarker(new MarkerOptions()
+                                        .position(currentLocation)
+                                        .title("Current Location"));
+                                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 15));
+                            }
+
+                            announcer.speak("Using simulated location: " + currentAddress);
+                        }
+                    });
         }
     }
 
