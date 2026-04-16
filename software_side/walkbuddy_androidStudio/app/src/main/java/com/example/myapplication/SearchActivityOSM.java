@@ -261,7 +261,7 @@ public class SearchActivityOSM extends AppCompatActivity {
 
     private void setupClickListeners() {
         btnBack.setOnClickListener(v -> {
-            announcer.speak("Returning to home");
+            Toast.makeText(SearchActivityOSM.this, "Back clicked", Toast.LENGTH_SHORT).show();
             finish();
         });
 

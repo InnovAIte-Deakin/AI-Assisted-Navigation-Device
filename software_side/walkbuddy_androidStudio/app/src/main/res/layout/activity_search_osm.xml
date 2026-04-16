@@ -19,12 +19,15 @@
     <!-- Header with back button and title -->
     <ImageView
         android:id="@+id/btnBack"
-        android:layout_width="45dp"
-        android:layout_height="45dp"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:layout_marginStart="16dp"
         android:layout_marginTop="12dp"
+        android:clickable="true"
         android:contentDescription="@string/back"
-        android:padding="8dp"
+        android:elevation="10dp"
+        android:focusable="true"
+        android:padding="12dp"
         android:src="@drawable/ic_arrow_back"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topLine" />
