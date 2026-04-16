@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.Intent;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -71,8 +72,19 @@ public class HomeActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btnShare).setOnClickListener(v -> {
-            // Share current location
-            Toast.makeText(this, "Share location (placeholder)", Toast.LENGTH_SHORT).show();
+            String currentText = addressText.getText().toString().trim();
+
+            if (currentText.isEmpty()) {
+                Toast.makeText(this, "Current location not available yet", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("text/plain");
+            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "My Current Location");
+            shareIntent.putExtra(Intent.EXTRA_TEXT, "My current location is: " + currentText);
+
+            startActivity(Intent.createChooser(shareIntent, "Share location via"));
         });
 
         // Action grid click handlers
