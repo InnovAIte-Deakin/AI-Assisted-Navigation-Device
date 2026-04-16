@@ -141,7 +141,19 @@ public class SearchActivityWorking extends AppCompatActivity implements OnMapRea
             "Melbourne Central", 
             "211 La Trobe Street, Melbourne VIC 3000",
             0, 0)); // Will be calculated
-        
+
+        offlinePlaces.put("state library victoria", new PlaceInfo(
+                new LatLng(-37.8097, 144.9653),
+                "State Library Victoria",
+                "328 Swanston Street, Melbourne VIC 3000",
+                0, 0));
+
+        offlinePlaces.put("federation square", new PlaceInfo(
+                new LatLng(-37.8179, 144.9690),
+                "Federation Square",
+                "Swanston Street & Flinders Street, Melbourne VIC 3000",
+                0, 0));
+
         offlinePlaces.put("melbourne", new PlaceInfo(
             new LatLng(-37.8136, 144.9631), 
             "Melbourne CBD", 
