@@ -1,0 +1,12 @@
+{
+  "total_cases": 1,
+  "passed_cases": 1,
+  "failed_cases": 0,
+  "results": [
+    {
+      "case_name": "detect_office_scene",
+      "passed": true,
+      "failures": []
+    }
+  ]
+}
