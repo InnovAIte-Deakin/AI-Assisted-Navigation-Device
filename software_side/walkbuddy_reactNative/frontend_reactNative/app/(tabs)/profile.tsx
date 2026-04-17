@@ -16,10 +16,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
-
 import HomeHeader from "../HomeHeader";
-
-import { useSession, ProfileRecord } from "../SessionContext";
+import { useSession, ProfileRecord } from "../../src/context/SessionContext";
 
 const tokens = {
   bg: "#0D1B2A",
@@ -125,6 +123,12 @@ export default function ProfilePage() {
 
   const goSettings = () => {
     router.push("/settings" as any);
+  };
+
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.() ?? false;
+    if (canGoBack) router.back();
+    else router.replace("/" as any);
   };
 
   const toLoggedOut = () => {
@@ -365,6 +369,13 @@ export default function ProfilePage() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
+      <Pressable
+        onPress={handleBack}
+        style={styles.backBtnFloating}
+        accessibilityLabel="Go back"
+      >
+        <Icon name="arrow-left" size={20} color={tokens.gold} />
+      </Pressable>
       <KeyboardAvoidingView
         style={styles.kb}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -394,6 +405,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.bg,
     alignItems: "center",
+    position: "relative",
   },
 
   kb: {
@@ -405,7 +417,22 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 14,
+  },
+
+  backBtnFloating: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: tokens.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
 
   scrollContent: {

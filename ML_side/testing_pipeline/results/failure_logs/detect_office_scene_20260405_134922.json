@@ -1,0 +1,124 @@
+{
+  "case_name": "detect_office_scene",
+  "timestamp": "20260405_134922",
+  "case_data": {
+    "name": "detect_office_scene",
+    "endpoint": "detect",
+    "image": "ML_side/testing_pipeline/test_assets/test.png",
+    "expected": {
+      "required_labels": [
+        "office-chair",
+        "whiteboard",
+        "monitor"
+      ],
+      "required_directions": {
+        "office-chair": "directly ahead",
+        "whiteboard": "to the right",
+        "monitor": "directly ahead"
+      },
+      "min_event_count": 3
+    }
+  },
+  "response_data": {
+    "events": [
+      {
+        "label": "potted plant",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.946
+      },
+      {
+        "label": "chair",
+        "direction": "directly ahead",
+        "distance_m": null,
+        "confidence": 0.928
+      },
+      {
+        "label": "tv",
+        "direction": "directly ahead",
+        "distance_m": null,
+        "confidence": 0.912
+      },
+      {
+        "label": "laptop",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.891
+      },
+      {
+        "label": "potted plant",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.847
+      },
+      {
+        "label": "couch",
+        "direction": "to the right",
+        "distance_m": null,
+        "confidence": 0.83
+      },
+      {
+        "label": "potted plant",
+        "direction": "to the right",
+        "distance_m": null,
+        "confidence": 0.789
+      },
+      {
+        "label": "potted plant",
+        "direction": "directly ahead",
+        "distance_m": null,
+        "confidence": 0.774
+      },
+      {
+        "label": "keyboard",
+        "direction": "directly ahead",
+        "distance_m": null,
+        "confidence": 0.479
+      },
+      {
+        "label": "book",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.333
+      },
+      {
+        "label": "book",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.285
+      },
+      {
+        "label": "book",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.276
+      },
+      {
+        "label": "book",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.261
+      },
+      {
+        "label": "book",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.255
+      },
+      {
+        "label": "book",
+        "direction": "to the left",
+        "distance_m": null,
+        "confidence": 0.251
+      }
+    ]
+  },
+  "failures": [
+    "Missing required label: office-chair",
+    "Missing required label: whiteboard",
+    "Missing required label: monitor",
+    "Direction check failed because label was missing: office-chair",
+    "Direction check failed because label was missing: whiteboard",
+    "Direction check failed because label was missing: monitor"
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "case_name": "detect_office_scene",
+  "timestamp": "20260410_170926",
+  "case_data": {
+    "name": "detect_office_scene",
+    "endpoint": "detect",
+    "image": "testing_pipeline/test_assets/test.png",
+    "expected": {
+      "required_labels": [
+        "chair",
+        "tv",
+        "laptop",
+        "couch"
+      ],
+      "required_directions": {
+        "chair": "directly ahead",
+        "tv": "directly ahead",
+        "laptop": "to the left",
+        "couch": "to the right"
+      },
+      "min_event_count": 4
+    }
+  },
+  "response_data": {
+    "events": [
+      {
+        "label": "office-chair",
+        "direction": "directly ahead",
+        "distance_m": null,
+        "confidence": 0.905
+      },
+      {
+        "label": "whiteboard",
+        "direction": "to the right",
+        "distance_m": null,
+        "confidence": 0.542
+      },
+      {
+        "label": "monitor",
+        "direction": "directly ahead",
+        "distance_m": null,
+        "confidence": 0.258
+      }
+    ]
+  },
+  "failures": [
+    "Missing required label: chair",
+    "Missing required label: tv",
+    "Missing required label: laptop",
+    "Missing required label: couch",
+    "Direction check failed because label was missing: chair",
+    "Direction check failed because label was missing: tv",
+    "Direction check failed because label was missing: laptop",
+    "Direction check failed because label was missing: couch",
+    "Too few events: expected at least 4, got 3"
+  ]
+}

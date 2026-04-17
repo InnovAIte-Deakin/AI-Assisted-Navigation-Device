@@ -1,6 +1,8 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
+import * as FileSystem from "expo-file-system/legacy";
+import { useFocusEffect, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -16,52 +18,33 @@ import {
   StyleSheet,
   Text,
   View,
-  LayoutChangeEvent,
-  ScrollView,
 } from "react-native";
 
-// Ensure these paths match your project structure
-import { getTTSService, RiskLevel } from "../../src/services/TTSService";
+import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
 import { API_BASE } from "../../src/config";
 
 const GOLD = "#f9b233";
-const { height: SCREEN_H } = Dimensions.get("window");
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-const AUTO_SCAN_INTERVAL_MS = 2500;
-const AUTO_SCAN_TIMEOUT_MS = 12000;
-
-type CamMode = "vision" | "ocr";
+// /ws/vision WebSocket URL derived from REST base (http→ws, https→wss)
+const WS_VISION_URL = API_BASE.replace(/^http/, "ws") + "/ws/vision";
 
 type BBox = { x_min: number; y_min: number; x_max: number; y_max: number };
+type Detection = { category: string; confidence: number; bbox: BBox; direction?: string };
 
-type Detection = {
-  category: string;
-  confidence: number;
-  bbox: BBox;
-};
-
-type AdapterResponse = {
-  image_id: string;
-  detections: Detection[];
-  guidance_message?: string;
-};
+// Module-level frame ID counter (no import needed)
+let _frameCounter = 0;
+const nextFrameId = () => `f${Date.now()}_${(_frameCounter++) & 0xffff}`;
 
 async function buildImageFormData(photoUri: string) {
   const form = new FormData();
   if (Platform.OS === "web") {
     const resp = await fetch(photoUri);
     const blob = await resp.blob();
-    const file = new File([blob], "frame.jpg", {
-      type: blob.type || "image/jpeg",
-    });
-    form.append("file", file);
+    form.append("file", new File([blob], "frame.jpg", { type: blob.type || "image/jpeg" }));
   } else {
-    form.append("file", {
-      uri: photoUri,
-      type: "image/jpeg",
-      name: "frame.jpg",
-    } as any);
+    form.append("file", { uri: photoUri, type: "image/jpeg", name: "frame.jpg" } as any);
   }
   return form;
 }
@@ -71,117 +54,57 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 export default function CameraAssistScreen() {
-  const [camMode, setCamMode] = useState<CamMode>("vision");
+  const router = useRouter();
   const tts = useMemo(() => getTTSService({ cooldownSeconds: 1.2 }), []);
   const [perm, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
-  // STT
+  // ── STT ─────────────────────────────────────────────────────────────────
   const sttService = useMemo(() => getSTTService({ language: "en-US" }), []);
-  const [sttAvailable, setSttAvailable] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
-
-  // Scan loop
-  const [isAutoScanning, setIsAutoScanning] = useState(false);
-  const scanIntervalRef = useRef<number | null>(null);
-  const isRequestInFlight = useRef(false);
-  const detectAbortRef = useRef<AbortController | null>(null);
-  const modeVersionRef = useRef(0);
-
-  // UI State
-  const [detections, setDetections] = useState<Detection[]>([]);
-  const [ocrTextDisplay, setOcrTextDisplay] = useState("");
-  const [frameMeta, setFrameMeta] = useState<{ w: number; h: number } | null>(
-    null,
-  );
-  const [previewLayout, setPreviewLayout] = useState<{ w: number; h: number }>({
-    w: 1,
-    h: 1,
-  });
-
-  // Dedup speech
-  const lastSpokenMessage = useRef<string>("");
-  const lastSpokenAt = useRef<number>(0);
+  const isVoiceProcessingRef = useRef(false);
   const micLockRef = useRef(false);
 
   useEffect(() => {
-    setSttAvailable(sttService.isAvailable());
-  }, [sttService]);
+    isVoiceProcessingRef.current = isVoiceProcessing;
+  }, [isVoiceProcessing]);
 
-  const clearOverlay = useCallback(() => {
-    setDetections([]);
-    setOcrTextDisplay("");
-    setFrameMeta(null);
+  // ── WebSocket vision streaming ────────────────────────────────────────
+  const wsRef = useRef<WebSocket | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsReconnectDelay = useRef(500);
+  const wsReconnectCount = useRef(0);
+  const wsReconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+  const isFocusedRef = useRef(false); // tracks screen focus; prevents reconnect when blurred
+
+  // Frame flow control
+  const pendingFrame = useRef(false);       // frame sent, awaiting server response
+  const isCaptureInProgress = useRef(false); // takePictureAsync in progress
+  const nextFrameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const frameWatchdogTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── UI state ────────────────────────────────────────────────────────────
+  const [detections, setDetections] = useState<Detection[]>([]);
+  const [frameMeta, setFrameMeta] = useState<{ w: number; h: number } | null>(null);
+  const [previewLayout, setPreviewLayout] = useState({ w: SCREEN_W, h: SCREEN_H });
+  const [ocrResult, setOcrResult] = useState("");
+  const [isOcrCapturing, setIsOcrCapturing] = useState(false);
+  const ocrDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
-  const stopScanLoop = useCallback(() => {
-    setIsAutoScanning(false);
-    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-    scanIntervalRef.current = null;
-    try {
-      detectAbortRef.current?.abort();
-    } catch {}
-    detectAbortRef.current = null;
-    isRequestInFlight.current = false;
-  }, []);
-
-  const stopListeningHard = useCallback(() => {
-    try {
-      sttService.stopListening();
-    } catch {}
-    setIsListening(false);
-  }, [sttService]);
-
-  // Auto-start scanning on mount
-  useEffect(() => {
-    if (!perm?.granted) return;
-    const id = setTimeout(() => {
-      setIsAutoScanning(true);
-    }, 250);
-    return () => clearTimeout(id);
-  }, [perm?.granted]);
-
-  // Mode switching
-  useEffect(() => {
-    modeVersionRef.current += 1;
-    try {
-      detectAbortRef.current?.abort();
-    } catch {}
-    detectAbortRef.current = null;
-    isRequestInFlight.current = false;
-    clearOverlay();
-    if (isAutoScanning) {
-      const id = setTimeout(() => {
-        captureAndDetectRef.current?.();
-      }, 80);
-      return () => clearTimeout(id);
-    }
-  }, [camMode, clearOverlay, isAutoScanning]);
-
-  const maybeSpeak = useCallback(
-    async (msg: string, risk: RiskLevel = RiskLevel.LOW) => {
-      const m = (msg || "").trim();
-      if (!m) return;
-      const now = Date.now();
-      const isDup =
-        m === lastSpokenMessage.current && now - lastSpokenAt.current < 2500;
-      if (isDup) return;
-      await tts.speak(m, risk, false);
-      lastSpokenMessage.current = m;
-      lastSpokenAt.current = now;
-    },
-    [tts],
-  );
-
+  // ── Bounding-box mapping ────────────────────────────────────────────────
   const mapBBoxToPreview = useCallback(
     (bbox: BBox) => {
       if (!frameMeta) return null;
-      const imgW = frameMeta.w;
-      const imgH = frameMeta.h;
-      const viewW = previewLayout.w;
-      const viewH = previewLayout.h;
+      const { w: imgW, h: imgH } = frameMeta;
+      const { w: viewW, h: viewH } = previewLayout;
       if (imgW <= 0 || imgH <= 0 || viewW <= 0 || viewH <= 0) return null;
 
       const scale = Math.max(viewW / imgW, viewH / imgH);
@@ -195,187 +118,324 @@ export default function CameraAssistScreen() {
       const x2 = bbox.x_max * scale - offsetX;
       const y2 = bbox.y_max * scale - offsetY;
 
-      const left = clamp(x1, 0, viewW);
-      const top = clamp(y1, 0, viewH);
-      const right = clamp(x2, 0, viewW);
-      const bottom = clamp(y2, 0, viewH);
       return {
-        left,
-        top,
-        width: Math.max(0, right - left),
-        height: Math.max(0, bottom - top),
+        left: clamp(x1, 0, viewW),
+        top: clamp(y1, 0, viewH),
+        width: Math.max(0, clamp(x2, 0, viewW) - clamp(x1, 0, viewW)),
+        height: Math.max(0, clamp(y2, 0, viewH) - clamp(y1, 0, viewH)),
       };
     },
     [frameMeta, previewLayout],
   );
 
-  const processQuery = useCallback(
-    async (queryText: string) => {
-      const q = queryText.trim();
-      if (!q) return;
-      setIsVoiceProcessing(true);
+  // ── Frame watchdog: resets pendingFrame if server goes silent ───────────
+  const clearFrameWatchdog = useCallback(() => {
+    if (frameWatchdogTimer.current) {
+      clearTimeout(frameWatchdogTimer.current);
+      frameWatchdogTimer.current = null;
+    }
+  }, []);
+
+  // ── Schedule next frame capture (event-driven, not timer-driven) ────────
+  const captureAndSendFrameRef = useRef<(() => Promise<void>) | null>(null);
+
+  const scheduleNextFrame = useCallback((delayMs: number) => {
+    if (nextFrameTimer.current) clearTimeout(nextFrameTimer.current);
+    nextFrameTimer.current = setTimeout(
+      () => { captureAndSendFrameRef.current?.(); },
+      Math.max(0, delayMs),
+    );
+  }, []);
+
+  const setFrameWatchdog = useCallback(() => {
+    clearFrameWatchdog();
+    frameWatchdogTimer.current = setTimeout(() => {
+      pendingFrame.current = false;
+      scheduleNextFrame(500);
+    }, 12000);
+  }, [clearFrameWatchdog, scheduleNextFrame]);
+
+  // ── WebSocket connection ────────────────────────────────────────────────
+  const connectWebSocketRef = useRef<() => void>(() => {});
+
+  const connectWebSocket = useCallback(() => {
+    if (wsReconnectTimer.current) {
+      clearTimeout(wsReconnectTimer.current);
+      wsReconnectTimer.current = null;
+    }
+
+    const ws = new WebSocket(WS_VISION_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setWsConnected(true);
+      wsReconnectDelay.current = 500;
+      wsReconnectCount.current = 0;
+      // Web camera needs ~2s to warm up its video stream before takePictureAsync works
+      scheduleNextFrame(Platform.OS === "web" ? 2000 : 300);
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 9000);
-        const response = await fetch(`${API_BASE}/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: q }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (!response.ok) throw new Error(`Query failed: ${response.status}`);
-        const data = await response.json();
-        await maybeSpeak(
-          data.response || "I didn't catch that.",
-          RiskLevel.LOW,
-        );
-      } catch (err: any) {
-        if (err.name !== "AbortError") Alert.alert("Query Error", err.message);
-      } finally {
-        setIsVoiceProcessing(false);
-      }
-    },
-    [maybeSpeak],
-  );
+        const data = JSON.parse(event.data as string);
 
-  const handleVoiceCommand = useCallback(
-    (tRaw: string): boolean => {
-      const t = tRaw.toLowerCase().trim();
-      if (!t) return false;
-      if (t.includes("scan text") || t === "ocr") {
-        setCamMode("ocr");
-        return true;
-      }
-      if (t.includes("vision")) {
-        setCamMode("vision");
-        return true;
-      }
-      if (t.includes("start") && t.includes("scan")) {
-        setIsAutoScanning(true);
-        return true;
-      }
-      if (t.includes("stop") && (t.includes("scan") || t.includes("overlay"))) {
-        stopScanLoop();
-        clearOverlay();
-        return true;
-      }
-      return false;
-    },
-    [stopScanLoop, clearOverlay],
-  );
+        if (data.type === "detection_result") {
+          pendingFrame.current = false;
+          clearFrameWatchdog();
+          setDetections(data.detections || []);
 
-  const captureAndDetect = useCallback(async () => {
-    if (!cameraRef.current || isRequestInFlight.current) return;
-    const myModeVersion = modeVersionRef.current;
-    const myMode = camMode;
-    isRequestInFlight.current = true;
+          if (data.guidance_message && !isVoiceProcessingRef.current) {
+            tts.speakAsync(data.guidance_message, riskLevelFromString(data.risk_level));
+          }
 
-    try {
-      detectAbortRef.current?.abort();
-    } catch {}
-    const controller = new AbortController();
-    detectAbortRef.current = controller;
-    let timeoutId: NodeJS.Timeout | null = null;
+          // Pace next frame: 20% of inference time, floored at 150 ms
+          scheduleNextFrame(Math.max(150, (data.inference_time_ms || 500) * 0.2));
 
-    try {
-      const photoPromise = cameraRef.current.takePictureAsync({
-        quality: 0.5,
-        base64: false,
-        skipProcessing: true,
-      });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("takePictureAsync timeout")), 7000),
+        } else if (data.type === "frame_dropped") {
+          pendingFrame.current = false;
+          clearFrameWatchdog();
+          scheduleNextFrame(200);
+
+        } else if (data.type === "error") {
+          pendingFrame.current = false;
+          clearFrameWatchdog();
+          scheduleNextFrame(1000);
+
+        } else if (data.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong" }));
+        }
+      } catch (e) {
+        console.error("[WS Vision] parse error:", e);
+      }
+    };
+
+    ws.onerror = (e: Event) => {
+      console.warn("[WS Vision] Error event:", JSON.stringify(e));
+    };
+
+    ws.onclose = (_e: CloseEvent) => {
+      // Don't reconnect if navigated away or unmounted
+      if (!isMountedRef.current || !isFocusedRef.current) return;
+      if (wsRef.current === ws) wsRef.current = null;
+      setWsConnected(false);
+      setDetections([]);
+      pendingFrame.current = false;
+      clearFrameWatchdog();
+
+      wsReconnectCount.current += 1;
+      if (wsReconnectCount.current === 3) {
+        tts.speakAsync("Vision disconnected. Reconnecting.", RiskLevel.MEDIUM);
+      }
+
+      const delay = wsReconnectDelay.current;
+      wsReconnectDelay.current = Math.min(delay * 2, 8000);
+      wsReconnectTimer.current = setTimeout(
+        () => { connectWebSocketRef.current(); },
+        delay,
       );
+    };
+  }, [tts, scheduleNextFrame, clearFrameWatchdog]);
 
-      // --- CRITICAL SAFETY CHECK: CAMERA UNMOUNT ---
-      const photo = await Promise.race([photoPromise, timeoutPromise]);
-      if (!cameraRef.current) {
-        // Component unmounted while waiting for photo
-        isRequestInFlight.current = false;
-        return;
-      }
-      if (!photo?.uri) return;
+  useEffect(() => {
+    connectWebSocketRef.current = connectWebSocket;
+  }, [connectWebSocket]);
 
-      if (typeof photo.width === "number" && typeof photo.height === "number") {
+  // Connect on screen focus, disconnect on blur (tab screens stay mounted in background)
+  useFocusEffect(
+    useCallback(() => {
+      if (!perm?.granted) return;
+      isFocusedRef.current = true;
+      connectWebSocket();
+      return () => {
+        isFocusedRef.current = false;
+        if (wsReconnectTimer.current) clearTimeout(wsReconnectTimer.current);
+        if (nextFrameTimer.current) clearTimeout(nextFrameTimer.current);
+        if (frameWatchdogTimer.current) clearTimeout(frameWatchdogTimer.current);
+        if (ocrDismissTimer.current) clearTimeout(ocrDismissTimer.current);
+        pendingFrame.current = false;
+        const ws = wsRef.current;
+        wsRef.current = null;
+        ws?.close(1000, "blur");
+      };
+    // connectWebSocket is stable; perm.granted is the only meaningful dep here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [perm?.granted]),
+  );
+
+  // ── Frame capture & send ────────────────────────────────────────────────
+  const captureAndSendFrame = useCallback(async () => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (pendingFrame.current || isCaptureInProgress.current) return;
+    if (!cameraRef.current) return;
+
+    isCaptureInProgress.current = true;
+    const frameId = nextFrameId();
+
+    try {
+      const photo = await Promise.race([
+        cameraRef.current.takePictureAsync({
+          quality: 0.4,
+          base64: false,
+          skipProcessing: true,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("takePictureAsync timeout")), 5000),
+        ),
+      ]);
+
+      if (!photo?.uri || !cameraRef.current) return;
+
+      if (photo.width && photo.height) {
         setFrameMeta({ w: photo.width, h: photo.height });
       }
 
-      const formData = await buildImageFormData(photo.uri);
-      const endpoint =
-        myMode === "ocr" ? `${API_BASE}/ocr` : `${API_BASE}/vision`;
-      timeoutId = setTimeout(() => controller.abort(), AUTO_SCAN_TIMEOUT_MS);
+      // Re-check WS after the async capture — it may have closed
+      const ws2 = wsRef.current;
+      if (!ws2 || ws2.readyState !== WebSocket.OPEN) return;
 
-      const res = await fetch(endpoint, {
+      ws2.send(JSON.stringify({
+        type: "frame_meta",
+        frame_id: frameId,
+        width: photo.width ?? 0,
+        height: photo.height ?? 0,
+        timestamp_ms: Date.now(),
+      }));
+
+      if (Platform.OS === "web") {
+        const resp = await fetch(photo.uri);
+        const buffer = await resp.arrayBuffer();
+        ws2.send(buffer);
+      } else {
+        const b64 = await FileSystem.readAsStringAsync(photo.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const binaryStr = atob(b64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        ws2.send(bytes.buffer);
+      }
+
+      pendingFrame.current = true;
+      setFrameWatchdog();
+
+    } catch (e: any) {
+      const msg: string = e?.message ?? "";
+      if (msg.includes("not enough camera data") || msg.includes("camera data")) {
+        // Web camera still warming up — retry after a longer delay
+        scheduleNextFrame(1500);
+      } else if (msg !== "takePictureAsync timeout") {
+        console.warn("[WS Frame] capture error:", msg);
+      }
+    } finally {
+      isCaptureInProgress.current = false;
+    }
+  }, [setFrameWatchdog, scheduleNextFrame]);
+
+  useEffect(() => {
+    captureAndSendFrameRef.current = captureAndSendFrame;
+  }, [captureAndSendFrame]);
+
+  // ── OCR: on-demand single capture via REST ──────────────────────────────
+  const captureOCR = useCallback(async () => {
+    if (isOcrCapturing || !cameraRef.current) return;
+    // Wait for any in-flight WS frame capture to finish (max 2s)
+    const deadline = Date.now() + 2000;
+    while (isCaptureInProgress.current && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    if (isCaptureInProgress.current) return; // still busy, give up
+    isCaptureInProgress.current = true;      // block WS captures during OCR
+
+    // Cancel the next scheduled WS frame so YOLO is idle during OCR
+    if (nextFrameTimer.current) { clearTimeout(nextFrameTimer.current); nextFrameTimer.current = null; }
+    // Give any in-flight YOLO inference ~300ms to finish before OCR hits the backend
+    if (pendingFrame.current) await new Promise((r) => setTimeout(r, 300));
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsOcrCapturing(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.6,
+        base64: false,
+        skipProcessing: true,
+      });
+      if (!photo?.uri) return;
+
+      const formData = await buildImageFormData(photo.uri);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch(`${API_BASE}/ocr`, {
         method: "POST",
         body: formData,
         signal: controller.signal,
       });
+      clearTimeout(timeout);
 
-      if (!res.ok) throw new Error("Server Error");
-      const data = (await res.json()) as AdapterResponse;
-      if (!data || modeVersionRef.current !== myModeVersion) return;
+      if (!res.ok) throw new Error(`OCR HTTP ${res.status}`);
+      const data = await res.json();
+      const text = data.guidance_message || "No text detected.";
+      setOcrResult(text);
+      tts.speakAsync(text, RiskLevel.LOW);
 
-      setDetections(data.detections || []);
-      if (myMode === "ocr") setOcrTextDisplay(data.guidance_message || "");
-      else setOcrTextDisplay("");
+      if (ocrDismissTimer.current) clearTimeout(ocrDismissTimer.current);
+      ocrDismissTimer.current = setTimeout(() => setOcrResult(""), 8000);
 
-      if (data.guidance_message) {
-        await maybeSpeak(data.guidance_message, RiskLevel.LOW);
-      }
     } catch (e: any) {
-      if (e?.name !== "AbortError") console.log("[Detect] error:", e?.message);
+      console.error(`[OCR] failed: name=${e?.name} message=${e?.message}`);
+      if (e?.name !== "AbortError") tts.speakAsync("OCR failed.", RiskLevel.LOW);
     } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (detectAbortRef.current === controller) detectAbortRef.current = null;
-      isRequestInFlight.current = false;
+      isCaptureInProgress.current = false;
+      pendingFrame.current = false;
+      setIsOcrCapturing(false);
+      // Resume WS vision streaming after OCR
+      scheduleNextFrame(300);
     }
-  }, [camMode, maybeSpeak]);
+  }, [isOcrCapturing, tts, scheduleNextFrame]);
 
-  const captureAndDetectRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    captureAndDetectRef.current = captureAndDetect;
-  }, [captureAndDetect]);
-
-  const manualOCRScan = useCallback(async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    stopScanLoop();
-    await captureAndDetect();
-  }, [captureAndDetect, stopScanLoop]);
-
-  useEffect(() => {
-    if (!isAutoScanning) {
-      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-      return;
+  // ── Voice / chat ────────────────────────────────────────────────────────
+  const processQuery = useCallback(async (queryText: string) => {
+    const q = queryText.trim();
+    if (!q) return;
+    setIsVoiceProcessing(true);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`Chat ${res.status}`);
+      const data = await res.json();
+      tts.speakAsync(data.response || "I didn't catch that.", RiskLevel.LOW);
+    } catch (err: any) {
+      if (err.name !== "AbortError") Alert.alert("Query Error", err.message);
+    } finally {
+      setIsVoiceProcessing(false);
     }
-    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-    captureAndDetectRef.current?.();
-    scanIntervalRef.current = setInterval(() => {
-      captureAndDetectRef.current?.();
-    }, AUTO_SCAN_INTERVAL_MS) as unknown as number;
-    return () => {
-      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-    };
-  }, [isAutoScanning]);
+  }, [tts]);
+
+  const stopListeningHard = useCallback(() => {
+    try { sttService.stopListening(); } catch {}
+    setIsListening(false);
+  }, [sttService]);
 
   const startListening = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setTranscript("");
     if (Platform.OS === "web") {
-      const success = sttService.startListening(
+      const ok = sttService.startListening(
         (text, isFinal) => {
-          setTranscript(text);
-          const trimmed = text.trim();
-          if (!trimmed) return;
-          const wasCmd = handleVoiceCommand(trimmed);
-          if (wasCmd) {
-            stopListeningHard();
-            return;
-          }
+          const t = text.trim();
+          if (!t) return;
           if (isFinal) {
             stopListeningHard();
-            processQuery(trimmed);
+            processQuery(t);
           }
         },
         (error) => {
@@ -383,15 +443,13 @@ export default function CameraAssistScreen() {
           stopListeningHard();
         },
       );
-      if (success) setIsListening(true);
+      if (ok) setIsListening(true);
       return;
     }
-    const success = await sttService.startRecordingNative();
-    if (success) {
-      setIsListening(true);
-      setTranscript("Recording...");
-    } else Alert.alert("Recording Error", "Failed to start");
-  }, [sttService, handleVoiceCommand, processQuery, stopListeningHard]);
+    const ok = await sttService.startRecordingNative();
+    if (ok) setIsListening(true);
+    else Alert.alert("Recording Error", "Failed to start recording.");
+  }, [sttService, processQuery, stopListeningHard]);
 
   const stopListening = useCallback(async () => {
     if (Platform.OS === "web") {
@@ -401,62 +459,58 @@ export default function CameraAssistScreen() {
     setIsVoiceProcessing(true);
     try {
       const result = await sttService.stopRecordingNative();
-      if (result.error) {
-        Alert.alert("Transcription Error", result.error);
-        return;
-      }
+      if (result.error) { Alert.alert("Transcription Error", result.error); return; }
       const text = (result.text || "").trim();
-      if (!text) {
-        Alert.alert("Transcription", "No speech detected.");
-        return;
-      }
-      setTranscript(text);
-      const wasCmd = handleVoiceCommand(text);
-      if (!wasCmd) await processQuery(text);
+      if (!text) { Alert.alert("Transcription", "No speech detected."); return; }
+      await processQuery(text);
     } catch {
-      Alert.alert("Error", "Processing failed");
+      Alert.alert("Error", "Processing failed.");
     } finally {
       setIsVoiceProcessing(false);
       setIsListening(false);
     }
-  }, [sttService, handleVoiceCommand, processQuery, stopListeningHard]);
+  }, [sttService, processQuery, stopListeningHard]);
 
   const micStart = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || isListening) return;
     micLockRef.current = true;
+    tts.stop(); // interrupt any ongoing guidance speech
     try {
       setIsListening(true);
       await startListening();
     } finally {
-      setTimeout(() => {
-        micLockRef.current = false;
-      }, 120);
+      setTimeout(() => { micLockRef.current = false; }, 120);
     }
-  }, [startListening, isListening, isVoiceProcessing]);
+  }, [startListening, isListening, isVoiceProcessing, tts]);
 
   const micStop = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || !isListening) return;
     micLockRef.current = true;
-    try {
-      await stopListening();
-    } finally {
-      setTimeout(() => {
-        micLockRef.current = false;
-      }, 120);
-    }
+    try { await stopListening(); }
+    finally { setTimeout(() => { micLockRef.current = false; }, 120); }
   }, [stopListening, isListening, isVoiceProcessing]);
 
+  // Cleanup STT on unmount
   useEffect(() => {
-    return () => {
-      stopScanLoop();
-      stopListeningHard();
-    };
-  }, [stopScanLoop, stopListeningHard]);
+    return () => { stopListeningHard(); };
+  }, [stopListeningHard]);
 
-  if (!perm) return <View style={{ flex: 1, backgroundColor: "#1B263B" }} />;
+  // ── Permission gates ────────────────────────────────────────────────────
+  if (!perm) return <View style={{ flex: 1, backgroundColor: "#000" }} />;
   if (!perm.granted) {
     return (
       <View style={styles.centerDark}>
+        <Pressable
+          onPress={() => {
+            const canGoBack = (router as any)?.canGoBack?.() ?? false;
+            if (canGoBack) router.back();
+            else router.replace("/" as any);
+          }}
+          style={styles.backBtn}
+          accessibilityLabel="Go back"
+        >
+          <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+        </Pressable>
         <Text style={{ color: "#fff", marginBottom: 12 }}>
           Camera access is required.
         </Text>
@@ -467,231 +521,197 @@ export default function CameraAssistScreen() {
     );
   }
 
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <View style={styles.wrap}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {camMode === "ocr" ? "SCAN TEXT" : "VISION"}
-        </Text>
-      </View>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
+    <View
+      style={styles.root}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setPreviewLayout({ w: width, h: height });
+      }}
+    >
+      <Pressable
+        onPress={() => {
+          const canGoBack = (router as any)?.canGoBack?.() ?? false;
+          if (canGoBack) router.back();
+          else router.replace("/" as any);
+        }}
+        style={styles.backBtn}
+        accessibilityLabel="Go back"
       >
-        <View
-          style={styles.previewBox}
-          onLayout={(e: LayoutChangeEvent) => {
-            const { width, height } = e.nativeEvent.layout;
-            setPreviewLayout({ w: width, h: height });
-          }}
-        >
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing="back"
-          />
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFill,
-              Platform.OS === "web" && { transform: [{ scaleX: -1 }] },
-            ]}
-          >
-            {detections.slice(0, 20).map((d, idx) => {
-              const mapped = mapBBoxToPreview(d.bbox);
-              if (!mapped || mapped.width <= 1 || mapped.height <= 1)
-                return null;
-              return (
-                <View
-                  key={`${idx}-${d.category}`}
-                  style={[
-                    styles.box,
-                    {
-                      left: mapped.left,
-                      top: mapped.top,
-                      width: mapped.width,
-                      height: mapped.height,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[styles.boxLabel, { transform: [{ scaleX: -1 }] }]}
-                    numberOfLines={1}
-                  >
-                    {d.category} {Math.round(d.confidence * 100)}%
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
+        <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+      </Pressable>
 
-        <View style={styles.modeBar}>
-          <ModeBtn
-            label="Vision"
-            active={camMode === "vision"}
-            onPress={() => setCamMode("vision")}
-          />
-          <ModeBtn
-            label="Scan Text"
-            active={camMode === "ocr"}
-            onPress={() => setCamMode("ocr")}
-          />
-        </View>
+      {/* Full-screen camera */}
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing="back"
+      />
 
-        {camMode === "ocr" && (
-          <View style={styles.ocrPanel}>
+      {/* Bounding-box overlay */}
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          Platform.OS === "web" && { transform: [{ scaleX: -1 }] },
+        ]}
+      >
+        {detections.slice(0, 20).map((d, idx) => {
+          const mapped = mapBBoxToPreview(d.bbox);
+          if (!mapped || mapped.width <= 1 || mapped.height <= 1) return null;
+          return (
             <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
+              key={`${idx}-${d.category}`}
+              style={[styles.box, { left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
             >
-              <Text style={styles.ocrTitle}>Detected text</Text>
-              <Pressable
-                onPress={manualOCRScan}
-                style={({ pressed }) => [
-                  {
-                    backgroundColor: pressed ? "#fff" : GOLD,
-                    padding: 8,
-                    borderRadius: 8,
-                  },
-                ]}
+              <Text
+                style={[styles.boxLabel, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
+                numberOfLines={1}
               >
-                <MaterialIcons name="camera-alt" size={20} color="#1B263B" />
-              </Pressable>
-            </View>
-            {!ocrTextDisplay ? (
-              <Text style={styles.ocrEmpty}>No text yet. Tap camera.</Text>
-            ) : (
-              <View style={styles.ocrOneBox}>
-                <Text style={styles.ocrBlock}>{ocrTextDisplay}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View style={styles.controls}>
-          <Pressable
-            style={[
-              styles.controlBtn,
-              isAutoScanning && styles.autoScanButtonActive,
-            ]}
-            onPress={() => {
-              if (isAutoScanning) {
-                stopScanLoop();
-                clearOverlay();
-                Haptics.selectionAsync();
-                return;
-              }
-              setIsAutoScanning(true);
-              Haptics.selectionAsync();
-            }}
-          >
-            <Text style={styles.controlBtnText}>
-              {isAutoScanning ? "Stop Live Scan" : "Start Live Scan"}
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.voiceRow}>
-          <Pressable
-            onPressIn={micStart}
-            onPressOut={micStop}
-            style={[styles.micBtn, isListening && styles.micBtnActive]}
-            disabled={
-              (Platform.OS !== "web" && !sttAvailable) || isVoiceProcessing
-            }
-          >
-            <MaterialIcons
-              name={isListening ? "mic" : "mic-none"}
-              size={28}
-              color={isListening ? "#1B263B" : GOLD}
-            />
-          </Pressable>
-          <View style={styles.voiceTextWrap}>
-            <Text style={styles.voiceHint}>
-              {isVoiceProcessing
-                ? "Processing..."
-                : isListening
-                  ? "Listening..."
-                  : "Hold mic to speak"}
-            </Text>
-            {!!transcript && !isVoiceProcessing && (
-              <Text style={styles.voiceTranscript} numberOfLines={2}>
-                {transcript}
+                {d.category} {Math.round(d.confidence * 100)}%
               </Text>
-            )}
-          </View>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* WS connection status dot (top-left) */}
+      <View style={[styles.statusDot, { backgroundColor: wsConnected ? "#4CAF50" : "#ff4444" }]} />
+
+      {/* OCR result overlay — tap to dismiss */}
+      {!!ocrResult && (
+        <Pressable style={styles.ocrOverlay} onPress={() => setOcrResult("")}>
+          <Text style={styles.ocrText}>{ocrResult}</Text>
+          <Text style={styles.ocrDismiss}>Tap to dismiss</Text>
+        </Pressable>
+      )}
+
+      {/* Processing indicator */}
+      {isVoiceProcessing && (
+        <View style={styles.processingBadge}>
+          <Text style={styles.processingText}>Processing…</Text>
         </View>
-      </ScrollView>
+      )}
+
+      {/* Bottom controls: mic (left) + camera/OCR (right) */}
+      <View style={styles.bottomControls}>
+        <Pressable
+          onPressIn={micStart}
+          onPressOut={micStop}
+          disabled={isVoiceProcessing}
+          style={[styles.floatingBtn, isListening && styles.floatingBtnActive]}
+        >
+          <MaterialIcons
+            name={isListening ? "mic" : "mic-none"}
+            size={32}
+            color={isListening ? "#1B263B" : GOLD}
+          />
+        </Pressable>
+
+        <Pressable
+          onPress={captureOCR}
+          disabled={isOcrCapturing}
+          style={[styles.floatingBtn, isOcrCapturing && styles.floatingBtnActive]}
+        >
+          <MaterialIcons
+            name="camera-alt"
+            size={32}
+            color={isOcrCapturing ? "#1B263B" : GOLD}
+          />
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-function ModeBtn({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.modeBtn, active && styles.modeBtnActive]}
-    >
-      <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: "#1B263B" },
-  header: {
+  root: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  backBtn: {
+    position: "absolute",
+    top: 44,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  statusDot: {
+    position: "absolute",
+    top: 52,
+    left: 16,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  ocrOverlay: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    top: "28%",
+    backgroundColor: "rgba(27,38,59,0.93)",
+    borderWidth: 1.5,
+    borderColor: GOLD,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+  },
+  ocrText: {
+    color: "#fff",
+    fontSize: 18,
+    lineHeight: 26,
+    textAlign: "center",
+  },
+  ocrDismiss: {
+    color: GOLD,
+    fontSize: 11,
+    marginTop: 10,
+    opacity: 0.8,
+  },
+  processingBadge: {
+    position: "absolute",
+    top: 52,
+    alignSelf: "center",
+    backgroundColor: "rgba(27,38,59,0.85)",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  processingText: {
+    color: GOLD,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  bottomControls: {
+    position: "absolute",
+    bottom: 48,
+    left: 24,
+    right: 24,
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
-    paddingTop: 14,
-    borderBottomWidth: 2,
-    borderColor: GOLD,
-  },
-  headerTitle: { color: GOLD, fontSize: 20, fontWeight: "800" },
-  previewBox: {
-    height: SCREEN_H * 0.55,
-    margin: 12,
-    borderRadius: 10,
-    overflow: "hidden",
-    backgroundColor: "#1B263B",
-  },
-  modeBar: { flexDirection: "row", gap: 10, padding: 12 },
-  modeBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: GOLD,
-    borderRadius: 10,
-    padding: 10,
     alignItems: "center",
   },
-  modeBtnActive: { backgroundColor: GOLD },
-  modeBtnText: { color: GOLD, fontWeight: "700" },
-  modeBtnTextActive: { color: "#1B263B" },
-  controls: { padding: 16, gap: 10 },
-  controlBtn: {
+  floatingBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(27,38,59,0.85)",
+    borderWidth: 2,
+    borderColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  floatingBtnActive: {
     backgroundColor: GOLD,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
   },
-  controlBtnText: { color: "#1B263B", fontWeight: "800" },
-  autoScanButtonActive: { backgroundColor: "#ff6b6b" },
   centerDark: {
     flex: 1,
     alignItems: "center",
@@ -711,48 +731,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     top: -18,
-    fontSize: 12,
+    fontSize: 11,
     color: "#1B263B",
     backgroundColor: GOLD,
     fontWeight: "800",
-  },
-  voiceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 16,
-    borderTopWidth: 1,
-    borderColor: "rgba(249,178,51,0.35)",
-  },
-  micBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  micBtnActive: { backgroundColor: GOLD },
-  voiceTextWrap: { flex: 1 },
-  voiceHint: { color: GOLD, fontWeight: "700" },
-  voiceTranscript: { color: "#fff", marginTop: 6 },
-  ocrPanel: {
-    margin: 12,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: GOLD,
-    backgroundColor: "rgba(0,0,0,0.10)",
-  },
-  ocrTitle: { color: GOLD, fontWeight: "800", marginBottom: 8 },
-  ocrEmpty: { color: "#fff", opacity: 0.8 },
-  ocrBlock: { color: "#fff", fontSize: 18, lineHeight: 24 },
-  ocrOneBox: {
-    borderWidth: 1,
-    borderColor: GOLD,
-    borderRadius: 10,
-    padding: 10,
-    backgroundColor: "rgba(249,178,51,0.10)",
+    paddingHorizontal: 2,
   },
 });

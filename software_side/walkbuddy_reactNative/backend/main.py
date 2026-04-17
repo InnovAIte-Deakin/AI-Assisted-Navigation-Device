@@ -68,6 +68,7 @@ import anyio
 # 3. CONSTANTS
 # =========================
 SESSION_EXPIRY_HOURS = 1
+SESSION_TIMEOUT_MINUTES = 30
 DB_PATH = BACKEND_DIR / "helpers.db"
 
 tracer = trace.get_tracer("main.websocket")
@@ -84,9 +85,27 @@ def init_database():
     conn.commit()
     conn.close()
 
+# Remove inactive sessions with no connections after a timeout
 async def cleanup_expired_sessions():
-    # unchanged placeholder
-    pass
+    while True:
+        await asyncio.sleep(60)
+
+        now = datetime.now()
+        expired_sessions = []
+
+        for sid, session in list(collaboration_sessions.items()):
+            user_active = session["user_ws"] is not None
+            guide_active = session["guide_ws"] is not None
+
+            last_active = session.get("last_active", session["created_at"])
+
+            if (not user_active and not guide_active) and \
+               (now - last_active > timedelta(minutes=SESSION_TIMEOUT_MINUTES)):
+                expired_sessions.append(sid)
+
+        for sid in expired_sessions:
+            del collaboration_sessions[sid]
+            logger.info(f"Removed expired session: {sid}")
 
 # =========================
 # 5. APP LIFESPAN (PHASE B)
@@ -109,12 +128,36 @@ async def lifespan(app: FastAPI):
 
     # --- load EasyOCR ---
     try:
-        logger.info("Loading EasyOCR reader")
-        app.state.ocr_reader = easyocr.Reader(["en"], gpu=True)
-        logger.info("✅ EasyOCR ready")
+        # 检测GPU可用性
+        import torch
+        gpu_available = torch.cuda.is_available()
+        gpu_status = "GPU" if gpu_available else "CPU"
+        
+        logger.info(f"Loading EasyOCR reader ({gpu_status} mode)")
+        
+        # 动态设置gpu参数
+        app.state.ocr_reader = easyocr.Reader(["en"], gpu=gpu_available)
+        
+        logger.info(f"✅ EasyOCR ready ({gpu_status} mode)")
+        
+        # 记录GPU信息（如果可用）
+        if gpu_available:
+            logger.info(f"GPU Device: {torch.cuda.get_device_name(0)}")
+            logger.info(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+        else:
+            logger.info("Running in CPU mode - GPU not available")
+            
     except Exception as e:
         logger.error(f"❌ EasyOCR load failed: {e}")
-        app.state.ocr_reader = None
+        
+        # 尝试回退到CPU模式（如果GPU模式失败）
+        try:
+            logger.info("Attempting fallback to CPU mode...")
+            app.state.ocr_reader = easyocr.Reader(["en"], gpu=False)
+            logger.info("✅ EasyOCR fallback to CPU mode successful")
+        except Exception as fallback_error:
+            logger.error(f"❌ EasyOCR fallback also failed: {fallback_error}")
+            app.state.ocr_reader = None
 
     # --- load LLM ---
     if not LLM_MODEL_PATH.exists():
@@ -130,8 +173,11 @@ async def lifespan(app: FastAPI):
             app_state.llm_brain = None
 
     # --- execution capacity ---
-    app.state.vision_limiter = anyio.CapacityLimiter(2)
-    app.state.ocr_limiter = anyio.CapacityLimiter(2)
+    # vision: capacity=1 serialises YOLO — one inference at a time is faster
+    # than two competing threads on a single CPU, and anyio's CapacityLimiter
+    # queues waiters in FIFO order so multiple WS clients share it fairly.
+    app.state.vision_limiter = anyio.CapacityLimiter(1)
+    app.state.ocr_limiter = anyio.CapacityLimiter(1)
     app.state.llm_limiter = anyio.CapacityLimiter(1)
 
     asyncio.create_task(cleanup_expired_sessions())
@@ -152,9 +198,19 @@ app = FastAPI(
 # =========================
 # 7. MIDDLEWARE
 # =========================
+origins_env = os.getenv("WALKBUDDY_ALLOWED_ORIGINS")
+
+if origins_env:
+    allow_origins = [origin.strip() for origin in origins_env.split(",")]
+else:
+    allow_origins = [
+        "http://localhost:8081",
+        "http://localhost:8000"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins = allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -191,6 +247,7 @@ async def create_collaboration_session():
 
     collaboration_sessions[session_id] = {
         "created_at": datetime.now(),
+        "last_active": datetime.now(),
         "user_ws": None,
         "guide_ws": None,
         "guide_name": None,
@@ -246,6 +303,7 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
         try:
             while True:
                 data = await websocket.receive_json()
+                session["last_active"] = datetime.now()
                 msg_type = data.get("type")
 
                 if msg_type == "ping":
