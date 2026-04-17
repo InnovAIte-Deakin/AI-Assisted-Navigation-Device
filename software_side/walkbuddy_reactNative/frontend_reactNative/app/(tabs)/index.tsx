@@ -95,7 +95,19 @@ export default function HomePage() {
         />
 
         <View style={styles.mainArea}>
-          <BounceButton label="SEARCH" onPress={goToNavigate} search />
+
+            <View style={styles.statusCard}>
+              <Text style={styles.statusTitle}>NAVIGATION STATUS</Text>
+
+              <Text style={styles.statusText}>Status: Ready</Text>
+              <Text style={styles.statusSub}>Next: Awaiting input</Text>
+
+              <Pressable style={styles.startButton}>
+                <Text style={styles.startButtonText}>Start Navigation</Text>
+              </Pressable>
+            </View>
+
+            <BounceButton label="SEARCH" onPress={goToNavigate} search />
 
           <View style={styles.grid}>
             <ActionTile
@@ -512,4 +524,46 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 4,
   },
+
+  statusCard: {
+    width: "100%",
+    backgroundColor: "#0b1a26",
+    borderWidth: 2,
+    borderColor: tokens.gold,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+  },
+
+  statusTitle: {
+    color: tokens.text,
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+
+  statusText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  statusSub: {
+    color: tokens.muted,
+    fontSize: 12,
+    marginBottom: 12,
+  },
+
+  startButton: {
+    backgroundColor: "#12314a",
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+
+  startButtonText: {
+    color: tokens.text,
+    fontWeight: "800",
+  },
+
 });
