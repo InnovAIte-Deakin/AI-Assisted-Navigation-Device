@@ -258,6 +258,91 @@ WebSocket endpoint for real-time collaboration. `role` must be `user` or `guide`
 | `webrtc_ice`    | either         | ICE candidate. Relayed to the other party                |
 | `guidance`      | guide → user   | Text or audio guidance from guide to user                |
 
+### Helper Authentication
+
+#### `POST /helpers/signup`
+
+Create a new helper account.
+
+**Request:** `application/json`
+
+```json
+{
+  "name": "Alex",
+  "age": 25,
+  "email": "alex@example.com",
+  "phone": "0400000000",
+  "address": "Melbourne",
+  "emergency_contact_name": "Sam",
+  "emergency_contact_phone": "0411111111",
+  "experience_level": "Beginner",
+  "password": "password123"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "message": "Helper account created successfully",
+  "helper_id": "uuid"
+}
+```
+
+**Errors:**
+
+- `409` if the email is already registered
+
+
+#### `POST /helpers/login`
+
+Log in with helper credentials.
+
+**Request:** `application/json`
+
+```json
+{
+  "email": "alex@example.com",
+  "password": "password123"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "token": "session-token",
+  "helper": {
+    "id": "uuid",
+    "name": "Alex",
+    "age": 25,
+    "email": "alex@example.com",
+    "phone": "0400000000",
+    "address": "Melbourne",
+    "emergency_contact_name": "Sam",
+    "emergency_contact_phone": "0411111111",
+    "experience_level": "Beginner"
+  }
+}
+```
+
+**Errors:**
+
+- `401` if credentials are invalid
+
+#### `DELETE /helpers/{helper_id}`
+
+Delete a helper account.
+
+**Request:** query parameter `token`
+
+**Response:** `204 No Content`
+
+**Errors:**
+
+- `401` if unauthenticated
+- `404` if helper not found
+
 ### Audiobooks
 
 All endpoints are prefixed `/audiobooks`.
