@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from ultralytics import YOLO
 import easyocr
+from routers import stt
 
 
 # =========================
@@ -165,6 +166,7 @@ app.add_middleware(
 # =========================
 app.include_router(audiobooks_router.router)
 app.include_router(ai_router.router)
+app.include_router(stt.router)
 
 # =========================
 # 9. TELEMETRY

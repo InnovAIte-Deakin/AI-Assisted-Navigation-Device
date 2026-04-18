@@ -205,6 +205,20 @@ Query the offline LLM using the current navigation memory as context.
 - LLM is capacity-limited to 1 concurrent inference (`anyio.CapacityLimiter(1)`)
 - Returns `{ "response": "Brain offline." }` if the model file was not found at startup
 
+#### `POST /stt/transcribe`
+
+Accepts a multipart audio file upload.
+
+**Request:** `multipart/form-data` with field `file` (audio file)
+
+**Response:**
+
+```json
+{
+  "transcript": "..."
+}
+```
+
 ### Collaboration (Ask-a-Friend)
 
 #### `POST /collaboration/create-session`
