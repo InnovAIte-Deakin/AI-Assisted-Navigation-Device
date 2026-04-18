@@ -74,6 +74,14 @@ async def ocr_endpoint(request: Request, file: UploadFile = File(...)):
                 temp_path,
             )
 
+        for d in result["detections"]:
+            state.memory.add_event(
+                label=f"text: {d['category']}",
+                direction="ahead",
+                distance_m=None,
+                confidence=d["confidence"],
+            )
+
         texts = [d["category"] for d in result["detections"]]
         return {
             "detections": result["detections"],
