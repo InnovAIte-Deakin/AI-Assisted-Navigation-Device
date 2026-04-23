@@ -1,10 +1,22 @@
+/*
+   NOTE:
+   The speech recognition feature (expo-speech-recognition) has been temporarily
+   commented out due to build/runtime issues encountered when running the
+   application on Android (Expo Go environment).
+
+   This feature requires native module support, which is not fully compatible
+   with the current setup, leading to errors during execution.
+
+   This will be fixed and added back in future updates.
+*/
+
 // Exterior Navigation Screen with Production Features
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
-import { useFocusEffect } from "expo-router";
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
+import { useFocusEffect, useRouter } from "expo-router";
+// import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import React, {
   useCallback,
   useEffect,
@@ -52,6 +64,7 @@ const { height: SCREEN_H } = Dimensions.get("window");
 const MILESTONES = [200, 100, 50];
 
 export default function ExteriorNavigationScreen() {
+  const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [settings, setSettings] = useState<NavigationSettings>({
@@ -82,11 +95,11 @@ export default function ExteriorNavigationScreen() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [fromAutocompleteSuggestions, setFromAutocompleteSuggestions] = useState<AutocompleteSuggestion[]>([]);
   const [showFromSuggestions, setShowFromSuggestions] = useState(false);
-  const autocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const fromAutocompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autocompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fromAutocompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recognitionRef = useRef<any>(null);
   const nativeRecognitionResultRef = useRef<string>("");
-  const routeSearchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const routeSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeCacheRef = useRef<Map<string, Route>>(new Map());
   const [route, setRoute] = useState<Route | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -139,7 +152,7 @@ export default function ExteriorNavigationScreen() {
         const newLocation: LocationType = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
-          accuracy: loc.coords.accuracy,
+          accuracy: loc.coords.accuracy ?? undefined,
         };
         setCurrentLocation(newLocation);
         lastLocationRef.current = newLocation;
@@ -336,20 +349,27 @@ export default function ExteriorNavigationScreen() {
 
     setIsLoadingRoute(true);
     try {
-      const options: RoutingOptions = {
-        originLat: startOrigin.lat,
-        originLng: startOrigin.lng,
-        destLat: destination.lat,
-        destLng: destination.lng,
-        profile: "foot-walking",
-      };
-
       // Update origin state to reflect what we're actually using
       setOrigin(startOrigin);
 
-      const newRoute = await fetchRoute(options);
-      setRoute(newRoute);
-      routeRef.current = newRoute;
+      // Reuse existing route if already fetched (from handleSearchRoute),
+      // otherwise fetch a new one
+      let navRoute = route;
+      if (!navRoute) {
+        const options: RoutingOptions = {
+          originLat: startOrigin.lat,
+          originLng: startOrigin.lng,
+          destLat: destination.lat,
+          destLng: destination.lng,
+          profile: "foot-walking",
+        };
+        navRoute = await fetchRoute(options);
+        setRoute(navRoute);
+        routeRef.current = navRoute;
+      } else {
+        routeRef.current = navRoute;
+      }
+
       setCurrentStepIndex(0);
       currentStepIndexRef.current = 0;
       setIsNavigating(true);
@@ -361,8 +381,8 @@ export default function ExteriorNavigationScreen() {
       deviationCheckRef.current = 0;
 
       // Speak first instruction
-      if (newRoute.steps[0]) {
-        speakInstruction(newRoute.steps[0].instructionText);
+      if (navRoute.steps[0]) {
+        speakInstruction(navRoute.steps[0].instructionText);
         lastSpokenStepRef.current = 0;
       }
 
@@ -390,8 +410,8 @@ export default function ExteriorNavigationScreen() {
           const newLocation: LocationType = {
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
-            accuracy: loc.coords.accuracy,
-            heading: loc.coords.heading,
+            accuracy: loc.coords.accuracy ?? undefined,
+            heading: loc.coords.heading ?? undefined,
           };
           setCurrentLocation(newLocation);
 
@@ -582,6 +602,7 @@ export default function ExteriorNavigationScreen() {
     originMode,
     originCoords,
     origin,
+    route,
     speakInstruction,
     checkDeviation,
     checkMilestones,
@@ -754,7 +775,7 @@ export default function ExteriorNavigationScreen() {
         // Limit cache size (keep last 10 routes)
         if (routeCacheRef.current.size > 10) {
           const firstKey = routeCacheRef.current.keys().next().value;
-          routeCacheRef.current.delete(firstKey);
+          if (firstKey) routeCacheRef.current.delete(firstKey);
         }
       } else {
         console.log("[Exterior] Using cached route");
@@ -907,7 +928,7 @@ export default function ExteriorNavigationScreen() {
   }, []);
 
   // Handle speech recognition results for native platforms
-  useSpeechRecognitionEvent('result', useCallback((event: any) => {
+ /* useSpeechRecognitionEvent('result', useCallback((event: any) => {
     if (isListeningDestination && event.results && event.results.length > 0) {
       const transcript = event.results[0]?.transcript || "";
       if (transcript.trim()) {
@@ -939,6 +960,7 @@ export default function ExteriorNavigationScreen() {
       nativeRecognitionResultRef.current = "";
     }
   }, [isListeningDestination]));
+*/
 
   // Handle voice input for destination
   const handleVoiceInput = useCallback(async () => {
@@ -952,12 +974,18 @@ export default function ExteriorNavigationScreen() {
             recognitionRef.current.stop();
           } catch {}
         }
-      } else {
+      } /*else { // removed for testing purpose
         try {
           await ExpoSpeechRecognitionModule.stop();
         } catch (error) {
           console.error("Error stopping recognition:", error);
         }
+      }*/
+      else {
+        Alert.alert(
+          "Unavailable",
+          "Speech recognition not supported in Expo Go (Android)."
+        );
       }
       setIsListeningDestination(false);
       nativeRecognitionResultRef.current = "";
@@ -1018,7 +1046,7 @@ export default function ExteriorNavigationScreen() {
       } catch (error) {
         Alert.alert("Error", "Failed to start speech recognition. Please try typing instead.");
       }
-    } else {
+    }/* else {
       // Native implementation using expo-speech-recognition
       try {
         // Request permissions
@@ -1043,8 +1071,14 @@ export default function ExteriorNavigationScreen() {
         setIsListeningDestination(false);
         const errorMsg = error?.message || "Failed to start speech recognition";
         Alert.alert("Error", `${errorMsg}. Please try typing instead.`);
-      }
-    }
+      } removed for testing purpose
+    }*/
+        else {
+          Alert.alert(
+            "Unavailable",
+            "Speech recognition is not supported in Expo Go on Android right now."
+          );
+}
   }, [isListeningDestination, handleSearchRoute]);
 
   // Format ETA
@@ -1092,9 +1126,22 @@ export default function ExteriorNavigationScreen() {
     return 0;
   })();
 
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.() ?? false;
+    if (canGoBack) router.back();
+    else router.replace("/" as any);
+  };
+
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
+        <Pressable
+          onPress={handleBack}
+          style={styles.backBtnFloating}
+          accessibilityLabel="Go back"
+        >
+          <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+        </Pressable>
         <Text style={styles.headerTitle}>EXTERIOR NAVIGATION</Text>
         {destination && (
           <Pressable
@@ -1447,7 +1494,14 @@ export default function ExteriorNavigationScreen() {
             style={[styles.controlBtn, styles.stopBtn]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              stopNavigation();
+              Alert.alert(
+                "End Navigation",
+                "Are you sure you want to end active navigation?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "End", style: "destructive", onPress: () => stopNavigation() }
+                ]
+              );
             }}
           >
             <MaterialIcons name="stop" size={32} color={GOLD} />
@@ -1462,6 +1516,7 @@ export default function ExteriorNavigationScreen() {
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: "#1B263B" },
   header: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1471,7 +1526,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: GOLD,
   },
-  headerTitle: { color: GOLD, fontSize: 20, fontWeight: "800", flex: 1 },
+  backBtnFloating: {
+    position: "absolute",
+    top: 4,
+    left: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
+  },
+  headerTitle: {
+    color: GOLD,
+    fontSize: 20,
+    fontWeight: "800",
+    flex: 1,
+    paddingLeft: 52,
+  },
   destinationBtn: {
     padding: 8,
   },

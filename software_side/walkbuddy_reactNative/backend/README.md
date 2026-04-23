@@ -590,3 +590,4 @@ Model weights are mounted from `ML_side/models/` — ensure both `best.pt` and t
 | `PYTTSX3_DRIVER`              | (system default)             | TTS backend (`espeak` in Docker)                               |
 | `TTS_RATE`                    | (pyttsx3 default)            | Speech rate (`170` in Docker)                                  |
 | `LIBRIVOX_VERIFY_SSL`         | `1`                          | Set to `0` to disable SSL verification for LibriVox (dev only) |
+| `WALKBUDDY_ALLOWED_ORIGINS`   | `http://localhost:8081,http://localhost:8000` | Comma-separated list of allowed origins for CORS |
