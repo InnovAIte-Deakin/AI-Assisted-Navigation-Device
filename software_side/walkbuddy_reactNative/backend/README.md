@@ -590,3 +590,7 @@ Model weights are mounted from `ML_side/models/` — ensure both `best.pt` and t
 | `PYTTSX3_DRIVER`              | (system default)             | TTS backend (`espeak` in Docker)                               |
 | `TTS_RATE`                    | (pyttsx3 default)            | Speech rate (`170` in Docker)                                  |
 | `LIBRIVOX_VERIFY_SSL`         | `1`                          | Set to `0` to disable SSL verification for LibriVox (dev only) |
+| `WALKBUDDY_API_KEY` | (not set) | API key required for authenticated requests |
+If set, all protected endpoints require a valid API key via:
+- X-API-Key header
+- or Authorization: Bearer <key>
