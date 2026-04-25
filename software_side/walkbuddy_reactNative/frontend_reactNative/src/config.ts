@@ -5,6 +5,8 @@ import { Platform } from "react-native";
 // use it. Otherwise derive the backend host from Metro's LAN IP automatically.
 const tunnelOverride = process.env.EXPO_PUBLIC_API_BASE;
 
+export const API_KEY = process.env.EXPO_PUBLIC_WALKBUDDY_API_KEY || "";
+
 const lanHost = Constants.expoConfig?.hostUri?.split(":")[0];
 const isIp = (h?: string) => !!h && /^\d+\.\d+\.\d+\.\d+$/.test(h);
 

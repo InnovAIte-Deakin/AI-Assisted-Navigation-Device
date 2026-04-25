@@ -45,8 +45,11 @@ from fastapi import (
     HTTPException,
     WebSocket,
     WebSocketDisconnect,
+    Request,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # Internal
 import internal.state as app_state
@@ -152,6 +155,40 @@ app = FastAPI(
 # =========================
 # 7. MIDDLEWARE
 # =========================
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        excluded_paths = {
+            "/ping",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+        }
+
+        if request.method == "OPTIONS" or request.url.path in excluded_paths:
+            return await call_next(request)
+
+        api_key = os.getenv("WALKBUDDY_API_KEY")
+
+        if not api_key:
+            return await call_next(request)
+
+        header_key = request.headers.get("X-API-Key")
+        auth_header = request.headers.get("Authorization", "")
+
+        bearer_key = ""
+        if auth_header.startswith("Bearer "):
+            bearer_key = auth_header.replace("Bearer ", "", 1)
+
+        if header_key != api_key and bearer_key != api_key:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing API key"},
+            )
+
+        return await call_next(request)
+
+app.add_middleware(APIKeyMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
