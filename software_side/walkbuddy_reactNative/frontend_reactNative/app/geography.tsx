@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { addFavourite } from "./lib/favourites";
+import { addFavourite } from "../src/utils/favourites";
 
 const GOLD = "#f9b233";
 const DARK = "#1B263B";

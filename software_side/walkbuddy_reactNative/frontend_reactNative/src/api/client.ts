@@ -31,7 +31,7 @@ export async function detectObject(imageBlob: Blob): Promise<{ events: Detection
   // React Native's FormData handling needs explicit type for file
   formData.append("file", imageBlob as any, "frame.jpg");
 
-  const res = await fetch(`${API_BASE}/detect`, {
+  const res = await fetch(`${API_BASE}/vision`, {
     method: "POST",
     body: formData,
     headers: {
@@ -54,7 +54,7 @@ export async function askTwoBrain(
   formData.append("file", imageBlob as any, "frame.jpg");
   formData.append("question", question);
 
-  const res = await fetch(`${API_BASE}/two_brain`, {
+  const res = await fetch(`${API_BASE}/chat`, {
     method: "POST",
     body: formData,
     headers: {
