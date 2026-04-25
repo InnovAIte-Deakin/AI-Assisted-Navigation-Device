@@ -606,7 +606,14 @@ Model weights are mounted from `ML_side/models/` — ensure both `best.pt` and t
 | `LIBRIVOX_VERIFY_SSL`         | `1`                          | Set to `0` to disable SSL verification for LibriVox (dev only) |
 | `WALKBUDDY_ALLOWED_ORIGINS`   | `http://localhost:8081,http://localhost:8000` | Comma-separated list of allowed origins for CORS |
 | `WALKBUDDY_API_KEY` | (not set) | API key required for authenticated requests |
-If set, all protected endpoints require a valid API key via:
+
+### API Key Authentication
+
+Set the API key as an environment variable before starting the backend:
+
+WALKBUDDY_API_KEY=your-secret-key docker compose up
+
+All protected endpoints require a valid API key via:
+
 - X-API-Key header
 - or Authorization: Bearer <key>
-
