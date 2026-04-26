@@ -44,6 +44,7 @@ export default function HomePage() {
   const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
+  const goToEmergency = () => router.push("/emergency" as any);
   const goToCameraVoice = () => router.push("/camera" as any);
   const goToCameraOCR = () => router.push("/camera" as any);
 
@@ -119,6 +120,12 @@ export default function HomePage() {
               icon="map-marker"
               label="PLACES"
               onPress={goToSavedPlaces}
+            />
+
+            <ActionTile
+              icon="exclamation-triangle"
+              label="EMERGENCY"
+              onPress={goToEmergency}
             />
 
             <View style={styles.centerRow}>
