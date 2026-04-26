@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from ultralytics import YOLO
 import easyocr
+from routers import stt
 
 
 # =========================
@@ -56,6 +57,7 @@ from slow_lane import SlowLaneBrain
 # Routers
 from routers import audiobooks as audiobooks_router
 from routers import ai_service as ai_router
+from routers import helpers as helpers_router
 
 # Telemetry
 from telemetry import init_telemetry
@@ -68,6 +70,7 @@ import anyio
 # 3. CONSTANTS
 # =========================
 SESSION_EXPIRY_HOURS = 1
+SESSION_TIMEOUT_MINUTES = 30
 DB_PATH = BACKEND_DIR / "helpers.db"
 
 tracer = trace.get_tracer("main.websocket")
@@ -84,9 +87,27 @@ def init_database():
     conn.commit()
     conn.close()
 
+# Remove inactive sessions with no connections after a timeout
 async def cleanup_expired_sessions():
-    # unchanged placeholder
-    pass
+    while True:
+        await asyncio.sleep(60)
+
+        now = datetime.now()
+        expired_sessions = []
+
+        for sid, session in list(collaboration_sessions.items()):
+            user_active = session["user_ws"] is not None
+            guide_active = session["guide_ws"] is not None
+
+            last_active = session.get("last_active", session["created_at"])
+
+            if (not user_active and not guide_active) and \
+               (now - last_active > timedelta(minutes=SESSION_TIMEOUT_MINUTES)):
+                expired_sessions.append(sid)
+
+        for sid in expired_sessions:
+            del collaboration_sessions[sid]
+            logger.info(f"Removed expired session: {sid}")
 
 # =========================
 # 5. APP LIFESPAN (PHASE B)
@@ -154,8 +175,11 @@ async def lifespan(app: FastAPI):
             app_state.llm_brain = None
 
     # --- execution capacity ---
-    app.state.vision_limiter = anyio.CapacityLimiter(2)
-    app.state.ocr_limiter = anyio.CapacityLimiter(2)
+    # vision: capacity=1 serialises YOLO — one inference at a time is faster
+    # than two competing threads on a single CPU, and anyio's CapacityLimiter
+    # queues waiters in FIFO order so multiple WS clients share it fairly.
+    app.state.vision_limiter = anyio.CapacityLimiter(1)
+    app.state.ocr_limiter = anyio.CapacityLimiter(1)
     app.state.llm_limiter = anyio.CapacityLimiter(1)
 
     asyncio.create_task(cleanup_expired_sessions())
@@ -176,9 +200,19 @@ app = FastAPI(
 # =========================
 # 7. MIDDLEWARE
 # =========================
+origins_env = os.getenv("WALKBUDDY_ALLOWED_ORIGINS")
+
+if origins_env:
+    allow_origins = [origin.strip() for origin in origins_env.split(",")]
+else:
+    allow_origins = [
+        "http://localhost:8081",
+        "http://localhost:8000"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins = allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -189,6 +223,8 @@ app.add_middleware(
 # =========================
 app.include_router(audiobooks_router.router)
 app.include_router(ai_router.router)
+app.include_router(helpers_router.router)
+app.include_router(stt.router)
 
 # =========================
 # 9. TELEMETRY
@@ -215,6 +251,7 @@ async def create_collaboration_session():
 
     collaboration_sessions[session_id] = {
         "created_at": datetime.now(),
+        "last_active": datetime.now(),
         "user_ws": None,
         "guide_ws": None,
         "guide_name": None,
@@ -270,6 +307,7 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
         try:
             while True:
                 data = await websocket.receive_json()
+                session["last_active"] = datetime.now()
                 msg_type = data.get("type")
 
                 if msg_type == "ping":

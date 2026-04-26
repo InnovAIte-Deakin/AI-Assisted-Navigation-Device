@@ -18,7 +18,7 @@ import {
   toggleFavourite,
   markUsed,
   PlaceItem,
-} from "../lib/placesStore";
+} from "../../src/utils/placesStore"
 
 /*
   TEMPORARY TESTING ONLY
@@ -150,8 +150,21 @@ export default function PlacesPage() {
     </Pressable>
   );
 
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.() ?? false;
+    if (canGoBack) router.back();
+    else router.replace("/" as any);
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
+      <Pressable
+        onPress={handleBack}
+        style={styles.backBtnFloating}
+        accessibilityLabel="Go back"
+      >
+        <Icon name="arrow-left" size={20} color="#FCA311" />
+      </Pressable>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
           appTitle="WalkBuddy"
@@ -184,12 +197,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0D1B2A",
     alignItems: "center",
+    position: "relative",
   },
 
   content: {
     flex: 1,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 14,
+  },
+
+  backBtnFloating: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: "#FCA311",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
 
   listContent: {

@@ -248,4 +248,9 @@ export function getTTSService(config?: Partial<TTSConfig>): TTSService {
   return globalTTSService;
 }
 
+/** Convert a server-sent risk level string (e.g. "HIGH") to the RiskLevel enum. */
+export function riskLevelFromString(s: string): RiskLevel {
+  return (RiskLevel[s as keyof typeof RiskLevel]) ?? RiskLevel.LOW;
+}
+
 export default TTSService;
