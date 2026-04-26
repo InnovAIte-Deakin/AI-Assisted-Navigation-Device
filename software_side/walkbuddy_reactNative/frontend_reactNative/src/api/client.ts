@@ -8,11 +8,14 @@ export interface DetectionEvent {
   confidence: number;
 }
 
-export interface SlowLaneResponse {
-  events: DetectionEvent[];
-  answer?: string;
-  safe: boolean;
-  source: "safety_gate" | "slow_lane_llm";
+export interface VisionResponse {
+detections: DetectionEvent[];
+guidance_message: string;
+image_id: string;
+}
+
+export interface ChatResponse {
+response: string;
 }
 
 export async function fetchStatus() {
@@ -26,7 +29,7 @@ export async function fetchStatus() {
   }
 }
 
-export async function detectObject(imageBlob: Blob): Promise<{ events: DetectionEvent[] }> {
+export async function detectObject(imageBlob: Blob): Promise<VisionResponse> {
   const formData = new FormData();
   // React Native's FormData handling needs explicit type for file
   formData.append("file", imageBlob as any, "frame.jpg");
@@ -49,7 +52,7 @@ export async function detectObject(imageBlob: Blob): Promise<{ events: Detection
 export async function askTwoBrain(
   imageBlob: Blob,
   question: string
-): Promise<SlowLaneResponse> {
+): Promise<ChatResponse> {
   const formData = new FormData();
   formData.append("file", imageBlob as any, "frame.jpg");
   formData.append("question", question);
