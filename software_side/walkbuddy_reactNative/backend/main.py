@@ -57,6 +57,7 @@ from slow_lane import SlowLaneBrain
 # Routers
 from routers import audiobooks as audiobooks_router
 from routers import ai_service as ai_router
+from routers import helpers as helpers_router
 
 # Telemetry
 from telemetry import init_telemetry
@@ -222,6 +223,7 @@ app.add_middleware(
 # =========================
 app.include_router(audiobooks_router.router)
 app.include_router(ai_router.router)
+app.include_router(helpers_router.router)
 app.include_router(stt.router)
 
 # =========================
