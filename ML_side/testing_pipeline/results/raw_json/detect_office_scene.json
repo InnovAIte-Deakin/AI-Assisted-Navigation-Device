@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "label": "office-chair",
+      "direction": "directly ahead",
+      "distance_m": null,
+      "confidence": 0.905
+    },
+    {
+      "label": "whiteboard",
+      "direction": "to the right",
+      "distance_m": null,
+      "confidence": 0.542
+    },
+    {
+      "label": "monitor",
+      "direction": "directly ahead",
+      "distance_m": null,
+      "confidence": 0.258
+    }
+  ]
+}
