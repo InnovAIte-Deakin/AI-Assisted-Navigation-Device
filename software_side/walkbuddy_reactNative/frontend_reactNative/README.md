@@ -507,3 +507,4 @@ Set `EXPO_PUBLIC_API_BASE` in a `.env.local` file if the backend is not on the s
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `EXPO_PUBLIC_API_BASE` | (none) | Backend URL override. Takes precedence over all auto-detection. Set for any deployment beyond local LAN. |
+| `EXPO_PUBLIC_WALKBUDDY_API_KEY` | (none) | API key sent with requests to authenticate with backend |

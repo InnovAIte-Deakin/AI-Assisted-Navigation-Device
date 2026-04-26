@@ -1,5 +1,5 @@
 // frontend_reactNative/src/api/client.ts
-import { API_BASE } from "../config";
+import { API_BASE, API_KEY } from "../config";
 
 export interface DetectionEvent {
   label: string;
@@ -39,7 +39,7 @@ export async function detectObject(imageBlob: Blob): Promise<VisionResponse> {
     body: formData,
     headers: {
       "Accept": "application/json",
-      // Content-Type is set automatically by FormData
+      "X-API-Key": API_KEY,
     },
   });
 
@@ -62,6 +62,7 @@ export async function askTwoBrain(
     body: formData,
     headers: {
       "Accept": "application/json",
+      "X-API-Key": API_KEY,
     },
   });
 
