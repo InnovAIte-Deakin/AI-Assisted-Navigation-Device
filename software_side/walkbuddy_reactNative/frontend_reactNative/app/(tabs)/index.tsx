@@ -9,7 +9,6 @@ import {
   Switch,
   useWindowDimensions,
   Animated,
-  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -45,7 +44,6 @@ export default function HomePage() {
   const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
-  const goToEmergency = () => router.push("/emergency" as any);
   const goToCameraVoice = () => router.push("/camera" as any);
   const goToCameraOCR = () => router.push("/camera" as any);
 
@@ -87,91 +85,81 @@ export default function HomePage() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ width: contentWidth, alignSelf: "center" }}>
-          <HomeHeader
-            greeting={`Hi ${displayName}`}
-            appTitle="WalkBuddy"
-            onPressProfile={goToAccount}
-            showDivider
-            showLocation
-          />
+      <View style={[styles.content, { width: contentWidth }]}>
+        <HomeHeader
+          greeting={`Hi ${displayName}`}
+          appTitle="WalkBuddy"
+          onPressProfile={goToAccount}
+          showDivider
+          showLocation
+        />
 
-          <View style={styles.mainArea}>
-            <BounceButton label="SEARCH" onPress={goToNavigate} search />
+        <View style={styles.mainArea}>
+          <BounceButton label="SEARCH" onPress={goToNavigate} search />
 
-            <View style={styles.grid}>
-              <ActionTile
-                icon="microphone"
-                label="VOICE ASSIST"
-                onPress={goToCameraVoice}
-              />
+          <View style={styles.grid}>
+            <ActionTile
+              icon="microphone"
+              label="VOICE ASSIST"
+              onPress={goToCameraVoice}
+            />
+            <ActionTile
+              icon="map-marker"
+              label="PLACES"
+              onPress={goToSavedPlaces}
+            />
 
-              <ActionTile
-                icon="star"
-                label="FAVOURITES"
-                onPress={goToSavedPlaces}
-              />
-
-              <ActionTile
-                icon="exclamation-triangle"
-                label="EMERGENCY"
-                onPress={goToEmergency}
-              />
-
+            <View style={styles.centerRow}>
               <ActionTile
                 icon="file-text"
                 label="TEXT READER"
                 onPress={goToCameraOCR}
+                centered
               />
             </View>
-
-            <View style={styles.visionRow}>
-              <Text style={styles.visionTitle}>VISION ASSIST</Text>
-
-              <View style={styles.visionToggle}>
-                <Text style={styles.visionToggleText}>
-                  {visionEnabled ? "On" : "Off"}
-                </Text>
-                <Switch
-                  value={visionEnabled}
-                  onValueChange={setVisionEnabled}
-                  trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                  thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
-                />
-              </View>
-            </View>
-
-            <Pressable
-              style={[
-                styles.visionCard,
-                !visionEnabled && styles.visionCardDisabled,
-              ]}
-              onPress={toggleVisionPreview}
-            >
-              <View style={styles.visionInner}>
-                {visionEnabled && visionPreviewOn ? (
-                  <ModelWebView url={visionUrl} loading={loading} />
-                ) : (
-                  <View style={styles.previewPlaceholder}>
-                    <Icon
-                      name={visionEnabled ? "eye" : "ban"}
-                      size={30}
-                      color={tokens.gold}
-                    />
-                    <Text style={styles.previewText}>VISION PREVIEW</Text>
-                    <Text style={styles.previewSubtext}>{visionHintText}</Text>
-                  </View>
-                )}
-              </View>
-            </Pressable>
           </View>
+
+          <View style={styles.visionRow}>
+            <Text style={styles.visionTitle}>VISION ASSIST</Text>
+
+            <View style={styles.visionToggle}>
+              <Text style={styles.visionToggleText}>
+                {visionEnabled ? "On" : "Off"}
+              </Text>
+              <Switch
+                value={visionEnabled}
+                onValueChange={setVisionEnabled}
+                trackColor={{ false: "#23384d", true: "#2d4b66" }}
+                thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+              />
+            </View>
+          </View>
+
+          <Pressable
+            style={[
+              styles.visionCard,
+              !visionEnabled && styles.visionCardDisabled,
+            ]}
+            onPress={toggleVisionPreview}
+          >
+            <View style={styles.visionInner}>
+              {visionEnabled && visionPreviewOn ? (
+                <ModelWebView url={visionUrl} loading={loading} />
+              ) : (
+                <View style={styles.previewPlaceholder}>
+                  <Icon
+                    name={visionEnabled ? "eye" : "ban"}
+                    size={30}
+                    color={tokens.gold}
+                  />
+                  <Text style={styles.previewText}>VISION PREVIEW</Text>
+                  <Text style={styles.previewSubtext}>{visionHintText}</Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -249,10 +237,12 @@ function ActionTile({
   icon,
   label,
   onPress,
+  centered = false,
 }: {
   icon: string;
   label: string;
   onPress: () => void;
+  centered?: boolean;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -290,14 +280,19 @@ function ActionTile({
   };
 
   return (
-    <View style={styles.tile}>
+    <View style={[styles.tile, centered && styles.tileCentered]}>
       <View style={styles.tileOuter}>
         <Pressable
           onPress={onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
         >
-          <Animated.View style={[styles.tileInner, { transform: [{ scale }] }]}>
+          <Animated.View
+            style={[
+              styles.tileInner,
+              { transform: [{ scale }] },
+            ]}
+          >
             <Animated.View
               pointerEvents="none"
               style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
@@ -329,19 +324,17 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: tokens.bg,
-  },
-
-  scroll: {
-    flex: 1,
+    alignItems: "center",
   },
 
   content: {
+    flex: 1,
     paddingHorizontal: 12,
     paddingTop: 8,
-    paddingBottom: 120,
   },
 
   mainArea: {
+    flex: 1,
     width: "100%",
     paddingTop: 10,
   },
@@ -387,6 +380,15 @@ const styles = StyleSheet.create({
   tile: {
     width: "50%",
     padding: 10,
+  },
+
+  tileCentered: {
+    width: "50%",
+  },
+
+  centerRow: {
+    width: "100%",
+    alignItems: "center",
   },
 
   tileOuter: {
@@ -459,7 +461,7 @@ const styles = StyleSheet.create({
 
   visionCard: {
     width: "100%",
-    height: 260,
+    flex: 1,
     backgroundColor: tokens.tile,
     borderWidth: 2,
     borderColor: tokens.gold,
