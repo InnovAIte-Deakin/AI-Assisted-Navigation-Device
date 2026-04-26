@@ -95,19 +95,7 @@ export default function HomePage() {
         />
 
         <View style={styles.mainArea}>
-
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>NAVIGATION STATUS</Text>
-
-              <Text style={styles.statusText}>Status: Ready</Text>
-              <Text style={styles.statusSub}>Next: Awaiting input</Text>
-
-              <Pressable style={styles.startButton}>
-                <Text style={styles.startButtonText}>Start Navigation</Text>
-              </Pressable>
-            </View>
-
-            <BounceButton label="SEARCH" onPress={goToNavigate} search />
+          <BounceButton label="SEARCH" onPress={goToNavigate} search />
 
           <View style={styles.grid}>
             <ActionTile
