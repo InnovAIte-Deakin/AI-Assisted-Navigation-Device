@@ -61,7 +61,7 @@ export default function HomeHeader({
   const derived = useMemo(() => {
     const onHome = isHomeBySegments(segments);
     const routeName = getRouteNameFromSegments(segments);
-    const leftText = onHome ? greeting : `${routeName || "Page"} Page`;
+    const leftText = onHome ? greeting : routeName || "Page";
 
     const hasDestination = !!destination && destination.trim().length > 0;
     const showingDestination = hasDestination && preferDestinationView;
@@ -136,17 +136,12 @@ export default function HomeHeader({
   return (
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
-        {/* left text */}
         <Text style={styles.greeting} numberOfLines={1}>
           {derived.leftText}
         </Text>
-
-        {/* perfectly centered title */}
         <Text style={styles.title} numberOfLines={1}>
           {appTitle}
         </Text>
-
-        {/* profile icon */}
         <Pressable
           onPress={handleProfilePress}
           hitSlop={10}
@@ -161,25 +156,22 @@ export default function HomeHeader({
       {showLocation && (
         <View style={styles.locationWrap}>
           <Text style={styles.locationLabel}>{derived.label}</Text>
-
           <Pressable onPress={handleLocationPress}>
-            <View style={styles.locationOuterCard}>
-              <View style={styles.locationInnerRow}>
-                <Text style={styles.locationValue} numberOfLines={1}>
-                  {derived.value || "Current location"}
-                </Text>
-
-                <Switch
-                  disabled={!derived.hasDestination}
-                  value={derived.switchValue}
-                  onValueChange={(v) => {
-                    if (!derived.hasDestination) return;
-                    setPreferDestinationView(v);
-                  }}
-                  trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                  thumbColor={derived.switchValue ? tokens.gold : "#9aa8b6"}
-                />
-              </View>
+            <View style={styles.locationCard}>
+              <Icon name="map-marker" size={16} color={tokens.gold} style={styles.locationIcon} />
+              <Text style={styles.locationValue} numberOfLines={1}>
+                {derived.value || "Current location"}
+              </Text>
+              <Switch
+                disabled={!derived.hasDestination}
+                value={derived.switchValue}
+                onValueChange={(v) => {
+                  if (!derived.hasDestination) return;
+                  setPreferDestinationView(v);
+                }}
+                trackColor={{ false: "#23384d", true: "#2d4b66" }}
+                thumbColor={derived.switchValue ? tokens.gold : "#9aa8b6"}
+              />
             </View>
           </Pressable>
         </View>
@@ -213,17 +205,12 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingHorizontal: 10,
     position: "relative",
-
     backgroundColor: "#11273a",
     borderRadius: 12,
-
-    // iOS shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-
-    // Android shadow
     elevation: 5,
   },
 
@@ -270,31 +257,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  locationOuterCard: {
-    backgroundColor: tokens.tile,
-    borderWidth: 2,
-    borderColor: tokens.gold,
+  locationCard: {
+    backgroundColor: "#0d1f32",
+    borderWidth: 1.5,
+    borderColor: "rgba(242,169,0,0.4)",
     borderRadius: 16,
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
-  locationInnerRow: {
-    backgroundColor: "#0a121a",
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
+  locationIcon: {
+    marginRight: 2,
   },
 
   locationValue: {
     color: tokens.text,
     fontSize: 14,
-    fontWeight: "800",
-    flexShrink: 1,
+    fontWeight: "700",
+    flex: 1,
   },
 });

@@ -100,13 +100,8 @@ export default function CameraAssistScreen() {
 
   const [detections, setDetections] = useState<Detection[]>([]);
   const [ocrTextDisplay, setOcrTextDisplay] = useState("");
-  const [frameMeta, setFrameMeta] = useState<{ w: number; h: number } | null>(
-    null,
-  );
-  const [previewLayout, setPreviewLayout] = useState<{ w: number; h: number }>({
-    w: 1,
-    h: 1,
-  });
+  const [frameMeta, setFrameMeta] = useState<{ w: number; h: number } | null>(null);
+  const [previewLayout, setPreviewLayout] = useState<{ w: number; h: number }>({ w: 1, h: 1 });
 
   const lastSpokenMessage = useRef<string>("");
   const lastSpokenAt = useRef<number>(0);
@@ -124,62 +119,38 @@ export default function CameraAssistScreen() {
 
   const stopScanLoop = useCallback(() => {
     setIsAutoScanning(false);
-
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-    }
-
+    if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
     scanIntervalRef.current = null;
-
-    try {
-      detectAbortRef.current?.abort();
-    } catch {}
-
+    try { detectAbortRef.current?.abort(); } catch {}
     detectAbortRef.current = null;
     isRequestInFlight.current = false;
   }, []);
 
   const stopListeningHard = useCallback(() => {
-    try {
-      sttService.stopListening();
-    } catch {}
-
+    try { sttService.stopListening(); } catch {}
     setIsListening(false);
   }, [sttService]);
 
   useEffect(() => {
     if (!perm?.granted) return;
-
-    const id = setTimeout(() => {
-      setIsAutoScanning(true);
-    }, 250);
-
+    const id = setTimeout(() => { setIsAutoScanning(true); }, 250);
     return () => clearTimeout(id);
   }, [perm?.granted]);
 
   useEffect(() => {
     modeVersionRef.current += 1;
-
-    try {
-      detectAbortRef.current?.abort();
-    } catch {}
-
+    try { detectAbortRef.current?.abort(); } catch {}
     detectAbortRef.current = null;
     isRequestInFlight.current = false;
     clearOverlay();
-
     if (isAutoScanning) {
-      const id = setTimeout(() => {
-        captureAndDetectRef.current?.();
-      }, 80);
-
+      const id = setTimeout(() => { captureAndDetectRef.current?.(); }, 80);
       return () => clearTimeout(id);
     }
   }, [camMode, clearOverlay, isAutoScanning]);
 
   useEffect(() => {
     const target = camMode === "vision" ? 0 : 1;
-
     Animated.timing(slideAnim, {
       toValue: target,
       duration: 500,
@@ -192,13 +163,9 @@ export default function CameraAssistScreen() {
     async (msg: string, risk: RiskLevel = RiskLevel.LOW) => {
       const m = (msg || "").trim();
       if (!m) return;
-
       const now = Date.now();
-      const isDup =
-        m === lastSpokenMessage.current && now - lastSpokenAt.current < 2500;
-
+      const isDup = m === lastSpokenMessage.current && now - lastSpokenAt.current < 2500;
       if (isDup) return;
-
       await tts.speak(m, risk, false);
       lastSpokenMessage.current = m;
       lastSpokenAt.current = now;
@@ -209,36 +176,25 @@ export default function CameraAssistScreen() {
   const mapBBoxToPreview = useCallback(
     (bbox: BBox) => {
       if (!frameMeta) return null;
-
       const imgW = frameMeta.w;
       const imgH = frameMeta.h;
       const viewW = previewLayout.w;
       const viewH = previewLayout.h;
-
       if (imgW <= 0 || imgH <= 0 || viewW <= 0 || viewH <= 0) return null;
-
       const scale = Math.max(viewW / imgW, viewH / imgH);
       const scaledW = imgW * scale;
       const scaledH = imgH * scale;
       const offsetX = (scaledW - viewW) / 2;
       const offsetY = (scaledH - viewH) / 2;
-
       const x1 = bbox.x_min * scale - offsetX;
       const y1 = bbox.y_min * scale - offsetY;
       const x2 = bbox.x_max * scale - offsetX;
       const y2 = bbox.y_max * scale - offsetY;
-
       const left = clamp(x1, 0, viewW);
       const top = clamp(y1, 0, viewH);
       const right = clamp(x2, 0, viewW);
       const bottom = clamp(y2, 0, viewH);
-
-      return {
-        left,
-        top,
-        width: Math.max(0, right - left),
-        height: Math.max(0, bottom - top),
-      };
+      return { left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
     },
     [frameMeta, previewLayout],
   );
@@ -247,36 +203,22 @@ export default function CameraAssistScreen() {
     async (queryText: string) => {
       const q = queryText.trim();
       if (!q) return;
-
       setIsVoiceProcessing(true);
-
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 9000);
-
         const response = await fetch(`${API_BASE}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: q }),
           signal: controller.signal,
         });
-
         clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`Query failed: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`Query failed: ${response.status}`);
         const data = await response.json();
-
-        await maybeSpeak(
-          data.response || "I didn't catch that.",
-          RiskLevel.LOW,
-        );
+        await maybeSpeak(data.response || "I didn't catch that.", RiskLevel.LOW);
       } catch (err: any) {
-        if (err.name !== "AbortError") {
-          Alert.alert("Query Error", err.message);
-        }
+        if (err.name !== "AbortError") Alert.alert("Query Error", err.message);
       } finally {
         setIsVoiceProcessing(false);
       }
@@ -288,28 +230,12 @@ export default function CameraAssistScreen() {
     (tRaw: string): boolean => {
       const t = tRaw.toLowerCase().trim();
       if (!t) return false;
-
-      if (t.includes("scan text") || t === "ocr") {
-        setCamMode("ocr");
-        return true;
-      }
-
-      if (t.includes("vision")) {
-        setCamMode("vision");
-        return true;
-      }
-
-      if (t.includes("start") && t.includes("scan")) {
-        setIsAutoScanning(true);
-        return true;
-      }
-
+      if (t.includes("scan text") || t === "ocr") { setCamMode("ocr"); return true; }
+      if (t.includes("vision")) { setCamMode("vision"); return true; }
+      if (t.includes("start") && t.includes("scan")) { setIsAutoScanning(true); return true; }
       if (t.includes("stop") && (t.includes("scan") || t.includes("overlay"))) {
-        stopScanLoop();
-        clearOverlay();
-        return true;
+        stopScanLoop(); clearOverlay(); return true;
       }
-
       return false;
     },
     [stopScanLoop, clearOverlay],
@@ -317,76 +243,42 @@ export default function CameraAssistScreen() {
 
   const captureAndDetect = useCallback(async () => {
     if (!cameraRef.current || isRequestInFlight.current) return;
-
     const myModeVersion = modeVersionRef.current;
     const myMode = camMode;
     isRequestInFlight.current = true;
-
-    try {
-      detectAbortRef.current?.abort();
-    } catch {}
-
+    try { detectAbortRef.current?.abort(); } catch {}
     const controller = new AbortController();
     detectAbortRef.current = controller;
     let timeoutId: NodeJS.Timeout | null = null;
-
     try {
       const photoPromise = cameraRef.current.takePictureAsync({
-        quality: 0.5,
-        base64: false,
-        skipProcessing: true,
+        quality: 0.5, base64: false, skipProcessing: true,
       });
-
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("takePictureAsync timeout")), 7000),
       );
-
       const photo = await Promise.race([photoPromise, timeoutPromise]);
-
-      if (!cameraRef.current) {
-        isRequestInFlight.current = false;
-        return;
-      }
-
+      if (!cameraRef.current) { isRequestInFlight.current = false; return; }
       if (!photo?.uri) return;
-
       if (typeof photo.width === "number" && typeof photo.height === "number") {
         setFrameMeta({ w: photo.width, h: photo.height });
       }
-
       const formData = await buildImageFormData(photo.uri);
-      const endpoint =
-        myMode === "ocr" ? `${API_BASE}/ocr` : `${API_BASE}/vision`;
-
+      const endpoint = myMode === "ocr" ? `${API_BASE}/ocr` : `${API_BASE}/vision`;
       timeoutId = setTimeout(() => controller.abort(), AUTO_SCAN_TIMEOUT_MS);
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-        signal: controller.signal,
-      });
-
+      const res = await fetch(endpoint, { method: "POST", body: formData, signal: controller.signal });
       if (!res.ok) throw new Error("Server Error");
-
       const data = (await res.json()) as AdapterResponse;
-
       if (!data || modeVersionRef.current !== myModeVersion) return;
-
       setDetections(data.detections || []);
-
       if (myMode === "ocr") {
         setOcrTextDisplay(data.guidance_message || "");
       } else {
         setOcrTextDisplay("");
       }
-
-      if (data.guidance_message) {
-        await maybeSpeak(data.guidance_message, RiskLevel.LOW);
-      }
+      if (data.guidance_message) await maybeSpeak(data.guidance_message, RiskLevel.LOW);
     } catch (e: any) {
-      if (e?.name !== "AbortError") {
-        console.log("[Detect] error:", e?.message);
-      }
+      if (e?.name !== "AbortError") console.log("[Detect] error:", e?.message);
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
       if (detectAbortRef.current === controller) detectAbortRef.current = null;
@@ -395,10 +287,7 @@ export default function CameraAssistScreen() {
   }, [camMode, maybeSpeak]);
 
   const captureAndDetectRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    captureAndDetectRef.current = captureAndDetect;
-  }, [captureAndDetect]);
+  useEffect(() => { captureAndDetectRef.current = captureAndDetect; }, [captureAndDetect]);
 
   const manualOCRScan = useCallback(async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -412,92 +301,48 @@ export default function CameraAssistScreen() {
       scanIntervalRef.current = null;
       return;
     }
-
     if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-
     captureAndDetectRef.current?.();
-
     scanIntervalRef.current = setInterval(() => {
       captureAndDetectRef.current?.();
     }, AUTO_SCAN_INTERVAL_MS) as unknown as number;
-
-    return () => {
-      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-    };
+    return () => { if (scanIntervalRef.current) clearInterval(scanIntervalRef.current); };
   }, [isAutoScanning]);
 
   const startListening = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTranscript("");
-
     if (Platform.OS === "web") {
       const success = sttService.startListening(
         (text, isFinal) => {
           setTranscript(text);
           const trimmed = text.trim();
           if (!trimmed) return;
-
           const wasCmd = handleVoiceCommand(trimmed);
-
-          if (wasCmd) {
-            stopListeningHard();
-            return;
-          }
-
-          if (isFinal) {
-            stopListeningHard();
-            processQuery(trimmed);
-          }
+          if (wasCmd) { stopListeningHard(); return; }
+          if (isFinal) { stopListeningHard(); processQuery(trimmed); }
         },
-        (error) => {
-          Alert.alert("STT Error", error);
-          stopListeningHard();
-        },
+        (error) => { Alert.alert("STT Error", error); stopListeningHard(); },
       );
-
       if (success) setIsListening(true);
       return;
     }
-
     const success = await sttService.startRecordingNative();
-
-    if (success) {
-      setIsListening(true);
-      setTranscript("Recording...");
-    } else {
-      Alert.alert("Recording Error", "Failed to start");
-    }
+    if (success) { setIsListening(true); setTranscript("Recording..."); }
+    else Alert.alert("Recording Error", "Failed to start");
   }, [sttService, handleVoiceCommand, processQuery, stopListeningHard]);
 
   const stopListening = useCallback(async () => {
-    if (Platform.OS === "web") {
-      stopListeningHard();
-      return;
-    }
-
+    if (Platform.OS === "web") { stopListeningHard(); return; }
     setIsVoiceProcessing(true);
-
     try {
       const result = await sttService.stopRecordingNative();
-
-      if (result.error) {
-        Alert.alert("Transcription Error", result.error);
-        return;
-      }
-
+      if (result.error) { Alert.alert("Transcription Error", result.error); return; }
       const text = (result.text || "").trim();
-
-      if (!text) {
-        Alert.alert("Transcription", "No speech detected.");
-        return;
-      }
-
+      if (!text) { Alert.alert("Transcription", "No speech detected."); return; }
       setTranscript(text);
       const wasCmd = handleVoiceCommand(text);
-
-      if (!wasCmd) {
-        await processQuery(text);
-      }
+      if (!wasCmd) await processQuery(text);
     } catch {
       Alert.alert("Error", "Processing failed");
     } finally {
@@ -508,51 +353,28 @@ export default function CameraAssistScreen() {
 
   const micStart = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || isListening) return;
-
     micLockRef.current = true;
-
-    try {
-      setIsListening(true);
-      await startListening();
-    } finally {
-      setTimeout(() => {
-        micLockRef.current = false;
-      }, 120);
-    }
+    try { setIsListening(true); await startListening(); }
+    finally { setTimeout(() => { micLockRef.current = false; }, 120); }
   }, [startListening, isListening, isVoiceProcessing]);
 
   const micStop = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || !isListening) return;
-
     micLockRef.current = true;
-
-    try {
-      await stopListening();
-    } finally {
-      setTimeout(() => {
-        micLockRef.current = false;
-      }, 120);
-    }
+    try { await stopListening(); }
+    finally { setTimeout(() => { micLockRef.current = false; }, 120); }
   }, [stopListening, isListening, isVoiceProcessing]);
 
   useEffect(() => {
-    return () => {
-      stopScanLoop();
-      stopListeningHard();
-    };
+    return () => { stopScanLoop(); stopListeningHard(); };
   }, [stopScanLoop, stopListeningHard]);
 
-  if (!perm) {
-    return <View style={{ flex: 1, backgroundColor: "#1B263B" }} />;
-  }
+  if (!perm) return <View style={{ flex: 1, backgroundColor: "#1B263B" }} />;
 
   if (!perm.granted) {
     return (
       <View style={styles.centerDark}>
-        <Text style={{ color: "#fff", marginBottom: 12 }}>
-          Camera access is required.
-        </Text>
-
+        <Text style={{ color: "#fff", marginBottom: 12 }}>Camera access is required.</Text>
         <Pressable style={styles.primaryBtn} onPress={requestPermission}>
           <Text style={styles.primaryBtnText}>Grant Permission</Text>
         </Pressable>
@@ -576,14 +398,12 @@ export default function CameraAssistScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Camera preview */}
         <View
           style={[
             styles.previewBox,
             {
-              borderColor: isAutoScanning
-                ? "rgba(34,197,94,0.9)"
-                : "rgba(249,178,51,0.9)",
-
+              borderColor: isAutoScanning ? "rgba(34,197,94,0.9)" : "rgba(249,178,51,0.9)",
               shadowColor: isAutoScanning ? GREEN : GOLD,
               shadowOpacity: isAutoScanning ? 0.85 : 0.7,
               shadowRadius: isAutoScanning ? 30 : 25,
@@ -591,13 +411,17 @@ export default function CameraAssistScreen() {
             },
           ]}
         >
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing="back"
-          />
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
 
-          <View style={styles.cameraStatusBadge}>
+          {/* Improved status badge */}
+          <View style={[
+            styles.cameraStatusBadge,
+            isAutoScanning && styles.cameraStatusBadgeActive,
+          ]}>
+            <View style={[
+              styles.cameraStatusDot,
+              isAutoScanning && styles.cameraStatusDotActive,
+            ]} />
             <Text style={styles.cameraStatusText}>
               {isAutoScanning ? "Live camera active" : "Camera ready"}
             </Text>
@@ -612,27 +436,13 @@ export default function CameraAssistScreen() {
           >
             {detections.slice(0, 20).map((d, idx) => {
               const mapped = mapBBoxToPreview(d.bbox);
-              if (!mapped || mapped.width <= 1 || mapped.height <= 1) {
-                return null;
-              }
-
+              if (!mapped || mapped.width <= 1 || mapped.height <= 1) return null;
               return (
                 <View
                   key={`${idx}-${d.category}`}
-                  style={[
-                    styles.box,
-                    {
-                      left: mapped.left,
-                      top: mapped.top,
-                      width: mapped.width,
-                      height: mapped.height,
-                    },
-                  ]}
+                  style={[styles.box, { left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
                 >
-                  <Text
-                    style={[styles.boxLabel, { transform: [{ scaleX: -1 }] }]}
-                    numberOfLines={1}
-                  >
+                  <Text style={[styles.boxLabel, { transform: [{ scaleX: -1 }] }]} numberOfLines={1}>
                     {d.category} {Math.round(d.confidence * 100)}%
                   </Text>
                 </View>
@@ -641,6 +451,7 @@ export default function CameraAssistScreen() {
           </View>
         </View>
 
+        {/* Mode toggle */}
         <View
           style={styles.modeBar}
           onLayout={(e) => setModeBarWidth(e.nativeEvent.layout.width)}
@@ -652,51 +463,34 @@ export default function CameraAssistScreen() {
                 styles.modeSlider,
                 {
                   width: modeBarWidth / 2 - 6,
-                  transform: [
-                    {
-                      translateX: slideAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [3, modeBarWidth / 2 - 3],
-                      }),
-                    },
-                  ],
+                  transform: [{
+                    translateX: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [3, modeBarWidth / 2 - 3],
+                    }),
+                  }],
                 },
               ]}
             />
           )}
-
-          <ModeBtn
-            label="Vision"
-            active={camMode === "vision"}
-            onPress={() => setCamMode("vision")}
-          />
-          <ModeBtn
-            label="Scan Text"
-            active={camMode === "ocr"}
-            onPress={() => setCamMode("ocr")}
-          />
+          <ModeBtn label="Vision" active={camMode === "vision"} onPress={() => setCamMode("vision")} />
+          <ModeBtn label="Scan Text" active={camMode === "ocr"} onPress={() => setCamMode("ocr")} />
         </View>
 
+        {/* OCR panel */}
         {camMode === "ocr" && (
           <View style={styles.ocrPanel}>
             <View style={styles.ocrTopRow}>
               <Text style={styles.ocrTitle}>Detected text</Text>
-
               <Pressable
                 onPress={manualOCRScan}
-                style={({ pressed }) => [
-                  styles.ocrCameraBtn,
-                  pressed && styles.ocrCameraBtnPressed,
-                ]}
+                style={({ pressed }) => [styles.ocrCameraBtn, pressed && styles.ocrCameraBtnPressed]}
               >
                 <MaterialIcons name="camera-alt" size={20} color="#1B263B" />
               </Pressable>
             </View>
-
             {!ocrTextDisplay ? (
-              <Text style={styles.ocrEmpty}>
-                No text yet. Tap the camera icon to scan.
-              </Text>
+              <Text style={styles.ocrEmpty}>No text yet. Tap the camera icon to scan.</Text>
             ) : (
               <View style={styles.ocrOneBox}>
                 <Text style={styles.ocrBlock}>{ocrTextDisplay}</Text>
@@ -705,6 +499,7 @@ export default function CameraAssistScreen() {
           </View>
         )}
 
+        {/* Start/Stop Live Scan */}
         <View style={styles.controlsCard}>
           <Pressable
             style={({ pressed }) => [
@@ -719,7 +514,6 @@ export default function CameraAssistScreen() {
                 Haptics.selectionAsync();
                 return;
               }
-
               setIsAutoScanning(true);
               Haptics.selectionAsync();
             }}
@@ -737,6 +531,7 @@ export default function CameraAssistScreen() {
           </Pressable>
         </View>
 
+        {/* Mic */}
         <View style={styles.micContainer}>
           <Pressable
             onPressIn={micStart}
@@ -746,29 +541,21 @@ export default function CameraAssistScreen() {
               isListening && styles.micBtnActive,
               pressed && styles.micBtnPressed,
             ]}
-            disabled={
-              (Platform.OS !== "web" && !sttAvailable) || isVoiceProcessing
-            }
+            disabled={(Platform.OS !== "web" && !sttAvailable) || isVoiceProcessing}
           >
             <MaterialIcons
               name={isListening ? "mic" : "mic-none"}
-              size={32}
+              size={36}
               color={isListening ? "#1B263B" : GOLD}
             />
           </Pressable>
 
           <Text style={styles.micHint}>
-            {isVoiceProcessing
-              ? "Processing..."
-              : isListening
-                ? "Listening..."
-                : "Hold mic to speak"}
+            {isVoiceProcessing ? "Processing..." : isListening ? "Listening..." : "Hold mic to speak"}
           </Text>
 
           {!!transcript && !isVoiceProcessing && (
-            <Text style={styles.micTranscript} numberOfLines={2}>
-              {transcript}
-            </Text>
+            <Text style={styles.micTranscript} numberOfLines={2}>{transcript}</Text>
           )}
         </View>
       </ScrollView>
@@ -776,337 +563,194 @@ export default function CameraAssistScreen() {
   );
 }
 
-function ModeBtn({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
+function ModeBtn({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.modeBtn,
-        pressed && styles.modeBtnPressed,
-      ]}
+      style={({ pressed }) => [styles.modeBtn, pressed && styles.modeBtnPressed]}
     >
-      <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>
-        {label}
-      </Text>
+      <Text style={[styles.modeBtnText, active && styles.modeBtnTextActive]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    backgroundColor: "#1B263B",
-  },
+  wrap: { flex: 1, backgroundColor: "#1B263B" },
 
-  scrollContent: {
-    paddingBottom: 120,
-    paddingTop: 10,
-  },
+  scrollContent: { paddingBottom: 120, paddingTop: 10 },
 
   headerCard: {
-    marginHorizontal: 16,
-    marginTop: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: "#12304d",
-    shadowColor: "#000",
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    marginHorizontal: 16, marginTop: 14,
+    paddingVertical: 14, paddingHorizontal: 20,
+    borderRadius: 20, backgroundColor: "#12304d",
+    shadowColor: "#000", shadowOpacity: 0.22,
+    shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
 
-  headerContent: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  headerSmall: {
-    color: "#d1d5db",
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-
-  headerMain: {
-    color: GOLD,
-    fontSize: 22,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-  },
-
+  headerContent: { alignItems: "center", justifyContent: "center" },
+  headerSmall: { color: "#d1d5db", fontSize: 15, fontWeight: "700", marginBottom: 6 },
+  headerMain: { color: GOLD, fontSize: 22, fontWeight: "900", letterSpacing: 0.8 },
 
   previewBox: {
     height: SCREEN_H * 0.52,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 22,
-    overflow: "hidden",
+    marginHorizontal: 16, marginTop: 16,
+    borderRadius: 22, overflow: "hidden",
     backgroundColor: "#243247",
     borderWidth: 2,
-    shadowOpacity: 0.7,
-    shadowRadius: 25,
+    shadowOpacity: 0.7, shadowRadius: 25,
     shadowOffset: { width: 0, height: 0 },
     elevation: 16,
   },
 
+  // ─── Improved status badge ───
   cameraStatusBadge: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    zIndex: 10,
-    backgroundColor: "rgba(16,35,61,0.85)",
-    borderWidth: 1,
-    borderColor: "rgba(249,178,51,0.5)",
+    position: "absolute", top: 12, left: 12, zIndex: 10,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "rgba(16,35,61,0.9)",
+    borderWidth: 1, borderColor: "rgba(249,178,51,0.4)",
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 12, paddingVertical: 7,
+  },
+
+  cameraStatusBadgeActive: {
+    borderColor: "rgba(34,197,94,0.6)",
+    backgroundColor: "rgba(10,40,20,0.9)",
+  },
+
+  cameraStatusDot: {
+    width: 7, height: 7,
+    borderRadius: 999,
+    backgroundColor: GOLD,
+  },
+
+  cameraStatusDotActive: {
+    backgroundColor: GREEN,
   },
 
   cameraStatusText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
+    color: "#fff", fontSize: 12, fontWeight: "700",
   },
 
   modeBar: {
     flexDirection: "row",
-    marginHorizontal: 16,
-    marginTop: 16,
-    height: 72,
-    padding: 3,
+    marginHorizontal: 16, marginTop: 16,
+    height: 72, padding: 3,
     borderRadius: 999,
     backgroundColor: "#0b2342",
-    borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.38)",
+    borderWidth: 1.5, borderColor: "rgba(249,178,51,0.38)",
     position: "relative",
   },
 
   modeSlider: {
-    position: "absolute",
-    top: 3,
-    bottom: 3,
-    left: 0,
-    borderRadius: 999,
-    backgroundColor: GOLD,
-    shadowColor: GOLD,
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
+    position: "absolute", top: 3, bottom: 3, left: 0,
+    borderRadius: 999, backgroundColor: GOLD,
+    shadowColor: GOLD, shadowOpacity: 0.45,
+    shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
 
-  modeBtn: {
-    flex: 1,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-  },
-
-  modeBtnPressed: {
-    opacity: 0.9,
-  },
-
-  modeBtnText: {
-    color: GOLD,
-    fontWeight: "800",
-    fontSize: 16,
-  },
-
-  modeBtnTextActive: {
-    color: "#1B263B",
-  },
+  modeBtn: { flex: 1, borderRadius: 999, alignItems: "center", justifyContent: "center", zIndex: 2 },
+  modeBtnPressed: { opacity: 0.9 },
+  modeBtnText: { color: GOLD, fontWeight: "800", fontSize: 16 },
+  modeBtnTextActive: { color: "#1B263B" },
 
   ocrPanel: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
+    marginHorizontal: 16, marginTop: 16, padding: 14,
+    borderRadius: 18, borderWidth: 1,
     borderColor: "rgba(249,178,51,0.35)",
     backgroundColor: "#10233d",
   },
 
-  ocrTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-
-  ocrTitle: {
-    color: GOLD,
-    fontWeight: "800",
-    fontSize: 17,
-  },
-
-  ocrCameraBtn: {
-    backgroundColor: GOLD,
-    padding: 10,
-    borderRadius: 12,
-  },
-
-  ocrCameraBtnPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.96 }],
-  },
-
-  ocrEmpty: {
-    color: "#fff",
-    opacity: 0.82,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-
-  ocrBlock: {
-    color: "#fff",
-    fontSize: 17,
-    lineHeight: 24,
-  },
-
+  ocrTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  ocrTitle: { color: GOLD, fontWeight: "800", fontSize: 17 },
+  ocrCameraBtn: { backgroundColor: GOLD, padding: 10, borderRadius: 12 },
+  ocrCameraBtnPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
+  ocrEmpty: { color: "#fff", opacity: 0.82, fontSize: 15, lineHeight: 22 },
+  ocrBlock: { color: "#fff", fontSize: 17, lineHeight: 24 },
   ocrOneBox: {
-    borderWidth: 1,
-    borderColor: "rgba(249,178,51,0.4)",
-    borderRadius: 14,
-    padding: 12,
+    borderWidth: 1, borderColor: "rgba(249,178,51,0.4)",
+    borderRadius: 14, padding: 12,
     backgroundColor: "rgba(249,178,51,0.10)",
   },
 
-  controlsCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-  },
+  controlsCard: { marginHorizontal: 16, marginTop: 16 },
 
   controlBtn: {
-    paddingVertical: 18,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-
+    paddingVertical: 18, borderRadius: 20,
+    alignItems: "center", justifyContent: "center",
     backgroundColor: GOLD,
-
-    shadowColor: GOLD,
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: GOLD, shadowOpacity: 0.45,
+    shadowRadius: 14, shadowOffset: { width: 0, height: 6 },
     elevation: 10,
-
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
   },
 
-  controlBtnPressed: {
-    transform: [{ scale: 0.96 }],
-    opacity: 0.9,
-  },
-
-  controlBtnText: {
-    color: "#1B263B",
-    fontWeight: "900",
-    fontSize: 18,
-    letterSpacing: 0.4,
-  },
+  controlBtnPressed: { transform: [{ scale: 0.96 }], opacity: 0.9 },
+  controlBtnText: { color: "#1B263B", fontWeight: "900", fontSize: 18, letterSpacing: 0.4 },
 
   autoScanButtonActive: {
     backgroundColor: "#ff5a5a",
-
-    shadowColor: "#ff5a5a",
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowColor: "#ff5a5a", shadowOpacity: 0.5,
+    shadowRadius: 16, elevation: 12,
   },
 
-  centerDark: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1B263B",
-  },
-
-  primaryBtn: {
-    backgroundColor: GOLD,
-    padding: 12,
-    borderRadius: 12,
-  },
-
-  primaryBtnText: {
-    color: "#1B263B",
-    fontWeight: "800",
-  },
+  centerDark: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#1B263B" },
+  primaryBtn: { backgroundColor: GOLD, padding: 12, borderRadius: 12 },
+  primaryBtnText: { color: "#1B263B", fontWeight: "800" },
 
   box: {
-    position: "absolute",
-    borderWidth: 2,
-    borderColor: GOLD,
-    borderRadius: 8,
+    position: "absolute", borderWidth: 2,
+    borderColor: GOLD, borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.15)",
   },
 
   boxLabel: {
-    position: "absolute",
-    left: 0,
-    top: -18,
-    fontSize: 12,
-    color: "#1B263B",
-    backgroundColor: GOLD,
-    fontWeight: "800",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    position: "absolute", left: 0, top: -18,
+    fontSize: 12, color: "#1B263B",
+    backgroundColor: GOLD, fontWeight: "800",
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
   },
 
+  // ─── Improved mic ───
   micContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 24,
+    marginTop: 20,
     marginBottom: 30,
-  },
-
-  micHint: {
-    marginTop: 12,
-    color: GOLD,
-    fontWeight: "700",
-    fontSize: 15,
-  },
-
-  micTranscript: {
-    marginTop: 6,
-    color: "#fff",
-    fontSize: 13,
-    opacity: 0.85,
-    textAlign: "center",
-    paddingHorizontal: 20,
+    gap: 10,
   },
 
   micBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 2,
     borderColor: GOLD,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(249,178,51,0.08)",
+    shadowColor: GOLD,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
 
   micBtnActive: {
     backgroundColor: GOLD,
+    shadowOpacity: 0.7,
+    shadowRadius: 20,
   },
 
-  micBtnPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.96 }],
+  micBtnPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
+
+  micHint: {
+    color: GOLD, fontWeight: "700", fontSize: 14,
   },
 
-
+  micTranscript: {
+    color: "#fff", fontSize: 13, opacity: 0.85,
+    textAlign: "center", paddingHorizontal: 20,
+  },
 });

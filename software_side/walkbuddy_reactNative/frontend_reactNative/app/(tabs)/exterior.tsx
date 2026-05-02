@@ -1088,15 +1088,68 @@ const styles = StyleSheet.create({
   destinationInfo: { color: "#aaa", fontSize: 12, marginTop: 4 },
   navOriginIndicator: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginBottom: 4 },
   navOriginText: { color: GOLD, fontSize: 12, fontWeight: "600", fontStyle: "italic" },
+  
+  controlBar: { 
+    paddingHorizontal: 16, 
+    paddingBottom: 20, 
+    flexDirection: "row", 
+    gap: 12 
+  },
 
-  controlBar: { paddingHorizontal: 16, paddingBottom: 20, flexDirection: "row", gap: 12 },
-  controlBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 16, borderRadius: 10, gap: 8, flex: 1 },
-  startBtn: { backgroundColor: GOLD, flex: 2 },
-  startBtnText: { color: "#1B263B", fontSize: 18, fontWeight: "800" },
-  stopBtn: { backgroundColor: "transparent", borderWidth: 2, borderColor: GOLD },
-  stopBtnText: { color: GOLD, fontSize: 18, fontWeight: "800" },
-  destinationBtn: { backgroundColor: "transparent", borderWidth: 2, borderColor: GOLD },
-  destinationBtnText: { color: GOLD, fontSize: 14, fontWeight: "700" },
+  controlBtn: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    paddingVertical: 18, 
+    borderRadius: 50, 
+    gap: 8, 
+    flex: 1 
+  },
+
+  startBtn: { 
+    backgroundColor: GOLD, 
+    flex: 2,
+    shadowColor: GOLD,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+
+  startBtnText: { 
+    color: "#1B263B", 
+    fontSize: 18, 
+    fontWeight: "900" 
+  },
+
+  stopBtn: { 
+    backgroundColor: "transparent", 
+    borderWidth: 2, 
+    borderColor: GOLD,
+    shadowColor: GOLD,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+
+  stopBtnText: { 
+    color: GOLD, 
+    fontSize: 18, 
+    fontWeight: "900" 
+  },
+
+  destinationBtn: { 
+    backgroundColor: "#0f1e2e", 
+    borderWidth: 1.5, 
+    borderColor: "rgba(249,178,51,0.5)",
+  },
+
+  destinationBtnText: { 
+    color: GOLD, 
+    fontSize: 14, 
+    fontWeight: "800" 
+  },
 
   // ─── Modal ───
   modalOverlay: {
