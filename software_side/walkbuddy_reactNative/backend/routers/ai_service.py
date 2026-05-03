@@ -113,12 +113,18 @@ async def chat_endpoint(request: Request, query: dict):
     if not state.llm_brain:
         return {"response": "Brain offline."}
 
+    history = list(state.conversation_history)
+
     async with request.app.state.llm_limiter:
         response = await anyio.to_thread.run_sync(
             state.llm_brain.ask,
             events,
             user_q,
+            history,
         )
+
+    state.conversation_history.append({"role": "user", "content": user_q})
+    state.conversation_history.append({"role": "assistant", "content": response})
 
     return {"response": response}
 

@@ -31,19 +31,19 @@ Return JSON with EXACTLY these keys:
             verbose=False
         )
 
-    def ask(self, events: List[Dict], question: str) -> str:
+    def ask(self, events: List[Dict], question: str, history: list = None) -> str:
         # 1. Prepare Context
         lines = []
         for e in events[-20:]:
             dist = f"~{e['distance_m']:.1f}m" if e.get("distance_m") else "unknown distance"
             lines.append(f"- {e['label']} {e['direction']}, {dist} (conf {e['confidence']:.2f})")
         context_str = "\n".join(lines)
-        
+
         # 2. Build Message History (Let the library handle the template)
-        messages = [
-            {"role": "system", "content": self.SYSTEM_INSTRUCTION},
-            {"role": "user", "content": f"Context:\n{context_str}\n\nUser question: {question}"}
-        ]
+        messages = [{"role": "system", "content": self.SYSTEM_INSTRUCTION}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": f"Context:\n{context_str}\n\nUser question: {question}"})
 
         with tracer.start_as_current_span("llm.inference") as span:
             # FIX: Use create_chat_completion
