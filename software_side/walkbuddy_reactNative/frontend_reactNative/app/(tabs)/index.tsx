@@ -44,6 +44,7 @@ export default function HomePage() {
   const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
+  const goToEmergency = () => router.push("/emergency" as any);
   const goToCameraVoice = () => router.push("/camera" as any);
   const goToCameraOCR = () => router.push("/camera" as any);
 
@@ -107,6 +108,12 @@ export default function HomePage() {
               icon="map-marker"
               label="PLACES"
               onPress={goToSavedPlaces}
+            />
+
+            <ActionTile
+              icon="exclamation-triangle"
+              label="EMERGENCY"
+              onPress={goToEmergency}
             />
 
             <View style={styles.centerRow}>
@@ -512,46 +519,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 4,
   },
-
-  statusCard: {
-    width: "100%",
-    backgroundColor: "#0b1a26",
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-  },
-
-  statusTitle: {
-    color: tokens.text,
-    fontSize: 14,
-    fontWeight: "900",
-    marginBottom: 8,
-  },
-
-  statusText: {
-    color: tokens.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  statusSub: {
-    color: tokens.muted,
-    fontSize: 12,
-    marginBottom: 12,
-  },
-
-  startButton: {
-    backgroundColor: "#12314a",
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-
-  startButtonText: {
-    color: tokens.text,
-    fontWeight: "800",
-  },
-
 });
