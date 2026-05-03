@@ -1,4 +1,5 @@
 from pathlib import Path
+import cv2
 from ultralytics import YOLO
 from opentelemetry import trace
 
@@ -16,6 +17,13 @@ def vision_adapter(model: YOLO, image_path: str) -> dict:
 
     result = results[0]
     detections = []
+
+    # Get image dimensions for spatial direction calculation
+    img = cv2.imread(image_path)
+    if img is not None:
+        image_height, image_width = img.shape[:2]
+    else:
+        image_height, image_width = 480, 640
 
     if result.boxes:
         for box in result.boxes:
@@ -40,4 +48,7 @@ def vision_adapter(model: YOLO, image_path: str) -> dict:
     return {
         "image_id": Path(image_path).stem,
         "detections": detections,
+        "metadata": {
+            "image_shape": [image_height, image_width],
+        },
     }

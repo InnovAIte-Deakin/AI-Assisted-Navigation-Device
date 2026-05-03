@@ -25,22 +25,26 @@ def ocr_adapter(reader, image_path: str) -> Dict[str, Any]:
         return {"image_id": path.stem, "detections": []}
 
     with tracer.start_as_current_span("ocr.read_text"):
-        raw = reader.readtext(str(path))
+        raw = reader.readtext(str(path), detail=1, paragraph=False)
 
     detections = []
     for bbox, text, conf in raw:
-        if conf < 0.3:
+        if conf < 0.25:
+            continue
+        text_clean = text.strip()
+        if not text_clean:
             continue
         try:
             detections.append({
-                "category": text.strip(),
+                "category": text_clean,
                 "confidence": round(float(conf), 4),
                 "bbox": _convert_4corners_to_bbox(bbox),
             })
         except Exception:
             pass
 
-    detections.sort(key=lambda x: x["confidence"], reverse=True)
+    # Sort top-to-bottom by vertical position for reading order
+    detections.sort(key=lambda x: x["bbox"]["y_min"])
 
     return {
         "image_id": path.stem,

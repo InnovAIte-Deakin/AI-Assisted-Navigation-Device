@@ -17,10 +17,16 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import HomeHeader from "../HomeHeader";
 import ModelWebView from "../../src/components/ModelWebView";
 import { API_BASE } from "../../src/config";
+import { useSession } from "../SessionContext";
 
 export default function HomePage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const { auth } = useSession();
+  const greeting =
+    auth.status === "loggedInWithProfile" && auth.profile.displayName
+      ? `Hi ${auth.profile.displayName}`
+      : "Hi there";
 
   const [visionEnabled, setVisionEnabled] = useState(true);
   const [visionPreviewOn, setVisionPreviewOn] = useState(false);
@@ -91,7 +97,7 @@ export default function HomePage() {
     <SafeAreaView style={styles.screen}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
-          greeting="Hi Daniel"
+          greeting={greeting}
           appTitle="WalkBuddy"
           onPressProfile={goToAccount}
           showDivider

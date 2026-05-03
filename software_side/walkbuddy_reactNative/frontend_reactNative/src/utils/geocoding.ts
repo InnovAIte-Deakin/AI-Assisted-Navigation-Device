@@ -16,7 +16,7 @@ export async function geocodePlaceName(
 ): Promise<GeocodeResult> {
   try {
     const response = await fetch(
-      `${API_BASE}geocode?q=${encodeURIComponent(placeName)}`,
+      `${API_BASE}/geocode?q=${encodeURIComponent(placeName)}`,
     );
 
     if (!response.ok) {

@@ -12,8 +12,9 @@ import {
   Alert,
   ScrollView,
   Platform,
+  Share,
 } from "react-native";
-import { router, usePathname, useSegments } from "expo-router";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
   collaborationService,
@@ -21,6 +22,7 @@ import {
   normalizeCode,
   roomFor,
 } from "@/src/utils/collaboration";
+import { WEB_BASE } from "@/src/config";
 import {
   initWebCamera,
   createWebFrameCaptureHandler,
@@ -32,10 +34,10 @@ import {
   isWebTTSAvailable,
   isWebSpeaking,
 } from "@/src/utils/webTTS";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Speech from "expo-speech";
 
 export default function AskAFriendWebScreen() {
-  const pathname = usePathname();
-  const segments = useSegments();
   const isNavigatingAwayRef = useRef(false);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -83,60 +85,11 @@ export default function AskAFriendWebScreen() {
   const framesSentCountRef = useRef(0);
   const frameStatsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if on web and prevent redirects
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      Alert.alert("Error", "This screen is only available on web browsers.");
-      router.replace("/");
-      return;
-    }
-
-    // CRITICAL: Prevent Expo Router's anchor redirect and splash screen redirect
-    // Check if pathname changed away from ask-a-friend-web
-    if (
-      pathname &&
-      pathname !== "/ask-a-friend-web" &&
-      !isNavigatingAwayRef.current
-    ) {
-      console.log(
-        "[AskAFriend] Detected redirect attempt, preventing:",
-        pathname,
-      );
-      // Force navigation back to ask-a-friend-web immediately
-      // Use replace to prevent back button issues
-      router.replace("/ask-a-friend-web");
-    }
-
-    // Also check window.location as a fallback (for web)
-    if (
-      typeof window !== "undefined" &&
-      window.location.pathname !== "/ask-a-friend-web"
-    ) {
-      window.history.replaceState(null, "", "/ask-a-friend-web");
-    }
-  }, [pathname, router]);
-
-  // Monitor segments to catch redirects to tabs/home
-  useEffect(() => {
-    if (Platform.OS === "web") {
-      // If segments indicate we're being redirected to tabs/home, prevent it
-      if (segments.length > 0) {
-        const isRedirectingToTabs =
-          segments.includes("(tabs)") || segments.includes("home");
-        const isOnAskAFriendWeb =
-          pathname === "/ask-a-friend-web" ||
-          segments[0] === "ask-a-friend-web";
-
-        if (isRedirectingToTabs && !isOnAskAFriendWeb) {
-          console.log(
-            "[AskAFriend] Preventing redirect to tabs/home, segments:",
-            segments,
-          );
-          router.replace("/ask-a-friend-web");
-        }
-      }
-    }
-  }, [segments, pathname, router]);
+  // ── Native-only state & refs ─────────────────────────────────────────────
+  const nativeCameraRef = useRef<CameraView | null>(null);
+  const [nativePermission, requestNativePermission] = useCameraPermissions();
+  const nativeFrameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [nativeCameraActive, setNativeCameraActive] = useState(false);
 
   // Create session on mount
   useEffect(() => {
@@ -953,18 +906,18 @@ export default function AskAFriendWebScreen() {
         console.log(
           "[AskAFriend] 2. Replace 'localhost' with your LAN IP in the URL",
         );
-        return `${origin}/helper-web`;
+        return `${origin}/helper`;
       }
-      return `${origin}/helper-web`;
+      return `${origin}/helper`;
     }
-    return "https://walkbuddy.com/helper-web";
+    return "https://walkbuddy.com/helper";
   };
 
   const shareSession = async () => {
     if (!sessionId) return;
 
-    const helperUrl = getHelperWebUrl();
     const normalizedCode = normalizeCode(sessionId || "");
+    const helperUrl = `${getHelperWebUrl()}?code=${normalizedCode}`;
 
     // Detect if we're on localhost and provide instructions
     let shareText = `I need help navigating!\n\nSession Code: ${normalizedCode}\n\nHelper can join via:\n🌐 Web: ${helperUrl}`;
@@ -1626,12 +1579,188 @@ export default function AskAFriendWebScreen() {
     // }, 100);
   };
 
+  // ── Native helpers ───────────────────────────────────────────────────────
+  const startNativeFrameStreaming = () => {
+    if (nativeFrameIntervalRef.current) return;
+    nativeFrameIntervalRef.current = setInterval(async () => {
+      if (!nativeCameraRef.current) return;
+      try {
+        const photo = await (nativeCameraRef.current as any).takePictureAsync({
+          base64: true,
+          quality: 0.4,
+          skipProcessing: true,
+        });
+        if ((photo as any)?.base64) {
+          collaborationService.sendCameraFrame((photo as any).base64);
+        }
+      } catch {
+        // ignore individual frame errors
+      }
+    }, 500); // ~2 FPS
+  };
+
+  const stopNativeFrameStreaming = () => {
+    if (nativeFrameIntervalRef.current) {
+      clearInterval(nativeFrameIntervalRef.current);
+      nativeFrameIntervalRef.current = null;
+    }
+  };
+
+  const shareSessionCode = async () => {
+    if (!sessionId) return;
+    const helperUrl = `${WEB_BASE}/helper?code=${sessionId}`;
+    try {
+      await Share.share({
+        message: `Join my WalkBuddy session!\n\nOpen this link:\n${helperUrl}\n\nOr go to the helper page and enter code: ${sessionId}`,
+        title: "WalkBuddy – Join as Helper",
+        url: helperUrl,
+      });
+    } catch {
+      Alert.alert("Helper Link", helperUrl);
+    }
+  };
+
+  // ── Native effects (must be before early return, but guarded inside) ─────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (guideConnected && (nativePermission?.granted ?? false) && nativeCameraActive) {
+      startNativeFrameStreaming();
+    } else {
+      stopNativeFrameStreaming();
+    }
+    return () => stopNativeFrameStreaming();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guideConnected, nativePermission?.granted, nativeCameraActive]);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!guidanceMessage) return;
+    Speech.stop();
+    Speech.speak(guidanceMessage, { rate: 0.85, volume: 1.0 });
+  }, [guidanceMessage]);
+
+  // ── Native render ────────────────────────────────────────────────────────
   if (Platform.OS !== "web") {
+    const permGranted = nativePermission?.granted ?? false;
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>
-          This screen is only available on web browsers.
-        </Text>
+      <View style={nativeStyles.screen}>
+        {/* Header */}
+        <View style={nativeStyles.header}>
+          <Pressable onPress={handleDisconnect} style={nativeStyles.backBtn}>
+            <Ionicons name="arrow-back" size={22} color="#F9A826" />
+          </Pressable>
+          <Text style={nativeStyles.headerTitle}>Ask a Friend</Text>
+        </View>
+
+        {/* Status */}
+        <View style={nativeStyles.statusBar}>
+          <View style={[nativeStyles.dot, isConnected && nativeStyles.dotGreen]} />
+          <Text style={nativeStyles.statusText}>
+            {isConnecting
+              ? "Connecting…"
+              : isConnected
+                ? guideConnected
+                  ? helperName ? `${helperName} is helping you` : "Helper is viewing your camera"
+                  : "Waiting for helper to join…"
+                : "Not connected"}
+          </Text>
+        </View>
+
+        {/* Session code */}
+        {sessionId ? (
+          <View style={nativeStyles.card}>
+            <Text style={nativeStyles.cardLabel}>YOUR SESSION CODE</Text>
+            <Text style={nativeStyles.sessionCode}>{sessionId}</Text>
+            <Text style={nativeStyles.cardHint}>Share this code with your helper</Text>
+            <Pressable style={nativeStyles.shareBtn} onPress={shareSessionCode}>
+              <Ionicons name="share-social-outline" size={18} color="#1B263B" />
+              <Text style={nativeStyles.shareBtnText}>Share Code</Text>
+            </Pressable>
+          </View>
+        ) : isConnecting ? (
+          <View style={nativeStyles.card}>
+            <ActivityIndicator color="#F9A826" />
+            <Text style={nativeStyles.cardHint}>Creating session…</Text>
+          </View>
+        ) : (
+          <View style={nativeStyles.card}>
+            <Text style={nativeStyles.cardHint}>Session creation failed.</Text>
+            <Pressable style={nativeStyles.shareBtn} onPress={createSession}>
+              <Text style={nativeStyles.shareBtnText}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Camera section */}
+        <View style={nativeStyles.cameraCard}>
+          {!permGranted ? (
+            <Pressable
+              style={nativeStyles.enableCameraBtn}
+              onPress={async () => {
+                const result = await requestNativePermission();
+                if (result.granted) setNativeCameraActive(true);
+              }}
+            >
+              <Ionicons name="camera-outline" size={28} color="#F9A826" />
+              <Text style={nativeStyles.enableCameraText}>Enable Camera</Text>
+              <Text style={nativeStyles.enableCameraHint}>
+                Your helper will see your camera to guide you
+              </Text>
+            </Pressable>
+          ) : !nativeCameraActive ? (
+            <Pressable
+              style={nativeStyles.enableCameraBtn}
+              onPress={() => setNativeCameraActive(true)}
+            >
+              <Ionicons name="camera-outline" size={28} color="#F9A826" />
+              <Text style={nativeStyles.enableCameraText}>Start Camera</Text>
+            </Pressable>
+          ) : (
+            <View style={nativeStyles.cameraWrap}>
+              <CameraView
+                ref={nativeCameraRef}
+                style={nativeStyles.camera}
+                facing="back"
+              />
+              <View style={nativeStyles.cameraOverlayBadge}>
+                <View style={nativeStyles.recDot} />
+                <Text style={nativeStyles.recText}>
+                  {guideConnected ? "Streaming to helper" : "Camera ready"}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Guidance message */}
+        {!!guidanceMessage && (
+          <View style={nativeStyles.guidanceCard}>
+            <Ionicons name="chatbubble-outline" size={18} color="#F9A826" />
+            <Text style={nativeStyles.guidanceText}>{guidanceMessage}</Text>
+            <Pressable
+              onPress={() => { Speech.stop(); }}
+              style={nativeStyles.stopSpeakBtn}
+            >
+              <Ionicons name="stop" size={14} color="#FF6B6B" />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Error */}
+        {!!error && (
+          <View style={nativeStyles.errorCard}>
+            <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
+            <Text style={nativeStyles.errorCardText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Disconnect */}
+        <Pressable style={nativeStyles.disconnectBtn} onPress={handleDisconnect}>
+          <Ionicons name="close-circle-outline" size={20} color="#FF6B6B" />
+          <Text style={nativeStyles.disconnectBtnText}>Disconnect</Text>
+        </Pressable>
       </View>
     );
   }
@@ -2384,5 +2513,202 @@ const styles = StyleSheet.create({
     color: "#4CAF50",
     fontSize: 10,
     fontWeight: "500",
+  },
+});
+
+// ── Styles for the native (iOS/Android) Ask a Friend UI ───────────────────
+const nativeStyles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#1B263B",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 52,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2A2A2A",
+    gap: 12,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    flex: 1,
+    color: "#FFF",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  statusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#0d1b2a",
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#555",
+  },
+  dotGreen: {
+    backgroundColor: "#4CAF50",
+  },
+  statusText: {
+    color: "#CCC",
+    fontSize: 13,
+  },
+  card: {
+    backgroundColor: "#2A2A2A",
+    borderRadius: 12,
+    margin: 16,
+    padding: 16,
+    alignItems: "center",
+    gap: 8,
+  },
+  cardLabel: {
+    color: "#888",
+    fontSize: 11,
+    letterSpacing: 1,
+    fontWeight: "700",
+  },
+  sessionCode: {
+    color: "#F9A826",
+    fontSize: 32,
+    fontWeight: "800",
+    letterSpacing: 6,
+  },
+  cardHint: {
+    color: "#888",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  shareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9A826",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 4,
+  },
+  shareBtnText: {
+    color: "#1B263B",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  cameraCard: {
+    backgroundColor: "#2A2A2A",
+    borderRadius: 12,
+    marginHorizontal: 16,
+    overflow: "hidden",
+    minHeight: 220,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  enableCameraBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    gap: 8,
+  },
+  enableCameraText: {
+    color: "#F9A826",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  enableCameraHint: {
+    color: "#888",
+    fontSize: 12,
+    textAlign: "center",
+    maxWidth: 240,
+  },
+  cameraWrap: {
+    width: "100%",
+    height: 220,
+    position: "relative",
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraOverlayBadge: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 6,
+  },
+  recDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF4444",
+  },
+  recText: {
+    color: "#FFF",
+    fontSize: 11,
+  },
+  guidanceCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#0d1b2a",
+    borderWidth: 1,
+    borderColor: "#F9A826",
+    borderRadius: 10,
+    margin: 16,
+    padding: 12,
+    gap: 8,
+  },
+  guidanceText: {
+    flex: 1,
+    color: "#FFF",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  stopSpeakBtn: {
+    padding: 4,
+  },
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2A1010",
+    borderRadius: 8,
+    marginHorizontal: 16,
+    padding: 10,
+    gap: 8,
+  },
+  errorCardText: {
+    flex: 1,
+    color: "#FF6B6B",
+    fontSize: 13,
+  },
+  disconnectBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FF6B6B",
+    gap: 8,
+  },
+  disconnectBtnText: {
+    color: "#FF6B6B",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

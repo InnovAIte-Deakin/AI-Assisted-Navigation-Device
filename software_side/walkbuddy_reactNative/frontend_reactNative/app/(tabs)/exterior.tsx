@@ -3,8 +3,16 @@ import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
-import { useFocusEffect } from "expo-router";
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+let ExpoSpeechRecognitionModule: any = null;
+let useSpeechRecognitionEvent: any = () => {};
+try {
+  const mod = require("expo-speech-recognition");
+  ExpoSpeechRecognitionModule = mod.ExpoSpeechRecognitionModule;
+  useSpeechRecognitionEvent = mod.useSpeechRecognitionEvent;
+} catch {
+  // Native module not available in Expo Go — voice STT on native will be disabled
+}
 import React, {
   useCallback,
   useEffect,
@@ -52,6 +60,7 @@ const { height: SCREEN_H } = Dimensions.get("window");
 const MILESTONES = [200, 100, 50];
 
 export default function ExteriorNavigationScreen() {
+  const params = useLocalSearchParams<{ presetDestination?: string }>();
   const [isNavigating, setIsNavigating] = useState(false);
   const [showDestinationModal, setShowDestinationModal] = useState(false);
   const [settings, setSettings] = useState<NavigationSettings>({
@@ -125,6 +134,17 @@ export default function ExteriorNavigationScreen() {
       loadSettings().then(setSettings);
     }, [])
   );
+
+  // Pre-fill destination from search screen and auto-open the modal
+  useEffect(() => {
+    const preset = Array.isArray(params.presetDestination)
+      ? params.presetDestination[0]
+      : params.presetDestination;
+    if (preset && preset.trim()) {
+      setToInput(preset.trim());
+      setShowDestinationModal(true);
+    }
+  }, [params.presetDestination]);
 
   // Request location permission with high accuracy
   useEffect(() => {
@@ -678,54 +698,48 @@ export default function ExteriorNavigationScreen() {
       let originLatLng: { lat: number; lng: number };
       let originName: string;
 
-      if (useCurrentLocation && currentLocation) {
-        // Use current GPS location
-        originLatLng = {
-          lat: currentLocation.latitude,
-          lng: currentLocation.longitude,
-        };
-        originName = "Current Location";
-        setOriginMode("current");
-        setOriginCoords(null);
-        setOrigin({
-          lat: originLatLng.lat,
-          lng: originLatLng.lng,
-          name: originName,
-        });
-      } else if (fromInput.trim() && fromInput.trim().toLowerCase() !== "current location") {
-        // Geocode custom origin
-        const fromResult = await geocodePlaceName(fromInput.trim());
-        originLatLng = {
-          lat: fromResult.lat,
-          lng: fromResult.lng,
-        };
-        originName = fromResult.name;
-        setOriginMode("custom");
-        setOriginCoords(originLatLng);
-        setOrigin({
-          lat: originLatLng.lat,
-          lng: originLatLng.lng,
-          name: originName,
-        });
-      } else {
-        // Fallback to current location if available
-        if (!currentLocation) {
+      // Helper: get current coords, fetching fresh if state not yet populated
+      const resolveCurrentCoords = async (): Promise<{ lat: number; lng: number } | null> => {
+        if (currentLocation) {
+          return { lat: currentLocation.latitude, lng: currentLocation.longitude };
+        }
+        try {
+          const perm = await Location.requestForegroundPermissionsAsync();
+          if (perm.status !== "granted") return null;
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy };
+          setCurrentLocation(coords);
+          lastLocationRef.current = coords;
+          return { lat: loc.coords.latitude, lng: loc.coords.longitude };
+        } catch {
+          return null;
+        }
+      };
+
+      if (useCurrentLocation || fromInput.trim().toLowerCase() === "current location" || !fromInput.trim()) {
+        const coords = await resolveCurrentCoords();
+        if (!coords) {
           Alert.alert("Error", "Current location not available. Please enable location services or enter a starting point.");
           setIsGeocoding(false);
           return;
         }
-        originLatLng = {
-          lat: currentLocation.latitude,
-          lng: currentLocation.longitude,
-        };
+        originLatLng = coords;
         originName = "Current Location";
         setOriginMode("current");
         setOriginCoords(null);
-        setOrigin({
-          lat: originLatLng.lat,
-          lng: originLatLng.lng,
-          name: originName,
-        });
+        setOrigin({ lat: coords.lat, lng: coords.lng, name: originName });
+      } else if (fromInput.trim()) {
+        // Geocode custom origin
+        const fromResult = await geocodePlaceName(fromInput.trim());
+        originLatLng = { lat: fromResult.lat, lng: fromResult.lng };
+        originName = fromResult.name;
+        setOriginMode("custom");
+        setOriginCoords(originLatLng);
+        setOrigin({ lat: originLatLng.lat, lng: originLatLng.lng, name: originName });
+      } else {
+        Alert.alert("Error", "Please enter a starting point.");
+        setIsGeocoding(false);
+        return;
       }
 
       // 3) Fetch route using the determined origin and destination

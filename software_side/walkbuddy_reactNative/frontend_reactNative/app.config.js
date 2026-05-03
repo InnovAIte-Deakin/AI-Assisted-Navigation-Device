@@ -4,14 +4,15 @@ export default ({ config }) => ({
   name: config.name || "MyApp",
   slug: config.slug || "my-app",
   version: config.version || "1.0.0",
+  scheme: "walkbuddy",
   plugins: ["expo-speech-recognition"],
   orientation: "portrait",
   icon: "./assets/images/icon.png", // Fixed: use correct path to match app.json
   userInterfaceStyle: "light",
   splash: {
-    image: "./assets/splash.png",
+    image: "./assets/images/splash-icon.png",
     resizeMode: "contain",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#0D1B2A",
   },
   updates: {
     fallbackToCacheTimeout: 0,

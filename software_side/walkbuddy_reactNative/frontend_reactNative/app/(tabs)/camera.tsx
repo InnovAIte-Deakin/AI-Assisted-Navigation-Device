@@ -1,6 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import React, {
   useCallback,
   useEffect,
@@ -28,8 +29,10 @@ import { API_BASE } from "../../src/config";
 const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");
 
-const AUTO_SCAN_INTERVAL_MS = 2500;
+const AUTO_SCAN_INTERVAL_MS = 5000;
 const AUTO_SCAN_TIMEOUT_MS = 12000;
+const STATIONARY_THRESHOLD_MS = 12000;
+const STATIONARY_MOVEMENT_M = 2;
 
 type CamMode = "vision" | "ocr";
 
@@ -70,6 +73,17 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export default function CameraAssistScreen() {
   const [camMode, setCamMode] = useState<CamMode>("vision");
   const tts = useMemo(() => getTTSService({ cooldownSeconds: 1.2 }), []);
@@ -105,6 +119,21 @@ export default function CameraAssistScreen() {
   const lastSpokenMessage = useRef<string>("");
   const lastSpokenAt = useRef<number>(0);
   const micLockRef = useRef(false);
+
+  // Feature 1: What Changed
+  const prevDetectionCategoriesRef = useRef<Set<string>>(new Set());
+  const hasScannedOnceRef = useRef(false);
+
+  // Feature 2: Lost & Recovery
+  const lastPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const locationSubRef = useRef<Location.LocationSubscription | null>(null);
+  const assistanceAlertShownRef = useRef(false);
+
+  // Feature 3: Social Awareness
+  const prevPersonCountRef = useRef(0);
+
+  // Unmount guard for async callbacks
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     setSttAvailable(sttService.isAvailable());
@@ -142,6 +171,13 @@ export default function CameraAssistScreen() {
     }, 250);
     return () => clearTimeout(id);
   }, [perm?.granted]);
+
+  // Reset "What Changed" and social state when mode switches
+  useEffect(() => {
+    prevDetectionCategoriesRef.current = new Set();
+    hasScannedOnceRef.current = false;
+    prevPersonCountRef.current = 0;
+  }, [camMode]);
 
   // Mode switching
   useEffect(() => {
@@ -280,9 +316,9 @@ export default function CameraAssistScreen() {
 
     try {
       const photoPromise = cameraRef.current.takePictureAsync({
-        quality: 0.5,
+        quality: myMode === "ocr" ? 0.9 : 0.5,
         base64: false,
-        skipProcessing: true,
+        skipProcessing: myMode !== "ocr",
       });
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("takePictureAsync timeout")), 7000),
@@ -296,6 +332,9 @@ export default function CameraAssistScreen() {
         return;
       }
       if (!photo?.uri) return;
+
+      const imgW = typeof photo.width === "number" ? photo.width : 1000;
+      const imgH = typeof photo.height === "number" ? photo.height : 1000;
 
       if (typeof photo.width === "number" && typeof photo.height === "number") {
         setFrameMeta({ w: photo.width, h: photo.height });
@@ -320,7 +359,58 @@ export default function CameraAssistScreen() {
       if (myMode === "ocr") setOcrTextDisplay(data.guidance_message || "");
       else setOcrTextDisplay("");
 
-      if (data.guidance_message) {
+      if (myMode === "vision") {
+        const allDetections = data.detections || [];
+
+        // ── Feature 1: What Changed ─────────────────────────────────────────
+        const currentCategories = new Set(
+          allDetections.filter(d => d.confidence >= 0.5).map(d => d.category)
+        );
+        const prev = prevDetectionCategoriesRef.current;
+        const newItems = [...currentCategories].filter(c => !prev.has(c));
+        const allCleared = currentCategories.size === 0 && prev.size > 0;
+        const isFirst = !hasScannedOnceRef.current;
+
+        hasScannedOnceRef.current = true;
+        prevDetectionCategoriesRef.current = currentCategories;
+
+        if ((isFirst || newItems.length > 0) && data.guidance_message) {
+          await maybeSpeak(data.guidance_message, RiskLevel.LOW);
+        } else if (allCleared) {
+          await maybeSpeak("Path looks clear.", RiskLevel.LOW);
+        }
+
+        // ── Feature 3: Social Awareness ─────────────────────────────────────
+        const personDetections = allDetections.filter(
+          d => d.category === "person" && d.confidence >= 0.5
+        );
+        if (personDetections.length !== prevPersonCountRef.current) {
+          prevPersonCountRef.current = personDetections.length;
+          if (personDetections.length > 0) {
+            const positions = personDetections.map(p => {
+              const cx = (p.bbox.x_min + p.bbox.x_max) / 2;
+              const ratio = cx / imgW;
+              if (ratio < 0.33) return "on your left";
+              if (ratio > 0.66) return "on your right";
+              return "ahead";
+            });
+            const bboxArea = (p: Detection) =>
+              (p.bbox.x_max - p.bbox.x_min) * (p.bbox.y_max - p.bbox.y_min);
+            const isClose = personDetections.some(
+              p => bboxArea(p) / (imgW * imgH) > 0.08
+            );
+            const uniquePos = [...new Set(positions)].join(", ");
+            const socialMsg =
+              personDetections.length === 1
+                ? `Person ${isClose ? "close, " : ""}${positions[0]}`
+                : `${personDetections.length} people nearby${isClose ? ", some close" : ""}: ${uniquePos}`;
+            setTimeout(() => {
+              if (mountedRef.current) maybeSpeak(socialMsg, RiskLevel.LOW);
+            }, 2500);
+          }
+        }
+      } else if (data.guidance_message) {
+        // OCR mode — always speak
         await maybeSpeak(data.guidance_message, RiskLevel.LOW);
       }
     } catch (e: any) {
@@ -446,10 +536,86 @@ export default function CameraAssistScreen() {
     }
   }, [stopListening, isListening, isVoiceProcessing]);
 
+  // Feature 2: Lost & Recovery Mode
+  useEffect(() => {
+    let sub: Location.LocationSubscription | null = null;
+    let cancelled = false;
+
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted" || cancelled) return;
+
+      sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 3000, distanceInterval: 1 },
+        (loc) => {
+          const { latitude, longitude } = loc.coords;
+          const now = Date.now();
+
+          if (!lastPositionRef.current) {
+            lastPositionRef.current = { lat: latitude, lng: longitude, time: now };
+            return;
+          }
+
+          const dist = haversineMeters(
+            lastPositionRef.current.lat,
+            lastPositionRef.current.lng,
+            latitude,
+            longitude
+          );
+
+          if (dist > STATIONARY_MOVEMENT_M) {
+            lastPositionRef.current = { lat: latitude, lng: longitude, time: now };
+            assistanceAlertShownRef.current = false;
+          } else {
+            const stationaryMs = now - lastPositionRef.current.time;
+            if (stationaryMs >= STATIONARY_THRESHOLD_MS && !assistanceAlertShownRef.current) {
+              assistanceAlertShownRef.current = true;
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              Alert.alert(
+                "Are you okay?",
+                "You've been in the same spot for a while. Do you need assistance?",
+                [
+                  {
+                    text: "I'm fine",
+                    onPress: () => {
+                      assistanceAlertShownRef.current = false;
+                      if (lastPositionRef.current) {
+                        lastPositionRef.current.time = Date.now();
+                      }
+                    },
+                  },
+                  {
+                    text: "Need Help",
+                    onPress: () => {
+                      tts.speak(
+                        "Understood. Stay where you are, help is on the way.",
+                        RiskLevel.HIGH,
+                        false
+                      );
+                    },
+                  },
+                ]
+              );
+            }
+          }
+        }
+      );
+      locationSubRef.current = sub;
+    })();
+
+    return () => {
+      cancelled = true;
+      sub?.remove();
+      locationSubRef.current = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       stopScanLoop();
       stopListeningHard();
+      locationSubRef.current?.remove();
     };
   }, [stopScanLoop, stopListeningHard]);
 
@@ -498,7 +664,7 @@ export default function CameraAssistScreen() {
               Platform.OS === "web" && { transform: [{ scaleX: -1 }] },
             ]}
           >
-            {detections.slice(0, 20).map((d, idx) => {
+            {detections.filter(d => d.confidence >= 0.5).slice(0, 10).map((d, idx) => {
               const mapped = mapBBoxToPreview(d.bbox);
               if (!mapped || mapped.width <= 1 || mapped.height <= 1)
                 return null;
@@ -519,7 +685,7 @@ export default function CameraAssistScreen() {
                     style={[styles.boxLabel, { transform: [{ scaleX: -1 }] }]}
                     numberOfLines={1}
                   >
-                    {d.category} {Math.round(d.confidence * 100)}%
+                    {d.category}
                   </Text>
                 </View>
               );
