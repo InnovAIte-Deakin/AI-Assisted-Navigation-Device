@@ -281,18 +281,18 @@ function ActionTile({
 
   return (
     <View style={[styles.tile, centered && styles.tileCentered]}>
-      <View style={styles.tileOuter}>
-        <Pressable
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <Animated.View
+          style={[
+            styles.tileOuter,
+            { transform: [{ scale }] },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.tileInner,
-              { transform: [{ scale }] },
-            ]}
-          >
+          <View style={styles.tileInner}>
             <Animated.View
               pointerEvents="none"
               style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
@@ -300,13 +300,13 @@ function ActionTile({
             <Icon
               name={icon}
               size={24}
-              color={tokens.gold}
+              color="#071a2a"
               style={styles.tileIcon}
             />
             <Text style={styles.tileText}>{label}</Text>
-          </Animated.View>
-        </Pressable>
-      </View>
+          </View>
+        </Animated.View>
+      </Pressable>
     </View>
   );
 }
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
 
   tileInner: {
     width: "100%",
-    backgroundColor: tokens.tileInner,
+    backgroundColor: tokens.gold,
     borderRadius: 20,
     minHeight: 108,
     paddingVertical: 18,
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
 
   tilePressOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(0,0,0,0.08)",
   },
 
   tileIcon: {
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   },
 
   tileText: {
-    color: tokens.text,
+    color: "#071a2a",
     fontSize: 15,
     fontWeight: "800",
     textAlign: "center",
