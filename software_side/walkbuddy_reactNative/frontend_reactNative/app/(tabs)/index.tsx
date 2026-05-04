@@ -113,8 +113,6 @@ export default function HomePage() {
           </View>
 
           <BounceButton label="SEARCH" onPress={goToNavigate} search />
-
-          {/* ✅ FIXED GRID (2x2 layout) */}
           <View style={styles.grid}>
             <ActionTile
               icon="microphone"
