@@ -1,5 +1,11 @@
+<<<<<<< Updated upstream
 // app/(tabs)/home.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+=======
+// app/(tabs)/index.tsx
+
+import { useEffect, useMemo, useState } from "react";
+>>>>>>> Stashed changes
 import { useRouter } from "expo-router";
 import {
   StyleSheet,
@@ -8,7 +14,11 @@ import {
   Pressable,
   Switch,
   useWindowDimensions,
+<<<<<<< Updated upstream
   Animated,
+=======
+  ScrollView,
+>>>>>>> Stashed changes
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -41,11 +51,29 @@ export default function HomePage() {
     return Math.min(max, Math.max(320, width - padding * 2));
   }, [width]);
 
-  const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
+<<<<<<< Updated upstream
   const goToCameraVoice = () => router.push("/camera" as any);
   const goToCameraOCR = () => router.push("/camera" as any);
+=======
+  const goToFavourites = () => router.push("/favourites" as any);
+  const goToProfile = () => router.push("/profile");
+
+  const goToCameraVoice = () =>
+    router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
+
+  const goToCameraOCR = () =>
+    router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
+
+  const goToScreenReader = () => {
+    const title = "Coming soon";
+    const msg = "Screen Reader is not implemented yet.";
+    Platform.OS === "web"
+      ? (globalThis as any).alert?.(`${title}\n\n${msg}`)
+      : Alert.alert(title, msg);
+  };
+>>>>>>> Stashed changes
 
   useEffect(() => {
     if (!visionEnabled) {
@@ -67,33 +95,31 @@ export default function HomePage() {
     return () => clearTimeout(t);
   }, [visionPreviewOn]);
 
-  const visionUrl = useMemo(() => {
-    return `${API_BASE}/vision/?v=${rev}`;
-  }, [rev]);
+  const visionUrl = `${API_BASE}/vision/?v=${rev}`;
 
   const toggleVisionPreview = () => {
     if (!visionEnabled) return;
     setVisionPreviewOn((prev) => !prev);
   };
 
-  const visionHintText = useMemo(() => {
-    if (!visionEnabled) return "Vision disabled";
-    return visionPreviewOn
-      ? "Tap to turn preview off"
-      : "Tap to turn preview on";
-  }, [visionEnabled, visionPreviewOn]);
-
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={[styles.content, { width: contentWidth }]}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { width: contentWidth }]}
+        showsVerticalScrollIndicator={false}
+      >
         <HomeHeader
+<<<<<<< Updated upstream
           greeting={`Hi ${displayName}`}
+=======
+          greeting="Hi Pranav"
+>>>>>>> Stashed changes
           appTitle="WalkBuddy"
-          onPressProfile={goToAccount}
           showDivider
           showLocation
         />
 
+<<<<<<< Updated upstream
         <View style={styles.mainArea}>
 
             <View style={styles.statusCard}>
@@ -111,10 +137,62 @@ export default function HomePage() {
 
           <View style={styles.grid}>
             <ActionTile
+=======
+        {/* LOCATION */}
+        <View style={styles.locationCard}>
+          <Icon name="map-marker" size={16} color={tokens.muted} />
+          <Text style={styles.locationText}>Finding location...</Text>
+        </View>
+
+        {/* PRIMARY ACTION */}
+        <Pressable
+          onPress={goToNavigate}
+          android_ripple={{ color: "#f2a90022" }}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Icon name="map-marker" size={18} color={tokens.bg} />
+          <Text style={styles.primaryText}>START NAVIGATION</Text>
+        </Pressable>
+
+        {/* SAVED & FAVOURITES */}
+        <View style={styles.grid}>
+          <ActionTile
+            icon="bookmark"
+            label="SAVED PLACES"
+            onPress={goToSavedPlaces}
+          />
+          <ActionTile
+            icon="heart"
+            label="FAVOURITES"
+            onPress={goToFavourites}
+          />
+        </View>
+
+        {/* ASSISTIVE */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>ASSISTIVE TOOLS</Text>
+
+          <View style={styles.grid}>
+            <ActionTile
+              icon="volume-up"
+              label="SCREEN READER"
+              onPress={goToScreenReader}
+            />
+            <ActionTile
+              icon="file-text"
+              label="TEXT READER"
+              onPress={goToCameraOCR}
+            />
+            <ActionTile
+>>>>>>> Stashed changes
               icon="microphone"
               label="VOICE ASSIST"
               onPress={goToCameraVoice}
             />
+<<<<<<< Updated upstream
             <ActionTile
               icon="map-marker"
               label="PLACES"
@@ -129,30 +207,47 @@ export default function HomePage() {
                 centered
               />
             </View>
+=======
+>>>>>>> Stashed changes
           </View>
+        </View>
 
+        {/* VISION */}
+        <View
+          style={[
+            styles.visionWrapper,
+            visionPreviewOn && styles.visionActive,
+          ]}
+        >
           <View style={styles.visionRow}>
             <Text style={styles.visionTitle}>VISION ASSIST</Text>
 
-            <View style={styles.visionToggle}>
-              <Text style={styles.visionToggleText}>
-                {visionEnabled ? "On" : "Off"}
-              </Text>
-              <Switch
-                value={visionEnabled}
-                onValueChange={setVisionEnabled}
-                trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+            <View style={styles.visionStatus}>
+              <View
+                style={[
+                  styles.statusDot,
+                  visionPreviewOn ? styles.liveDot : styles.offDot,
+                ]}
               />
+              <Text style={styles.statusText}>
+                {visionPreviewOn ? "LIVE" : "OFF"}
+              </Text>
             </View>
+
+            <Switch
+              value={visionEnabled}
+              onValueChange={setVisionEnabled}
+              trackColor={{ false: "#23384d", true: "#2d4b66" }}
+              thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+            />
           </View>
 
           <Pressable
-            style={[
-              styles.visionCard,
-              !visionEnabled && styles.visionCardDisabled,
-            ]}
             onPress={toggleVisionPreview}
+            style={({ pressed }) => [
+              styles.visionCard,
+              pressed && styles.pressed,
+            ]}
           >
             <View style={styles.visionInner}>
               {visionEnabled && visionPreviewOn ? (
@@ -160,22 +255,39 @@ export default function HomePage() {
               ) : (
                 <View style={styles.previewPlaceholder}>
                   <Icon
+<<<<<<< Updated upstream
                     name={visionEnabled ? "eye" : "ban"}
                     size={30}
                     color={tokens.gold}
+=======
+                    name="eye"
+                    size={28}
+                    color={tokens.muted}
+>>>>>>> Stashed changes
                   />
-                  <Text style={styles.previewText}>VISION PREVIEW</Text>
-                  <Text style={styles.previewSubtext}>{visionHintText}</Text>
+                  <Text style={styles.previewText}>
+                    {visionEnabled
+                      ? "Tap to start camera"
+                      : "Vision disabled"}
+                  </Text>
+                  <Text style={styles.previewSubtext}>
+                    Starting camera gives live surroundings
+                  </Text>
                 </View>
               )}
             </View>
           </Pressable>
         </View>
+<<<<<<< Updated upstream
       </View>
+=======
+      </ScrollView>
+>>>>>>> Stashed changes
     </SafeAreaView>
   );
 }
 
+<<<<<<< Updated upstream
 function BounceButton({
   label,
   onPress,
@@ -319,18 +431,45 @@ function ActionTile({
           </Animated.View>
         </Pressable>
       </View>
+=======
+/* COMPONENT */
+
+function ActionTile({ icon, label, onPress }: any) {
+  return (
+    <View style={styles.tile}>
+      <Pressable
+        onPress={onPress}
+        android_ripple={{ color: "#f2a90022" }}
+        style={({ pressed }) => [
+          styles.tileInner,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Icon name={icon} size={22} color={tokens.text} />
+        <Text style={styles.tileText}>{label}</Text>
+      </Pressable>
+>>>>>>> Stashed changes
     </View>
   );
 }
 
+/* TOKENS */
+
 const tokens = {
   bg: "#071a2a",
   tile: "#0b0f14",
+<<<<<<< Updated upstream
   tileInner: "#08131f",
+=======
+  card: "#0d141c",
+>>>>>>> Stashed changes
   text: "#e8eef6",
   muted: "#b8c6d4",
   gold: "#f2a900",
+  green: "#2ecc71",
 };
+
+/* STYLES */
 
 const styles = StyleSheet.create({
   screen: {
@@ -340,11 +479,12 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flex: 1,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    gap: 18,
+    paddingBottom: 40,
   },
 
+<<<<<<< Updated upstream
   mainArea: {
     flex: 1,
     width: "100%",
@@ -380,17 +520,69 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
     letterSpacing: 0.8,
+=======
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+
+  locationCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: tokens.tile,
+    borderRadius: 12,
+    padding: 14,
+  },
+
+  locationText: {
+    color: tokens.muted,
+    fontWeight: "600",
+  },
+
+  primaryButton: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.gold,
+    borderRadius: 14,
+    paddingVertical: 16,
+  },
+
+  primaryText: {
+    color: tokens.bg,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  sectionCard: {
+    backgroundColor: tokens.card,
+    borderRadius: 16,
+    padding: 12,
+  },
+
+  sectionLabel: {
+    color: tokens.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    marginBottom: 6,
+>>>>>>> Stashed changes
   },
 
   grid: {
-    width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
+<<<<<<< Updated upstream
     marginBottom: 22,
+=======
+>>>>>>> Stashed changes
   },
 
   tile: {
     width: "50%",
+<<<<<<< Updated upstream
     padding: 10,
   },
 
@@ -434,6 +626,17 @@ const styles = StyleSheet.create({
 
   tileIcon: {
     marginBottom: 10,
+=======
+    padding: 8,
+  },
+
+  tileInner: {
+    backgroundColor: tokens.tile,
+    borderRadius: 14,
+    paddingVertical: 20,
+    alignItems: "center",
+    gap: 8,
+>>>>>>> Stashed changes
   },
 
   tileText: {
@@ -444,34 +647,63 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  visionWrapper: {
+    backgroundColor: tokens.card,
+    borderRadius: 16,
+    padding: 12,
+  },
+
+  visionActive: {
+    borderWidth: 1,
+    borderColor: tokens.gold,
+  },
+
   visionRow: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   visionTitle: {
     color: tokens.text,
+<<<<<<< Updated upstream
     fontSize: 15,
     fontWeight: "900",
     letterSpacing: 0.5,
+=======
+    fontWeight: "900",
+>>>>>>> Stashed changes
   },
 
-  visionToggle: {
+  visionStatus: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
   },
 
-  visionToggleText: {
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  liveDot: {
+    backgroundColor: tokens.green,
+  },
+
+  offDot: {
+    backgroundColor: tokens.muted,
+  },
+
+  statusText: {
     color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   visionCard: {
+<<<<<<< Updated upstream
     width: "100%",
     flex: 1,
     backgroundColor: tokens.tile,
@@ -490,15 +722,24 @@ const styles = StyleSheet.create({
 
   visionCardDisabled: {
     opacity: 0.5,
+=======
+    height: 260,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: tokens.tile,
+>>>>>>> Stashed changes
   },
 
   visionInner: {
     flex: 1,
+<<<<<<< Updated upstream
     borderWidth: 2,
     borderColor: tokens.gold,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#0a121a",
+=======
+>>>>>>> Stashed changes
   },
 
   previewPlaceholder: {
@@ -506,24 +747,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
 
   previewText: {
     color: tokens.text,
+<<<<<<< Updated upstream
     fontSize: 15,
+=======
+>>>>>>> Stashed changes
     fontWeight: "900",
     textAlign: "center",
-    letterSpacing: 0.6,
   },
 
   previewSubtext: {
     color: tokens.muted,
     fontSize: 12,
-    fontWeight: "700",
     textAlign: "center",
-    marginTop: 4,
   },
+<<<<<<< Updated upstream
 
   statusCard: {
     width: "100%",
@@ -566,4 +808,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+=======
+>>>>>>> Stashed changes
 });
