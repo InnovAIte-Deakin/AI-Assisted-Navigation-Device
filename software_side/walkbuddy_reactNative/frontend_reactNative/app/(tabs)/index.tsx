@@ -9,6 +9,7 @@ import {
   Switch,
   useWindowDimensions,
   Animated,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -95,21 +96,25 @@ export default function HomePage() {
           showLocation
         />
 
-        <View style={styles.mainArea}>
+        <ScrollView
+          style={styles.mainArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.statusCard}>
+            <Text style={styles.statusTitle}>NAVIGATION STATUS</Text>
 
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>NAVIGATION STATUS</Text>
+            <Text style={styles.statusText}>Status: Ready</Text>
+            <Text style={styles.statusSub}>Next: Awaiting input</Text>
 
-              <Text style={styles.statusText}>Status: Ready</Text>
-              <Text style={styles.statusSub}>Next: Awaiting input</Text>
+            <Pressable style={styles.startButton}>
+              <Text style={styles.startButtonText}>Start Navigation</Text>
+            </Pressable>
+          </View>
 
-              <Pressable style={styles.startButton}>
-                <Text style={styles.startButtonText}>Start Navigation</Text>
-              </Pressable>
-            </View>
+          <BounceButton label="SEARCH" onPress={goToNavigate} search />
 
-            <BounceButton label="SEARCH" onPress={goToNavigate} search />
-
+          {/* ✅ FIXED GRID (2x2 layout) */}
           <View style={styles.grid}>
             <ActionTile
               icon="microphone"
@@ -127,15 +132,11 @@ export default function HomePage() {
               label="EMERGENCY"
               onPress={goToEmergency}
             />
-
-            <View style={styles.centerRow}>
-              <ActionTile
-                icon="file-text"
-                label="TEXT READER"
-                onPress={goToCameraOCR}
-                centered
-              />
-            </View>
+            <ActionTile
+              icon="file-text"
+              label="TEXT READER"
+              onPress={goToCameraOCR}
+            />
           </View>
 
           <View style={styles.visionRow}>
@@ -177,7 +178,7 @@ export default function HomePage() {
               )}
             </View>
           </Pressable>
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -306,12 +307,7 @@ function ActionTile({
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
         >
-          <Animated.View
-            style={[
-              styles.tileInner,
-              { transform: [{ scale }] },
-            ]}
-          >
+          <Animated.View style={[styles.tileInner, { transform: [{ scale }] }]}>
             <Animated.View
               pointerEvents="none"
               style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
@@ -356,6 +352,47 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     paddingTop: 10,
+  },
+
+  scrollContent: {
+    paddingBottom: 120,
+  },
+
+  statusCard: {
+    width: "100%",
+    marginBottom: 18,
+  },
+
+  statusTitle: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+
+  statusText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+
+  statusSub: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  startButton: {
+    marginTop: 4,
+  },
+
+  startButtonText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "800",
   },
 
   searchButton: {
@@ -480,7 +517,7 @@ const styles = StyleSheet.create({
 
   visionCard: {
     width: "100%",
-    flex: 1,
+    minHeight: 220,
     backgroundColor: tokens.tile,
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -500,7 +537,7 @@ const styles = StyleSheet.create({
   },
 
   visionInner: {
-    flex: 1,
+    minHeight: 190,
     borderWidth: 2,
     borderColor: tokens.gold,
     borderRadius: 16,
@@ -509,7 +546,7 @@ const styles = StyleSheet.create({
   },
 
   previewPlaceholder: {
-    flex: 1,
+    minHeight: 190,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
