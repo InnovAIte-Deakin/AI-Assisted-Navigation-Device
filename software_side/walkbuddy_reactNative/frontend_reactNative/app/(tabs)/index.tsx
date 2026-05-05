@@ -9,6 +9,7 @@ import {
   Switch,
   useWindowDimensions,
   Animated,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -98,6 +99,7 @@ export default function HomePage() {
         <View style={styles.mainArea}>
           <BounceButton label="SEARCH" onPress={goToNavigate} search />
 
+          <BounceButton label="SEARCH" onPress={goToNavigate} search />
           <View style={styles.grid}>
             <ActionTile
               icon="microphone"
@@ -115,15 +117,11 @@ export default function HomePage() {
               label="EMERGENCY"
               onPress={goToEmergency}
             />
-
-            <View style={styles.centerRow}>
-              <ActionTile
-                icon="file-text"
-                label="TEXT READER"
-                onPress={goToCameraOCR}
-                centered
-              />
-            </View>
+            <ActionTile
+              icon="file-text"
+              label="TEXT READER"
+              onPress={goToCameraOCR}
+            />
           </View>
 
           <View style={styles.visionRow}>
@@ -165,7 +163,7 @@ export default function HomePage() {
               )}
             </View>
           </Pressable>
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -346,6 +344,47 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 
+  scrollContent: {
+    paddingBottom: 120,
+  },
+
+  statusCard: {
+    width: "100%",
+    marginBottom: 18,
+  },
+
+  statusTitle: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+
+  statusText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+
+  statusSub: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  startButton: {
+    marginTop: 4,
+  },
+
+  startButtonText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
   searchButton: {
     width: "100%",
     backgroundColor: "#12314a",
@@ -468,7 +507,7 @@ const styles = StyleSheet.create({
 
   visionCard: {
     width: "100%",
-    flex: 1,
+    minHeight: 220,
     backgroundColor: tokens.tile,
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -488,7 +527,7 @@ const styles = StyleSheet.create({
   },
 
   visionInner: {
-    flex: 1,
+    minHeight: 190,
     borderWidth: 2,
     borderColor: tokens.gold,
     borderRadius: 16,
@@ -497,7 +536,7 @@ const styles = StyleSheet.create({
   },
 
   previewPlaceholder: {
-    flex: 1,
+    minHeight: 190,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
