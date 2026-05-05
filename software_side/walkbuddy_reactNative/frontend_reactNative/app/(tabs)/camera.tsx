@@ -24,7 +24,7 @@ import {
 
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
-import { API_BASE } from "../../src/config";
+import { API_BASE, API_KEY } from "../../src/config";
 
 const GOLD = "#f9b233";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -374,6 +374,9 @@ export default function CameraAssistScreen() {
 
       const res = await fetch(`${API_BASE}/ocr`, {
         method: "POST",
+        headers: {
+          "X-API-Key": API_KEY,
+        },
         body: formData,
         signal: controller.signal,
       });
@@ -410,7 +413,7 @@ export default function CameraAssistScreen() {
       const timeout = setTimeout(() => controller.abort(), 9000);
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-API-Key": API_KEY},
         body: JSON.stringify({ query: q }),
         signal: controller.signal,
       });
