@@ -18,6 +18,77 @@ router = APIRouter()
 tracer = trace.get_tracer("ai_service")
 
 
+def normalize_vision_events(raw_events):
+    if not isinstance(raw_events, list):
+        return []
+
+    events = []
+    for event in raw_events:
+        if not isinstance(event, dict):
+            continue
+
+        label = event.get("label") or event.get("category")
+        if not label:
+            continue
+
+        try:
+            confidence = float(event.get("confidence", 0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        events.append({
+            "label": str(label),
+            "direction": str(event.get("direction") or "ahead"),
+            "distance_m": event.get("distance_m"),
+            "confidence": confidence,
+        })
+
+    return events
+
+
+def is_current_scene_question(question: str) -> bool:
+    q = question.lower()
+    scene_terms = (
+        "front",
+        "ahead",
+        "around",
+        "near me",
+        "nearby",
+        "surrounding",
+        "surroundings",
+        "see",
+        "seeing",
+        "object",
+        "objects",
+        "obstacle",
+        "obstacles",
+        "danger",
+        "dangerous",
+        "hazard",
+        "hazards",
+    )
+    return any(term in q for term in scene_terms)
+
+
+def current_scene_response(events):
+    if not events:
+        return "I do not detect any clear objects in view right now. Try pointing the camera at the area ahead."
+
+    top_events = sorted(
+        events,
+        key=lambda e: float(e.get("confidence", 0)),
+        reverse=True,
+    )[:3]
+
+    descriptions = []
+    for event in top_events:
+        label = event["label"]
+        direction = event.get("direction") or "ahead"
+        descriptions.append(f"{label} {direction}")
+
+    return "I can see " + ", ".join(descriptions) + "."
+
+
 @router.post("/vision")
 async def vision_endpoint(request: Request, file: UploadFile = File(...)):
     content = await file.read()
@@ -93,17 +164,55 @@ async def ocr_endpoint(request: Request, file: UploadFile = File(...)):
 
 @router.post("/chat")
 async def chat_endpoint(request: Request, query: dict):
+    start_time = time.monotonic()
     user_q = query.get("query", "").strip()
+    request_events = normalize_vision_events(query.get("vision_events"))
+    memory_events = list(state.memory.buffer)
+    events = request_events or memory_events
+    logger.info(
+        "[Chat] query=%r request_events=%d memory_events=%d",
+        user_q,
+        len(request_events),
+        len(memory_events),
+    )
     if not user_q:
-        return {"response": "I didn't hear a question."}
+        response = "I didn't hear a question."
+        logger.info(
+            "[Chat] source=empty duration_ms=%d response=%r",
+            int((time.monotonic() - start_time) * 1000),
+            response,
+        )
+        return {"response": response}
 
-    events = list(state.memory.buffer)
+    if is_current_scene_question(user_q):
+        response = current_scene_response(request_events)
+        logger.info(
+            "[Chat] source=current_scene request_events=%d memory_events=%d duration_ms=%d response=%r",
+            len(request_events),
+            len(memory_events),
+            int((time.monotonic() - start_time) * 1000),
+            response,
+        )
+        return {"response": response}
+
     hazard = safe_or_stop_recommendation(events[-10:])
     if hazard:
+        logger.info(
+            "[Chat] source=safety_gate events=%d duration_ms=%d response=%r",
+            len(events),
+            int((time.monotonic() - start_time) * 1000),
+            hazard,
+        )
         return {"response": hazard}
 
     if not state.llm_brain:
-        return {"response": "Brain offline."}
+        response = "Brain offline."
+        logger.info(
+            "[Chat] source=offline duration_ms=%d response=%r",
+            int((time.monotonic() - start_time) * 1000),
+            response,
+        )
+        return {"response": response}
 
     async with request.app.state.llm_limiter:
         response = await anyio.to_thread.run_sync(
@@ -112,6 +221,12 @@ async def chat_endpoint(request: Request, query: dict):
             user_q,
         )
 
+    logger.info(
+        "[Chat] source=llm events=%d duration_ms=%d response=%r",
+        len(events),
+        int((time.monotonic() - start_time) * 1000),
+        response,
+    )
     return {"response": response}
 
 
