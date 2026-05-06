@@ -9,6 +9,7 @@ import {
   Switch,
   useWindowDimensions,
   Animated,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -44,6 +45,7 @@ export default function HomePage() {
   const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
+  const goToEmergency = () => router.push("/emergency" as any);
   const goToCameraVoice = () => router.push("/camera" as any);
   const goToCameraOCR = () => router.push("/camera" as any);
 
@@ -97,6 +99,7 @@ export default function HomePage() {
         <View style={styles.mainArea}>
           <BounceButton label="SEARCH" onPress={goToNavigate} search />
 
+          <BounceButton label="SEARCH" onPress={goToNavigate} search />
           <View style={styles.grid}>
             <ActionTile
               icon="microphone"
@@ -109,14 +112,16 @@ export default function HomePage() {
               onPress={goToSavedPlaces}
             />
 
-            <View style={styles.centerRow}>
-              <ActionTile
-                icon="file-text"
-                label="TEXT READER"
-                onPress={goToCameraOCR}
-                centered
-              />
-            </View>
+            <ActionTile
+              icon="exclamation-triangle"
+              label="EMERGENCY"
+              onPress={goToEmergency}
+            />
+            <ActionTile
+              icon="file-text"
+              label="TEXT READER"
+              onPress={goToCameraOCR}
+            />
           </View>
 
           <View style={styles.visionRow}>
@@ -158,7 +163,7 @@ export default function HomePage() {
               )}
             </View>
           </Pressable>
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -281,18 +286,18 @@ function ActionTile({
 
   return (
     <View style={[styles.tile, centered && styles.tileCentered]}>
-      <View style={styles.tileOuter}>
-        <Pressable
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <Animated.View
+          style={[
+            styles.tileOuter,
+            { transform: [{ scale }] },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.tileInner,
-              { transform: [{ scale }] },
-            ]}
-          >
+          <View style={styles.tileInner}>
             <Animated.View
               pointerEvents="none"
               style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
@@ -300,13 +305,13 @@ function ActionTile({
             <Icon
               name={icon}
               size={24}
-              color={tokens.gold}
+              color="#071a2a"
               style={styles.tileIcon}
             />
             <Text style={styles.tileText}>{label}</Text>
-          </Animated.View>
-        </Pressable>
-      </View>
+          </View>
+        </Animated.View>
+      </Pressable>
     </View>
   );
 }
@@ -337,6 +342,47 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     paddingTop: 10,
+  },
+
+  scrollContent: {
+    paddingBottom: 120,
+  },
+
+  statusCard: {
+    width: "100%",
+    marginBottom: 18,
+  },
+
+  statusTitle: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+
+  statusText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+
+  statusSub: {
+    color: tokens.muted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+  startButton: {
+    marginTop: 4,
+  },
+
+  startButtonText: {
+    color: tokens.text,
+    fontSize: 13,
+    fontWeight: "800",
   },
 
   searchButton: {
@@ -405,7 +451,7 @@ const styles = StyleSheet.create({
 
   tileInner: {
     width: "100%",
-    backgroundColor: tokens.tileInner,
+    backgroundColor: tokens.gold,
     borderRadius: 20,
     minHeight: 108,
     paddingVertical: 18,
@@ -417,7 +463,7 @@ const styles = StyleSheet.create({
 
   tilePressOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(0,0,0,0.08)",
   },
 
   tileIcon: {
@@ -425,7 +471,7 @@ const styles = StyleSheet.create({
   },
 
   tileText: {
-    color: tokens.text,
+    color: "#071a2a",
     fontSize: 15,
     fontWeight: "800",
     textAlign: "center",
@@ -461,7 +507,7 @@ const styles = StyleSheet.create({
 
   visionCard: {
     width: "100%",
-    flex: 1,
+    minHeight: 220,
     backgroundColor: tokens.tile,
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -481,7 +527,7 @@ const styles = StyleSheet.create({
   },
 
   visionInner: {
-    flex: 1,
+    minHeight: 190,
     borderWidth: 2,
     borderColor: tokens.gold,
     borderRadius: 16,
@@ -490,7 +536,7 @@ const styles = StyleSheet.create({
   },
 
   previewPlaceholder: {
-    flex: 1,
+    minHeight: 190,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

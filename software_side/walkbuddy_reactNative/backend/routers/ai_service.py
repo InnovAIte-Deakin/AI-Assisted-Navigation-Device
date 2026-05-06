@@ -151,6 +151,14 @@ async def ocr_endpoint(request: Request, file: UploadFile = File(...)):
                 temp_path,
             )
 
+        for d in result["detections"]:
+            state.memory.add_event(
+                label=f"text: {d['category']}",
+                direction="ahead",
+                distance_m=None,
+                confidence=d["confidence"],
+            )
+
         texts = [d["category"] for d in result["detections"]]
         return {
             "detections": result["detections"],
@@ -214,12 +222,18 @@ async def chat_endpoint(request: Request, query: dict):
         )
         return {"response": response}
 
+    history = list(state.conversation_history)
+
     async with request.app.state.llm_limiter:
         response = await anyio.to_thread.run_sync(
             state.llm_brain.ask,
             events,
             user_q,
+            history,
         )
+
+    state.conversation_history.append({"role": "user", "content": user_q})
+    state.conversation_history.append({"role": "assistant", "content": response})
 
     logger.info(
         "[Chat] source=llm events=%d duration_ms=%d response=%r",

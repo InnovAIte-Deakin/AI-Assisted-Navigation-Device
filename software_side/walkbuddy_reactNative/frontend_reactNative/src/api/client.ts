@@ -1,5 +1,5 @@
 // frontend_reactNative/src/api/client.ts
-import { API_BASE } from "../config";
+import { API_BASE, API_KEY } from "../config";
 
 export interface DetectionEvent {
   label: string;
@@ -8,11 +8,14 @@ export interface DetectionEvent {
   confidence: number;
 }
 
-export interface SlowLaneResponse {
-  events: DetectionEvent[];
-  answer?: string;
-  safe: boolean;
-  source: "safety_gate" | "slow_lane_llm";
+export interface VisionResponse {
+detections: DetectionEvent[];
+guidance_message: string;
+image_id: string;
+}
+
+export interface ChatResponse {
+response: string;
 }
 
 export async function fetchStatus() {
@@ -26,7 +29,7 @@ export async function fetchStatus() {
   }
 }
 
-export async function detectObject(imageBlob: Blob): Promise<{ events: DetectionEvent[] }> {
+export async function detectObject(imageBlob: Blob): Promise<VisionResponse> {
   const formData = new FormData();
   // React Native's FormData handling needs explicit type for file
   formData.append("file", imageBlob as any, "frame.jpg");
@@ -36,7 +39,7 @@ export async function detectObject(imageBlob: Blob): Promise<{ events: Detection
     body: formData,
     headers: {
       "Accept": "application/json",
-      // Content-Type is set automatically by FormData
+      "X-API-Key": API_KEY,
     },
   });
 
@@ -49,7 +52,7 @@ export async function detectObject(imageBlob: Blob): Promise<{ events: Detection
 export async function askTwoBrain(
   imageBlob: Blob,
   question: string
-): Promise<SlowLaneResponse> {
+): Promise<ChatResponse> {
   const formData = new FormData();
   formData.append("file", imageBlob as any, "frame.jpg");
   formData.append("question", question);
@@ -59,6 +62,7 @@ export async function askTwoBrain(
     body: formData,
     headers: {
       "Accept": "application/json",
+      "X-API-Key": API_KEY,
     },
   });
 

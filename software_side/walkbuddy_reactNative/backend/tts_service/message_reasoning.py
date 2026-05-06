@@ -65,6 +65,7 @@ OBJECT_TYPE_MAP = {
     "books": ObjectType.OBSTACLE,
     "bookshelf": ObjectType.OBSTACLE,
     "whiteboard": ObjectType.OBSTACLE,
+    "person": ObjectType.OBSTACLE, ## A person is treated as obstacle because they can block paths, even though they are not dangerous
     
     # Signs (medium priority)
     "exit": ObjectType.SIGN,
@@ -77,7 +78,6 @@ OBJECT_TYPE_MAP = {
     
     # Safe objects (low priority)
     "book": ObjectType.SAFE,
-    "person": ObjectType.SAFE,
 }
 
 

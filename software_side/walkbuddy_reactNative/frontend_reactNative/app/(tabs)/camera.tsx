@@ -12,7 +12,9 @@ import React, {
 } from "react";
 import {
   Alert,
+  Animated,
   Dimensions,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -22,7 +24,7 @@ import {
 
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
-import { API_BASE } from "../../src/config";
+import { API_BASE, API_KEY } from "../../src/config";
 
 const GOLD = "#f9b233";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -39,6 +41,7 @@ const nextFrameId = () => `f${Date.now()}_${(_frameCounter++) & 0xffff}`;
 
 async function buildImageFormData(photoUri: string) {
   const form = new FormData();
+
   if (Platform.OS === "web") {
     const resp = await fetch(photoUri);
     const blob = await resp.blob();
@@ -46,6 +49,7 @@ async function buildImageFormData(photoUri: string) {
   } else {
     form.append("file", { uri: photoUri, type: "image/jpeg", name: "frame.jpg" } as any);
   }
+
   return form;
 }
 
@@ -380,6 +384,9 @@ export default function CameraAssistScreen() {
 
       const res = await fetch(`${API_BASE}/ocr`, {
         method: "POST",
+        headers: {
+          "X-API-Key": API_KEY,
+        },
         body: formData,
         signal: controller.signal,
       });
@@ -422,7 +429,7 @@ export default function CameraAssistScreen() {
       const timeout = setTimeout(() => controller.abort(), 9000);
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
         body: JSON.stringify({ query: q, vision_events: visionEvents }),
         signal: controller.signal,
       });
@@ -472,7 +479,9 @@ export default function CameraAssistScreen() {
       stopListeningHard();
       return;
     }
+
     setIsVoiceProcessing(true);
+
     try {
       const result = await sttService.stopRecordingNative();
       if (result.error) { Alert.alert("Transcription Error", result.error); return; }
@@ -489,6 +498,7 @@ export default function CameraAssistScreen() {
 
   const micStart = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || isListening) return;
+
     micLockRef.current = true;
     tts.stop(); // interrupt any ongoing guidance speech
     try {
@@ -501,6 +511,7 @@ export default function CameraAssistScreen() {
 
   const micStop = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || !isListening) return;
+
     micLockRef.current = true;
     try { await stopListening(); }
     finally { setTimeout(() => { micLockRef.current = false; }, 120); }
@@ -530,6 +541,7 @@ export default function CameraAssistScreen() {
         <Text style={{ color: "#fff", marginBottom: 12 }}>
           Camera access is required.
         </Text>
+
         <Pressable style={styles.primaryBtn} onPress={requestPermission}>
           <Text style={styles.primaryBtnText}>Grant Permission</Text>
         </Pressable>
@@ -679,6 +691,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
+    marginBottom: 12,
   },
   ocrText: {
     color: "#fff",
@@ -734,15 +747,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#1B263B",
   },
-  primaryBtn: { backgroundColor: GOLD, padding: 12, borderRadius: 12 },
-  primaryBtnText: { color: "#1B263B", fontWeight: "800" },
+
+  primaryBtn: {
+    backgroundColor: GOLD,
+    padding: 12,
+    borderRadius: 12,
+  },
+
+  primaryBtnText: {
+    color: "#1B263B",
+    fontWeight: "800",
+  },
+
   box: {
     position: "absolute",
     borderWidth: 2,
     borderColor: GOLD,
-    borderRadius: 6,
+    borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.15)",
   },
+
   boxLabel: {
     position: "absolute",
     left: 0,
@@ -753,4 +777,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     paddingHorizontal: 2,
   },
+
+
 });
