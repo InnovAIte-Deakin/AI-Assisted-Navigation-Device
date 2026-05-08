@@ -24,7 +24,7 @@ import {
   saveCurrentLocation,
   PlaceItem,
   PlaceKind,
-} from "../lib/placesStore";
+} from "../../src/utils/placesStore";
 
 /* ─── TOKENS (same as index.tsx) ──────────────────────────── */
 
