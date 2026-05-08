@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   },
 
   tileText: {
-    color: tokens.text,
+    color: "#071a2a",
     fontSize: 15,
     fontWeight: "800",
     textAlign: "center",
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
 
   previewPlaceholder: {
-    flex: 1,
+    minHeight: 190,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

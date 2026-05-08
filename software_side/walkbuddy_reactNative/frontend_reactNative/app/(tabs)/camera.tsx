@@ -24,7 +24,7 @@ import {
 
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
-import { API_BASE } from "../../src/config";
+import { API_BASE, API_KEY } from "../../src/config";
 
 const GOLD = "#f9b233";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -68,11 +68,16 @@ export default function CameraAssistScreen() {
   const [isListening, setIsListening] = useState(false);
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
   const isVoiceProcessingRef = useRef(false);
+  const isListeningRef = useRef(false);
   const micLockRef = useRef(false);
 
   useEffect(() => {
     isVoiceProcessingRef.current = isVoiceProcessing;
   }, [isVoiceProcessing]);
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   // ── WebSocket vision streaming ────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
@@ -91,11 +96,16 @@ export default function CameraAssistScreen() {
 
   // ── UI state ────────────────────────────────────────────────────────────
   const [detections, setDetections] = useState<Detection[]>([]);
+  const detectionsRef = useRef<Detection[]>([]);
   const [frameMeta, setFrameMeta] = useState<{ w: number; h: number } | null>(null);
   const [previewLayout, setPreviewLayout] = useState({ w: SCREEN_W, h: SCREEN_H });
   const [ocrResult, setOcrResult] = useState("");
   const [isOcrCapturing, setIsOcrCapturing] = useState(false);
   const ocrDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    detectionsRef.current = detections;
+  }, [detections]);
 
   useEffect(() => {
     return () => {
@@ -188,7 +198,7 @@ export default function CameraAssistScreen() {
           clearFrameWatchdog();
           setDetections(data.detections || []);
 
-          if (data.guidance_message && !isVoiceProcessingRef.current) {
+          if (data.guidance_message && !isVoiceProcessingRef.current && !isListeningRef.current) {
             tts.speakAsync(data.guidance_message, riskLevelFromString(data.risk_level));
           }
 
@@ -374,6 +384,9 @@ export default function CameraAssistScreen() {
 
       const res = await fetch(`${API_BASE}/ocr`, {
         method: "POST",
+        headers: {
+          "X-API-Key": API_KEY,
+        },
         body: formData,
         signal: controller.signal,
       });
@@ -406,18 +419,24 @@ export default function CameraAssistScreen() {
     if (!q) return;
     setIsVoiceProcessing(true);
     try {
+      const visionEvents = detectionsRef.current.map((d) => ({
+        label: d.category,
+        direction: d.direction || "ahead",
+        distance_m: null,
+        confidence: d.confidence,
+      }));
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 9000);
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q }),
+        headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+        body: JSON.stringify({ query: q, vision_events: visionEvents }),
         signal: controller.signal,
       });
       clearTimeout(timeout);
       if (!res.ok) throw new Error(`Chat ${res.status}`);
       const data = await res.json();
-      tts.speakAsync(data.response || "I didn't catch that.", RiskLevel.LOW);
+      await tts.speak(data.response || "I didn't catch that.", RiskLevel.LOW);
     } catch (err: any) {
       if (err.name !== "AbortError") Alert.alert("Query Error", err.message);
     } finally {

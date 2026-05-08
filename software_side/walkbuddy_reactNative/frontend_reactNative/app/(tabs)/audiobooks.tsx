@@ -1128,39 +1128,10 @@ export default function AudiobooksScreen() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       {/* Header and Search - Fixed at top */}
       <View style={styles.fixedHeader}>
-        <View style={styles.headerRow}>
-          <Pressable
-            onPress={goHomeIcon}
-            accessibilityRole="button"
-            accessibilityLabel="Go to Home"
-            style={styles.iconBtn}
-          >
-            <Ionicons name="home-outline" size={22} color="#F9A826" />
-          </Pressable>
-          <Text accessibilityRole="header" style={styles.headerText}>
-            AUDIOBOOKS
-          </Text>
-          <View style={styles.headerRightButtons}>
-            <Pressable
-              onPress={() => setShowMenu(!showMenu)}
-              style={styles.iconBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Menu"
-            >
-              <Ionicons name="ellipsis-vertical" size={24} color="#FFF" />
-            </Pressable>
-            <Pressable
-              onPress={() => setShowUserGuide(true)}
-              style={styles.iconBtn}
-              accessibilityRole="button"
-              accessibilityLabel="User Guide and Settings"
-            >
-              <Ionicons
-                name="information-circle-outline"
-                size={24}
-                color="#F9A826"
-              />
-            </Pressable>
+        <View style={styles.headerWrapper}>
+          <View style={styles.headerPill}>
+            <Text style={styles.headerSubtitle}>Camera</Text>
+            <Text style={styles.headerMain}>AUDIOBOOKS</Text>
           </View>
         </View>
 
@@ -1336,7 +1307,7 @@ export default function AudiobooksScreen() {
           accessibilityRole="button"
           accessibilityLabel="Search audiobooks"
         >
-          <Ionicons name="search" size={20} color="#FFF" />
+          <Ionicons name="search" size={20} color="#17243A" />
           <Text style={styles.searchButtonText}>Search Audiobooks</Text>
         </Pressable>
       </View>
@@ -1420,61 +1391,135 @@ export default function AudiobooksScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#1B263B",
+    backgroundColor: "#17243A",
   },
-  headerRow: {
-    flexDirection: "row",
+
+  headerWrapper: {
+  paddingHorizontal: 16,
+  paddingTop: 10,
+  paddingBottom: 12,
+  backgroundColor: "#17243A",
+},
+
+  headerPill: {
+    backgroundColor: "#1B3A5B",
+    borderRadius: 22,
+    paddingVertical: 14,
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 10,
-    borderBottomWidth: 1.25,
+    justifyContent: "center",
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  headerSubtitle: {
+    color: "#C7D2E0",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  headerMain: {
+    color: "#F9A826",
+    fontSize: 22,
+    fontWeight: "900",
+    marginTop: 2,
+    letterSpacing: 1,
+  },
+
+  fixedHeader: {
+    backgroundColor: "#17243A",
+    zIndex: 10,
+    position: "relative",
+  },
+
+  headerContainer: {
+    backgroundColor: "#1B2A44",
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderBottomWidth: 1.2,
     borderBottomColor: "#F9A826",
   },
+
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+
+  headerTitle: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  headerIcon: {
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   iconBtn: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
   },
+
   headerRightButtons: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
+
   headerText: {
     flex: 1,
-    color: "#ffffffff",
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: 1.1,
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: 1.2,
     textAlign: "center",
   },
+
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 12,
-    marginBottom: 10,
+    marginTop: 16,
+    marginBottom: 12,
     marginHorizontal: 16,
-    paddingHorizontal: 12,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1.25,
+    paddingHorizontal: 14,
+    height: 50,
+    borderRadius: 18,
+    borderWidth: 1,
     borderColor: "#2A2A2A",
-    backgroundColor: "#141414",
+    backgroundColor: "#111111",
   },
+
   searchInput: {
     flex: 1,
     color: "#EEE",
     fontSize: 15,
     marginRight: 4,
   },
+
   micButtonContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginRight: 4,
   },
+
   micButton: {
     padding: 6,
     borderRadius: 20,
@@ -1482,33 +1527,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   micButtonActive: {
     backgroundColor: "#FF4444",
     borderRadius: 20,
   },
+
   listeningText: {
     fontSize: 10,
     color: "#FF4444",
     marginLeft: 4,
     fontWeight: "500",
   },
+
   searchButton: {
     padding: 4,
     marginLeft: 4,
   },
+
   errorContainer: {
     marginHorizontal: 16,
     marginTop: 8,
     padding: 12,
     backgroundColor: "#3A1F1F",
-    borderRadius: 8,
+    borderRadius: 12,
     borderLeftWidth: 4,
     borderLeftColor: "#FF6B6B",
   },
+
   errorText: {
     color: "#FF6B6B",
     fontSize: 14,
   },
+
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1517,50 +1568,104 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 12,
   },
+
   loadingText: {
     color: "#F9A826",
     fontSize: 14,
     marginLeft: 8,
   },
+
+  searchButtonContainer: {
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: "#17243A",
+  },
+
+  searchButtonMain: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#B98325",
+    paddingHorizontal: 28,
+    paddingVertical: 15,
+    borderRadius: 30,
+    gap: 8,
+    minWidth: 240,
+    shadowColor: "#F9A826",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+
+  searchButtonDisabled: {
+    opacity: 0.6,
+  },
+
+  searchButtonText: {
+    color: "#17243A",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  popularHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+
+  popularHeaderText: {
+    color: "#F9A826",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+
   bookCard: {
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 16,
     marginTop: 12,
-    padding: 12,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#22314D",
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: "rgba(249, 168, 38, 0.25)",
   },
+
   coverImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    backgroundColor: "#1A1A1A",
+    width: 62,
+    height: 62,
+    borderRadius: 12,
+    backgroundColor: "#111111",
   },
+
   coverPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    backgroundColor: "#1A1A1A",
+    width: 62,
+    height: 62,
+    borderRadius: 12,
+    backgroundColor: "#111111",
     alignItems: "center",
     justifyContent: "center",
   },
+
   textCover: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    backgroundColor: "#2A2A2A",
+    width: 62,
+    height: 62,
+    borderRadius: 12,
+    backgroundColor: "#1B2A44",
     alignItems: "center",
     justifyContent: "center",
     padding: 4,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: "rgba(249, 168, 38, 0.25)",
   },
+
   textCoverIcon: {
     marginBottom: 2,
   },
+
   textCoverTitle: {
     color: "#FFF",
     fontSize: 8,
@@ -1568,123 +1673,90 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 10,
   },
+
   textCoverAuthor: {
     color: "#AAA",
     fontSize: 6,
     textAlign: "center",
     marginTop: 1,
   },
+
   bookInfo: {
     flex: 1,
     marginLeft: 12,
     marginRight: 8,
   },
+
   bookActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+
   actionButton: {
     padding: 4,
   },
+
   bookTitle: {
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 4,
   },
+
   bookAuthor: {
-    color: "#AAA",
+    color: "#C7C7C7",
     fontSize: 14,
     marginBottom: 4,
   },
+
   bookMeta: {
     flexDirection: "row",
     gap: 12,
   },
+
   bookDuration: {
-    color: "#888",
+    color: "#A8A8A8",
     fontSize: 12,
   },
+
   bookLanguage: {
-    color: "#888",
+    color: "#A8A8A8",
     fontSize: 12,
   },
+
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingVertical: 90,
     paddingHorizontal: 32,
   },
+
   emptyText: {
-    color: "#888",
+    color: "#A8A8A8",
     fontSize: 16,
     textAlign: "center",
     marginTop: 16,
   },
-  searchButtonContainer: {
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#1B263B",
-  },
-  searchButtonMain: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F9A826",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-    gap: 8,
-    minWidth: 200,
-    shadowColor: "#F9A826",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  searchButtonDisabled: {
-    opacity: 0.6,
-  },
-  searchButtonText: {
-    color: "#1B263B",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  popularHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  popularHeaderText: {
-    color: "#F9A826",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  fixedHeader: {
-    backgroundColor: "#1B263B",
-    zIndex: 10,
-    position: "relative",
-  },
+
   dropdownMenu: {
     position: "absolute",
-    top: 60,
+    top: 62,
     right: 16,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 12,
+    backgroundColor: "#22314D",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
+    borderColor: "rgba(249, 168, 38, 0.3)",
     minWidth: 200,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     elevation: 8,
     overflow: "hidden",
     zIndex: 1000,
   },
+
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1692,15 +1764,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#3A3A3A",
+    borderBottomColor: "rgba(255,255,255,0.08)",
   },
+
   menuItemLast: {
     borderBottomWidth: 0,
   },
+
   menuItemText: {
     color: "#FFF",
     fontSize: 15,
-    fontWeight: "500",
+    fontWeight: "600",
     flex: 1,
   },
 });
