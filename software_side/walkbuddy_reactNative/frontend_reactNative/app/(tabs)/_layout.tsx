@@ -12,6 +12,7 @@ export default function TabLayout() {
       <Tabs.Screen name="exterior" options={{ title: "Exterior" }} />
       <Tabs.Screen name="camera" options={{ title: "Camera" }} />
       <Tabs.Screen name="places" options={{ title: "Places" }} />
+      <Tabs.Screen name="favourites" options={{ title: "Favourites" }} />
     </Tabs>
   );
 }

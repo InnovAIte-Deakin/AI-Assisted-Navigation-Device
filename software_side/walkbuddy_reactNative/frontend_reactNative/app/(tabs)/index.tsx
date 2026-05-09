@@ -1,14 +1,15 @@
-// app/(tabs)/home.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+// app/(tabs)/index.tsx
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import {
+  Alert,
+  Platform,
   StyleSheet,
   Text,
   View,
   Pressable,
   Switch,
   useWindowDimensions,
-  Animated,
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -42,12 +43,24 @@ export default function HomePage() {
     return Math.min(max, Math.max(320, width - padding * 2));
   }, [width]);
 
-  const goToAccount = () => router.push("/profile");
   const goToNavigate = () => router.push("/search" as any);
   const goToSavedPlaces = () => router.push("/places");
-  const goToEmergency = () => router.push("/emergency" as any);
-  const goToCameraVoice = () => router.push("/camera" as any);
-  const goToCameraOCR = () => router.push("/camera" as any);
+  const goToFavourites = () => router.push("/favourites" as any);
+  const goToProfile = () => router.push("/profile");
+
+  const goToCameraVoice = () =>
+    router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
+
+  const goToCameraOCR = () =>
+    router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
+
+  const goToScreenReader = () => {
+    const title = "Coming soon";
+    const msg = "Screen Reader is not implemented yet.";
+    Platform.OS === "web"
+      ? (globalThis as any).alert?.(`${title}\n\n${msg}`)
+      : Alert.alert(title, msg);
+  };
 
   useEffect(() => {
     if (!visionEnabled) {
@@ -69,261 +82,171 @@ export default function HomePage() {
     return () => clearTimeout(t);
   }, [visionPreviewOn]);
 
-  const visionUrl = useMemo(() => {
-    return `${API_BASE}/vision/?v=${rev}`;
-  }, [rev]);
+  const visionUrl = `${API_BASE}/vision/?v=${rev}`;
 
   const toggleVisionPreview = () => {
     if (!visionEnabled) return;
     setVisionPreviewOn((prev) => !prev);
   };
 
-  const visionHintText = useMemo(() => {
-    if (!visionEnabled) return "Vision disabled";
-    return visionPreviewOn
-      ? "Tap to turn preview off"
-      : "Tap to turn preview on";
-  }, [visionEnabled, visionPreviewOn]);
-
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={[styles.content, { width: contentWidth }]}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { width: contentWidth }]}
+        showsVerticalScrollIndicator={false}
+      >
         <HomeHeader
           greeting={`Hi ${displayName}`}
           appTitle="WalkBuddy"
-          onPressProfile={goToAccount}
           showDivider
           showLocation
         />
 
-        <View style={styles.mainArea}>
-          <BounceButton label="SEARCH" onPress={goToNavigate} search />
+        {/* LOCATION */}
+        <View style={styles.locationCard}>
+          <Icon name="map-marker" size={16} color={tokens.muted} />
+          <Text style={styles.locationText}>Finding location...</Text>
+        </View>
 
-          <BounceButton label="SEARCH" onPress={goToNavigate} search />
+        {/* PRIMARY ACTION */}
+        <Pressable
+          onPress={goToNavigate}
+          android_ripple={{ color: "#f2a90022" }}
+          style={({ pressed }) => [
+            styles.primaryButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Icon name="map-marker" size={18} color={tokens.bg} />
+          <Text style={styles.primaryText}>START NAVIGATION</Text>
+        </Pressable>
+
+        {/* SAVED & FAVOURITES */}
+        <View style={styles.grid}>
+          <ActionTile
+            icon="bookmark"
+            label="SAVED PLACES"
+            onPress={goToSavedPlaces}
+          />
+          <ActionTile
+            icon="heart"
+            label="FAVOURITES"
+            onPress={goToFavourites}
+          />
+        </View>
+
+        {/* ASSISTIVE */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionLabel}>ASSISTIVE TOOLS</Text>
+
           <View style={styles.grid}>
             <ActionTile
-              icon="microphone"
-              label="VOICE ASSIST"
-              onPress={goToCameraVoice}
-            />
-            <ActionTile
-              icon="map-marker"
-              label="PLACES"
-              onPress={goToSavedPlaces}
-            />
-
-            <ActionTile
-              icon="exclamation-triangle"
-              label="EMERGENCY"
-              onPress={goToEmergency}
+              icon="volume-up"
+              label="SCREEN READER"
+              onPress={goToScreenReader}
             />
             <ActionTile
               icon="file-text"
               label="TEXT READER"
               onPress={goToCameraOCR}
             />
+            <ActionTile
+              icon="microphone"
+              label="VOICE ASSIST"
+              onPress={goToCameraVoice}
+            />
           </View>
+        </View>
 
+        {/* VISION */}
+        <View
+          style={[
+            styles.visionWrapper,
+            visionPreviewOn && styles.visionActive,
+          ]}
+        >
           <View style={styles.visionRow}>
             <Text style={styles.visionTitle}>VISION ASSIST</Text>
 
-            <View style={styles.visionToggle}>
-              <Text style={styles.visionToggleText}>
-                {visionEnabled ? "On" : "Off"}
-              </Text>
-              <Switch
-                value={visionEnabled}
-                onValueChange={setVisionEnabled}
-                trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+            <View style={styles.visionStatus}>
+              <View
+                style={[
+                  styles.statusDot,
+                  visionPreviewOn ? styles.liveDot : styles.offDot,
+                ]}
               />
+              <Text style={styles.visionStatusText}>
+                {visionPreviewOn ? "LIVE" : "OFF"}
+              </Text>
             </View>
+
+            <Switch
+              value={visionEnabled}
+              onValueChange={setVisionEnabled}
+              trackColor={{ false: "#23384d", true: "#2d4b66" }}
+              thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+            />
           </View>
 
           <Pressable
-            style={[
-              styles.visionCard,
-              !visionEnabled && styles.visionCardDisabled,
-            ]}
             onPress={toggleVisionPreview}
+            style={({ pressed }) => [
+              styles.visionCard,
+              pressed && styles.pressed,
+            ]}
           >
             <View style={styles.visionInner}>
               {visionEnabled && visionPreviewOn ? (
                 <ModelWebView url={visionUrl} loading={loading} />
               ) : (
                 <View style={styles.previewPlaceholder}>
-                  <Icon
-                    name={visionEnabled ? "eye" : "ban"}
-                    size={30}
-                    color={tokens.gold}
-                  />
-                  <Text style={styles.previewText}>VISION PREVIEW</Text>
-                  <Text style={styles.previewSubtext}>{visionHintText}</Text>
+                  <Icon name="eye" size={28} color={tokens.muted} />
+                  <Text style={styles.previewText}>
+                    {visionEnabled ? "Tap to start camera" : "Vision disabled"}
+                  </Text>
+                  <Text style={styles.previewSubtext}>
+                    Starting camera gives live surroundings
+                  </Text>
                 </View>
               )}
             </View>
           </Pressable>
-        </ScrollView>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-function BounceButton({
-  label,
-  onPress,
-  search = false,
-}: {
-  label: string;
-  onPress: () => void;
-  search?: boolean;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
+/* COMPONENT */
 
-  const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 0.965,
-        useNativeDriver: true,
-        speed: 28,
-        bounciness: 6,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 22,
-        bounciness: 10,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
+function ActionTile({ icon, label, onPress }: any) {
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Animated.View
-        style={[
-          search ? styles.searchButton : styles.tileInner,
-          { transform: [{ scale }] },
-        ]}
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            search ? styles.searchPressOverlay : styles.tilePressOverlay,
-            { opacity: overlayOpacity },
-          ]}
-        />
-        <Text style={search ? styles.searchText : styles.tileText}>{label}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-function ActionTile({
-  icon,
-  label,
-  onPress,
-  centered = false,
-}: {
-  icon: string;
-  label: string;
-  onPress: () => void;
-  centered?: boolean;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-
-  const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 0.96,
-        useNativeDriver: true,
-        speed: 28,
-        bounciness: 6,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 22,
-        bounciness: 10,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  return (
-    <View style={[styles.tile, centered && styles.tileCentered]}>
+    <View style={styles.tile}>
       <Pressable
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        android_ripple={{ color: "#f2a90022" }}
+        style={({ pressed }) => [styles.tileInner, pressed && styles.pressed]}
       >
-        <Animated.View
-          style={[
-            styles.tileOuter,
-            { transform: [{ scale }] },
-          ]}
-        >
-          <View style={styles.tileInner}>
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
-            />
-            <Icon
-              name={icon}
-              size={24}
-              color="#071a2a"
-              style={styles.tileIcon}
-            />
-            <Text style={styles.tileText}>{label}</Text>
-          </View>
-        </Animated.View>
+        <Icon name={icon} size={22} color={tokens.text} />
+        <Text style={styles.tileText}>{label}</Text>
       </Pressable>
     </View>
   );
 }
 
+/* TOKENS */
+
 const tokens = {
   bg: "#071a2a",
   tile: "#0b0f14",
-  tileInner: "#08131f",
+  card: "#0d141c",
   text: "#e8eef6",
   muted: "#b8c6d4",
   gold: "#f2a900",
+  green: "#2ecc71",
 };
+
+/* STYLES */
 
 const styles = StyleSheet.create({
   screen: {
@@ -333,141 +256,76 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flex: 1,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    gap: 18,
+    paddingBottom: 40,
   },
 
-  mainArea: {
-    flex: 1,
-    width: "100%",
-    paddingTop: 10,
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
 
-  scrollContent: {
-    paddingBottom: 120,
+  locationCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: tokens.tile,
+    borderRadius: 12,
+    padding: 14,
   },
 
-  statusCard: {
-    width: "100%",
-    marginBottom: 18,
-  },
-
-  statusTitle: {
+  locationText: {
     color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    fontWeight: "600",
   },
 
-  statusText: {
-    color: tokens.text,
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-
-  statusSub: {
-    color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-
-  startButton: {
-    marginTop: 4,
-  },
-
-  startButtonText: {
-    color: tokens.text,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
-  searchButton: {
-    width: "100%",
-    backgroundColor: "#12314a",
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 20,
-    paddingVertical: 20,
+  primaryButton: {
+    flexDirection: "row",
+    gap: 10,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
-    overflow: "hidden",
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 4,
+    backgroundColor: tokens.gold,
+    borderRadius: 14,
+    paddingVertical: 16,
   },
 
-  searchPressOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.10)",
-  },
-
-  searchText: {
-    color: tokens.text,
-    fontSize: 18,
+  primaryText: {
+    color: tokens.bg,
+    fontSize: 15,
     fontWeight: "900",
-    letterSpacing: 0.8,
+  },
+
+  sectionCard: {
+    backgroundColor: tokens.card,
+    borderRadius: 16,
+    padding: 12,
+  },
+
+  sectionLabel: {
+    color: tokens.muted,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+    marginBottom: 6,
   },
 
   grid: {
-    width: "100%",
     flexDirection: "row",
     flexWrap: "wrap",
-    marginBottom: 22,
   },
 
   tile: {
     width: "50%",
-    padding: 10,
-  },
-
-  tileCentered: {
-    width: "50%",
-  },
-
-  centerRow: {
-    width: "100%",
-    alignItems: "center",
-  },
-
-  tileOuter: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 22,
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 4,
+    padding: 8,
   },
 
   tileInner: {
-    width: "100%",
-    backgroundColor: tokens.gold,
-    borderRadius: 20,
-    minHeight: 108,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    backgroundColor: tokens.tile,
+    borderRadius: 14,
+    paddingVertical: 20,
     alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-
-  tilePressOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.08)",
-  },
-
-  tileIcon: {
-    marginBottom: 10,
+    gap: 8,
   },
 
   tileText: {
@@ -478,12 +336,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  visionWrapper: {
+    backgroundColor: tokens.card,
+    borderRadius: 16,
+    padding: 12,
+  },
+
+  visionActive: {
+    borderWidth: 1,
+    borderColor: tokens.gold,
+  },
+
   visionRow: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
   visionTitle: {
@@ -493,46 +361,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  visionToggle: {
+  visionStatus: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
   },
 
-  visionToggleText: {
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  liveDot: {
+    backgroundColor: tokens.green,
+  },
+
+  offDot: {
+    backgroundColor: tokens.muted,
+  },
+
+  visionStatusText: {
     color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
   },
 
   visionCard: {
-    width: "100%",
-    minHeight: 220,
+    height: 260,
+    borderRadius: 14,
+    overflow: "hidden",
     backgroundColor: tokens.tile,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 6,
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-
-  visionCardDisabled: {
-    opacity: 0.5,
   },
 
   visionInner: {
-    minHeight: 190,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#0a121a",
+    flex: 1,
   },
 
   previewPlaceholder: {
@@ -540,22 +403,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
 
   previewText: {
     color: tokens.text,
-    fontSize: 15,
     fontWeight: "900",
     textAlign: "center",
-    letterSpacing: 0.6,
   },
 
   previewSubtext: {
     color: tokens.muted,
     fontSize: 12,
-    fontWeight: "700",
     textAlign: "center",
-    marginTop: 4,
   },
 });
