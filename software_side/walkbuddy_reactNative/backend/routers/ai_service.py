@@ -222,7 +222,8 @@ async def chat_endpoint(request: Request, query: dict):
         )
         return {"response": response}
 
-    history = list(state.conversation_history)
+    session_id = query.get("session_id", "default")
+    history = list(state.conversation_histories[session_id])
 
     async with request.app.state.llm_limiter:
         response = await anyio.to_thread.run_sync(
@@ -232,8 +233,8 @@ async def chat_endpoint(request: Request, query: dict):
             history,
         )
 
-    state.conversation_history.append({"role": "user", "content": user_q})
-    state.conversation_history.append({"role": "assistant", "content": response})
+    state.conversation_histories[session_id].append({"role": "user", "content": user_q})
+    state.conversation_histories[session_id].append({"role": "assistant", "content": response})
 
     logger.info(
         "[Chat] source=llm events=%d duration_ms=%d response=%r",
@@ -242,6 +243,14 @@ async def chat_endpoint(request: Request, query: dict):
         response,
     )
     return {"response": response}
+
+
+@router.post("/chat/clear")
+async def clear_chat_history(query: dict):
+    session_id = query.get("session_id", "default")
+    if session_id in state.conversation_histories:
+        state.conversation_histories[session_id].clear()
+    return {"cleared": True, "session_id": session_id}
 
 
 @router.websocket("/ws/vision")
