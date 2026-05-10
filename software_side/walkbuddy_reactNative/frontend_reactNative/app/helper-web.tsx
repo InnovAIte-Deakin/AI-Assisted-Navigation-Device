@@ -25,6 +25,9 @@ import {
 import { API_BASE } from "@/src/config";
 import { Ionicons } from "@expo/vector-icons";
 
+const apiUrl = (path: string) =>
+  `${API_BASE.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+
 // Connection state machine
 type ConnectionState =
   | "idle"
@@ -218,12 +221,16 @@ export default function HelperWebScreen() {
 
     try {
       console.log("[HelperWeb] 🗑️ Deleting account...");
-      const response = await fetch(`${API_BASE}helpers/delete-account`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
+      if (!helperData?.id) {
+        throw new Error("Helper account details are missing.");
+      }
+
+      const response = await fetch(
+        apiUrl(`helpers/${helperData.id}?token=${encodeURIComponent(authToken)}`),
+        {
+          method: "DELETE",
+        }
+      );
 
       console.log("[HelperWeb] Delete account response:", response.status);
 
