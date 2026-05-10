@@ -1,5 +1,5 @@
 from collections import deque, defaultdict
-from typing import Dict, DefaultDict, Optional
+from typing import Dict, DefaultDict
 from slow_lane.memorybuffer import NavigationMemory
 
 # --- 1. Navigation & AI State ---
