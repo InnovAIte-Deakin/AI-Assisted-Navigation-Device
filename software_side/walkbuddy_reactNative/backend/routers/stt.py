@@ -1,35 +1,24 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from faster_whisper import WhisperModel
-from pathlib import Path
-import tempfile
-import os
+from fastapi import APIRouter, File, UploadFile, HTTPException
+import tempfile, os, anyio
 
-router = APIRouter(prefix = "/stt", tags = ["stt"])
-
-model = WhisperModel("base", compute_type = "int8")
-
+router = APIRouter(prefix="/stt")
 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
-    if not file:
-        raise HTTPException(status_code = 400, detail = "No file uploaded")
-
-    suffix = Path(file.filename or "recording.m4a").suffix or ".m4a"
-    temp_path = None
-
+async def transcribe(file: UploadFile = File(...)):
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix = suffix) as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_path = temp_file.name
-
-        segments, _ = model.transcribe(temp_path)
-        transcript = " ".join(segment.text for segment in segments).strip()
-
-        return {"transcript": transcript}
-
-    except Exception as e:
-        raise HTTPException(status_code = 500, detail = str(e))
+        from faster_whisper import WhisperModel
+    except ImportError:
+        raise HTTPException(503, "Run: pip install faster-whisper")
+    suffix = os.path.splitext(file.filename or "audio.m4a")[1]
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    with os.fdopen(fd, "wb") as f:
+        f.write(await file.read())
+    try:
+        def _run(p):
+            model = WhisperModel("tiny", device="cpu", compute_type="int8")
+            segs, _ = model.transcribe(p, beam_size=1)
+            return " ".join(s.text.strip() for s in segs)
+        transcript = await anyio.to_thread.run_sync(lambda: _run(path))
     finally:
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
+        os.unlink(path)
+    return {"transcript": transcript}
