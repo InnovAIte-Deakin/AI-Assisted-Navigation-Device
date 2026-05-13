@@ -13,7 +13,10 @@ import Icon from "react-native-vector-icons/FontAwesome";
 
 export default function EmergencyScreen() {
   const isEmergency = false;
+
   const statusColor = isEmergency ? tokens.red : tokens.green;
+  const alertCardBg = isEmergency ? tokens.alertBg : tokens.safeBg;
+  const topBarBg = isEmergency ? tokens.alertSoft : tokens.safeSoft;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -31,15 +34,45 @@ export default function EmergencyScreen() {
         <View style={styles.topDivider} />
 
         <View style={styles.mainArea}>
-          <View style={[styles.topBar, { borderColor: statusColor }]}>
-            <View style={[styles.liveDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.topBarText, { color: statusColor }]}>
-              {isEmergency ? "ALERT ACTIVE" : "NO ALERT"}
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.topBar,
+                {
+                  borderColor: statusColor,
+                  backgroundColor: topBarBg,
+                },
+              ]}
+            >
+              <View style={[styles.liveDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.topBarText, { color: statusColor }]}>
+                {isEmergency ? "ALERT ACTIVE" : "NO ALERT"}
+              </Text>
+            </View>
+
+            <Text style={[styles.lastCheckedText, { color: statusColor }]}>
+              Last checked: Just now
             </Text>
           </View>
 
-          <View style={styles.alertHeader}>
-            <View style={[styles.iconCircle, { borderColor: statusColor }]}>
+          <View
+            style={[
+              styles.alertContainer,
+              {
+                borderColor: statusColor,
+                backgroundColor: alertCardBg,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.iconCircle,
+                {
+                  borderColor: statusColor,
+                  backgroundColor: topBarBg,
+                },
+              ]}
+            >
               <Icon
                 name={isEmergency ? "exclamation-triangle" : "smile-o"}
                 size={46}
@@ -113,6 +146,11 @@ const tokens = {
   gold: "#f2a900",
   red: "#ff3b30",
   green: "#34c759",
+
+  alertBg: "#120d14",
+  alertSoft: "#1b1014",
+  safeBg: "#0b1714",
+  safeSoft: "#102019",
 };
 
 const styles = StyleSheet.create({
@@ -173,16 +211,20 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
+  statusRow: {
+    marginBottom: 18,
+    alignItems: "center",
+  },
+
   topBar: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#151116",
     borderWidth: 1.5,
     borderRadius: 999,
     paddingVertical: 9,
     paddingHorizontal: 14,
-    marginBottom: 34,
+    marginBottom: 8,
   },
 
   liveDot: {
@@ -198,9 +240,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
 
-  alertHeader: {
+  lastCheckedText: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+
+  alertContainer: {
+    width: "100%",
     alignItems: "center",
-    marginBottom: 26,
+    borderWidth: 1.5,
+    borderRadius: 22,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
 
   iconCircle: {
@@ -208,7 +261,6 @@ const styles = StyleSheet.create({
     height: 104,
     borderRadius: 52,
     borderWidth: 2.5,
-    backgroundColor: "#130b0b",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
