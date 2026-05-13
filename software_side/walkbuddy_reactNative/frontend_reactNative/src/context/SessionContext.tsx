@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 
 export type ProfileRecord = {
+  id: string;
   email: string;
   displayName: string;
   photoString: string;
@@ -9,8 +10,7 @@ export type ProfileRecord = {
 
 export type AuthState =
   | { status: "loggedOut" }
-  | { status: "loggedInNoProfile"; email: string }
-  | { status: "loggedInWithProfile"; profile: ProfileRecord };
+  | { status: "loggedInWithProfile"; profile: ProfileRecord; token: string };
 
 type SessionContextValue = {
   auth: AuthState;

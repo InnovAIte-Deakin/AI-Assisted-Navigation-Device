@@ -32,6 +32,8 @@ export default function HomePage() {
     return "there";
   }, [auth]);
 
+  const greeting = `Hi ${displayName}`;
+
   const [visionEnabled, setVisionEnabled] = useState(true);
   const [visionPreviewOn, setVisionPreviewOn] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -96,7 +98,7 @@ export default function HomePage() {
         showsVerticalScrollIndicator={false}
       >
         <HomeHeader
-          greeting={`Hi ${displayName}`}
+          greeting={greeting}
           appTitle="WalkBuddy"
           showDivider
           showLocation

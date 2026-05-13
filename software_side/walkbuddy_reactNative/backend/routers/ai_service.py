@@ -10,7 +10,7 @@ from opentelemetry import trace
 from adapters.vision_adapter import vision_adapter
 from adapters.ocr_adapter import ocr_adapter
 from internal import state
-from tts_service.message_reasoning import process_adapter_output
+from tts_service.message_reasoning import process_adapter_output, calculate_spatial_position
 from slow_lane import safe_or_stop_recommendation
 
 logger = logging.getLogger(__name__)
@@ -91,28 +91,38 @@ def current_scene_response(events):
 
 @router.post("/vision")
 async def vision_endpoint(request: Request, file: UploadFile = File(...)):
+    if not request.app.state.yolo:
+        raise HTTPException(503, "Vision model unavailable")
+
     content = await file.read()
     if not content:
         return {"detections": [], "guidance_message": ""}
 
     temp_path = None
     try:
-        suffix = os.path.splitext(file.filename)[1] or ".jpg"
+        suffix = os.path.splitext(file.filename or "frame.jpg")[1] or ".jpg"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
             f.write(content)
             temp_path = f.name
 
-        async with request.app.state.vision_limiter:
-            result = await anyio.to_thread.run_sync(
-                vision_adapter,
-                request.app.state.yolo,
-                temp_path,
-            )
+        try:
+            async with request.app.state.vision_limiter:
+                result = await anyio.to_thread.run_sync(
+                    vision_adapter,
+                    request.app.state.yolo,
+                    temp_path,
+                )
+        except Exception as e:
+            logger.error(f"Vision adapter error: {e}")
+            raise HTTPException(500, "Vision processing failed")
 
+        # Use real spatial direction from bounding box instead of hardcoding "ahead"
+        image_width = result.get("metadata", {}).get("image_shape", [480, 640])[1]
         for d in result["detections"]:
+            direction = calculate_spatial_position(d["bbox"], image_width)
             state.memory.add_event(
                 label=d["category"],
-                direction=d.get("direction", "ahead"),
+                direction=direction,
                 distance_m=None,
                 confidence=d["confidence"],
             )
@@ -133,22 +143,38 @@ async def vision_endpoint(request: Request, file: UploadFile = File(...)):
 
 @router.post("/ocr")
 async def ocr_endpoint(request: Request, file: UploadFile = File(...)):
+    if not request.app.state.ocr_reader:
+        raise HTTPException(503, "OCR model unavailable")
+
     content = await file.read()
     if not content:
         return {"detections": [], "guidance_message": "Image error"}
 
     temp_path = None
     try:
-        suffix = os.path.splitext(file.filename)[1] or ".jpg"
+        suffix = os.path.splitext(file.filename or "frame.jpg")[1] or ".jpg"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
             f.write(content)
             temp_path = f.name
 
-        async with request.app.state.ocr_limiter:
-            result = await anyio.to_thread.run_sync(
-                ocr_adapter,
-                request.app.state.ocr_reader,
-                temp_path,
+        try:
+            async with request.app.state.ocr_limiter:
+                result = await anyio.to_thread.run_sync(
+                    ocr_adapter,
+                    request.app.state.ocr_reader,
+                    temp_path,
+                )
+        except Exception as e:
+            logger.error(f"OCR adapter error: {e}")
+            raise HTTPException(500, "OCR processing failed")
+
+        # Store OCR detections to NavigationMemory so the LLM has context
+        for d in result["detections"]:
+            state.memory.add_event(
+                label=f"sign: {d['category']}",
+                direction="ahead",
+                distance_m=None,
+                confidence=d["confidence"],
             )
 
         for d in result["detections"]:

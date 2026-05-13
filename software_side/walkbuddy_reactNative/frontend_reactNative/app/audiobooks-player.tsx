@@ -56,21 +56,12 @@ export default function AudiobookPlayerScreen() {
   const bookId = Array.isArray(params.bookId)
     ? params.bookId[0]
     : params.bookId;
-  const paramTitle = Array.isArray(params.title)
-    ? params.title[0]
-    : params.title;
-  const paramAuthor = Array.isArray(params.author)
-    ? params.author[0]
-    : params.author;
+  const _paramTitle = Array.isArray(params.title) ? params.title[0] : params.title;
+  const _paramAuthor = Array.isArray(params.author) ? params.author[0] : params.author;
+  void _paramTitle; void _paramAuthor;
   const coverUrl = Array.isArray(params.coverUrl)
     ? params.coverUrl[0]
     : params.coverUrl;
-
-  console.log("Player params:", {
-    bookId,
-    title: paramTitle,
-    author: paramAuthor,
-  });
 
   const [bookDetails, setBookDetails] = useState<BookDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,6 +83,12 @@ export default function AudiobookPlayerScreen() {
   );
   const soundRef = useRef<Audio.Sound | null>(null);
   const titleAnnouncedRef = useRef<string | null>(null); // Track which title was already announced
+  // Incremented on every loadAudio call; used to discard stale loads after chapter switches
+  const activeLoadRef = useRef<number>(0);
+  // Web-only: native HTML audio element (bypasses expo-av which is broken on web)
+  const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Web-only: hidden preload element for the next chapter
+  const webPreloadRef = useRef<HTMLAudioElement | null>(null);
 
   // Validate bookId exists
   useEffect(() => {
@@ -105,8 +102,9 @@ export default function AudiobookPlayerScreen() {
     }
   }, [bookId]);
 
-  // Configure audio mode once on mount
+  // Configure audio mode once on mount (native only — expo-av throws on web)
   useEffect(() => {
+    if (Platform.OS === "web") return;
     const configureAudio = async () => {
       try {
         await Audio.setAudioModeAsync({
@@ -119,6 +117,22 @@ export default function AudiobookPlayerScreen() {
       }
     };
     configureAudio();
+  }, []);
+
+  // Web audio cleanup on unmount
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    return () => {
+      if (webAudioRef.current) {
+        webAudioRef.current.pause();
+        webAudioRef.current.src = "";
+        webAudioRef.current = null;
+      }
+      if (webPreloadRef.current) {
+        webPreloadRef.current.src = "";
+        webPreloadRef.current = null;
+      }
+    };
   }, []);
 
   // Load book details when bookId changes
@@ -379,6 +393,9 @@ export default function AudiobookPlayerScreen() {
       return null;
     }
 
+    // Tag this load so we can detect if a newer load supersedes it
+    const loadId = ++activeLoadRef.current;
+
     setIsLoadingAudio(true);
     try {
       // Unload previous sound BEFORE creating new one (prevents multiple sounds)
@@ -441,6 +458,54 @@ export default function AudiobookPlayerScreen() {
       console.log("Attempting to load from:", finalUrl.substring(0, 200));
       console.log("Using proxy:", useProxy);
 
+      // ── Web: use native HTML <audio> instead of expo-av ──────────────────
+      if (Platform.OS === "web") {
+        // If the next chapter was preloaded, swap it in as the main player
+        if (
+          webPreloadRef.current &&
+          webPreloadRef.current.src &&
+          (webPreloadRef.current.src === audioUrl ||
+            webPreloadRef.current.src.endsWith(encodeURIComponent(audioUrl)))
+        ) {
+          if (webAudioRef.current) webAudioRef.current.pause();
+          webAudioRef.current = webPreloadRef.current;
+          webPreloadRef.current = null;
+        } else if (!webAudioRef.current) {
+          webAudioRef.current = document.createElement("audio") as HTMLAudioElement;
+        }
+        const wa = webAudioRef.current;
+        wa.pause();
+
+        // Always proxy on web — archive.org redirects break CORS for direct <audio> src.
+        const proxyUrl = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(audioUrl)}`;
+
+        wa.onerror = () => {
+          const code = wa.error?.code;
+          const msg =
+            code === 4 ? "Audio unavailable — the file may not be accessible."
+            : code === 3 ? "Audio decoding error."
+            : code === 2 ? "Network error loading audio."
+            : "Audio load failed.";
+          console.error("[web audio] error code", code, "src:", wa.src);
+          setPlaybackError(msg);
+          setIsPlaying(false);
+          setIsLoadingAudio(false);
+        };
+
+        // Update duration when metadata arrives
+        wa.onloadedmetadata = () => {
+          if (wa.duration && isFinite(wa.duration)) setDuration(wa.duration * 1000);
+        };
+
+        // Set src and call load() to reset any previous error state
+        wa.src = proxyUrl;
+        wa.load();
+        wa.playbackRate = playbackRate;
+        if (startPosition > 0) wa.currentTime = startPosition;
+        setIsLoadingAudio(false);
+        return null; // web doesn't use expo-av Sound object
+      }
+
       // Try to load the audio
       let newSound: Audio.Sound;
       try {
@@ -467,9 +532,9 @@ export default function AudiobookPlayerScreen() {
                   setIsPlaying(false);
                 }
               }
-            } else if (status.error) {
-              console.error("Audio status error:", status.error);
-              setPlaybackError(`Audio error: ${status.error}`);
+            } else if (!status.isLoaded && (status as any).error) {
+              console.error("Audio status error:", (status as any).error);
+              setPlaybackError(`Audio error: ${(status as any).error}`);
             }
           },
         );
@@ -504,9 +569,9 @@ export default function AudiobookPlayerScreen() {
                       setIsPlaying(false);
                     }
                   }
-                } else if (status.error) {
-                  console.error("Proxy audio error:", status.error);
-                  setPlaybackError(`Audio error: ${status.error}`);
+                } else if (!status.isLoaded && (status as any).error) {
+                  console.error("Proxy audio error:", (status as any).error);
+                  setPlaybackError(`Audio error: ${(status as any).error}`);
                 }
               },
             );
@@ -527,7 +592,7 @@ export default function AudiobookPlayerScreen() {
 
       if (!status.isLoaded) {
         console.error("Sound not loaded after creation:", status);
-        const errorMsg = status.error || "Unknown error";
+        const errorMsg = (status as any).error || "Unknown error";
         setPlaybackError(
           `Failed to load audio: ${errorMsg}. URL: ${finalUrl.substring(0, 100)}...`,
         );
@@ -543,6 +608,12 @@ export default function AudiobookPlayerScreen() {
         status.durationMillis,
         "ms",
       );
+
+      // If a newer chapter load started while we were waiting, discard this one
+      if (activeLoadRef.current !== loadId) {
+        await newSound.unloadAsync().catch(() => {});
+        return null;
+      }
 
       // Set sound state AFTER ensuring it's loaded (prevents cleanup race conditions)
       setSound(newSound);
@@ -615,6 +686,49 @@ export default function AudiobookPlayerScreen() {
   ) => {
     try {
       setPlaybackError(null);
+
+      // ── Web: use HTML audio element ────────────────────────────────────
+      if (Platform.OS === "web") {
+        // loadAudio sets wa.src and wa.onerror — no need to await (non-blocking)
+        await loadAudio(chapterIndex, startPosition);
+        const wa = webAudioRef.current;
+        if (!wa) { setPlaybackError("Could not initialise audio."); return; }
+
+        wa.ontimeupdate = () => {
+          setPosition(wa.currentTime * 1000);
+          if (wa.duration && isFinite(wa.duration)) setDuration(wa.duration * 1000);
+        };
+        wa.onended = () => {
+          if (bookDetails && chapterIndex < bookDetails.chapters.length - 1) {
+            playChapter(chapterIndex + 1, 0);
+          } else {
+            setIsPlaying(false);
+          }
+        };
+
+        try {
+          await wa.play();
+          setIsPlaying(true);
+          setCurrentChapterIndex(chapterIndex);
+          if (bookDetails) addToHistory({ id: bookDetails.id, title: bookDetails.title, author: bookDetails.author, duration: bookDetails.duration, duration_formatted: bookDetails.duration_formatted, language: bookDetails.language, description: bookDetails.description, cover_url: bookDetails.cover_url }).catch(() => {});
+          // Preload next chapter in the background so switching is instant
+          if (bookDetails && chapterIndex + 1 < bookDetails.chapters.length) {
+            const nextUrl = bookDetails.chapters[chapterIndex + 1].audio_url;
+            if (nextUrl) {
+              if (!webPreloadRef.current) {
+                webPreloadRef.current = document.createElement("audio") as HTMLAudioElement;
+                webPreloadRef.current.preload = "auto";
+              }
+              webPreloadRef.current.src = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(nextUrl)}`;
+              webPreloadRef.current.load();
+            }
+          }
+        } catch (e: any) {
+          setPlaybackError(`Playback blocked by browser: ${e.message}. Click play again to resume.`);
+          setIsPlaying(false);
+        }
+        return;
+      }
 
       // Atomic chapter switch: unload previous, load new, play immediately
       // loadAudio handles setIsLoadingAudio state
@@ -706,6 +820,39 @@ export default function AudiobookPlayerScreen() {
   };
 
   const togglePlayPause = async () => {
+    // ── Web ──────────────────────────────────────────────────────────────
+    if (Platform.OS === "web") {
+      const wa = webAudioRef.current;
+      // No element or src yet — kick off first load
+      if (!wa || !wa.src) {
+        if (bookDetails && bookDetails.chapters.length > 0) {
+          await playChapter(currentChapterIndex, position / 1000);
+        }
+        return;
+      }
+      // Element is in error state — reload from scratch
+      if (wa.error) {
+        if (bookDetails && bookDetails.chapters.length > 0) {
+          await playChapter(currentChapterIndex, position / 1000);
+        }
+        return;
+      }
+      if (isPlaying) {
+        wa.pause();
+        setIsPlaying(false);
+      } else {
+        try {
+          await wa.play();
+          setIsPlaying(true);
+          setPlaybackError(null);
+        } catch (e: any) {
+          console.error("[web audio] play() failed:", e.message);
+          setPlaybackError(`Playback failed: ${e.message}`);
+        }
+      }
+      return;
+    }
+
     if (!sound) {
       if (bookDetails && bookDetails.chapters.length > 0) {
         await playChapter(currentChapterIndex, position / 1000);
@@ -799,6 +946,13 @@ export default function AudiobookPlayerScreen() {
   };
 
   const seekTo = async (value: number) => {
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) {
+        webAudioRef.current.currentTime = value / 1000;
+        setPosition(value);
+      }
+      return;
+    }
     if (sound) {
       try {
         await sound.setPositionAsync(value);
@@ -812,6 +966,11 @@ export default function AudiobookPlayerScreen() {
 
   const changeSpeed = async (speed: number) => {
     setPlaybackRate(speed);
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) webAudioRef.current.playbackRate = speed;
+      setShowSpeedMenu(false);
+      return;
+    }
     if (sound) {
       try {
         await sound.setRateAsync(speed, true);
@@ -823,13 +982,16 @@ export default function AudiobookPlayerScreen() {
   };
 
   const startPositionUpdates = () => {
+    if (Platform.OS === "web") return; // web uses ontimeupdate event on the HTML audio element
     if (positionUpdateInterval.current) {
       clearInterval(positionUpdateInterval.current);
     }
     positionUpdateInterval.current = setInterval(async () => {
-      if (sound) {
+      // Use soundRef.current (not the closed-over `sound`) so we always get the latest sound
+      const currentSound = soundRef.current;
+      if (currentSound) {
         try {
-          const status = await sound.getStatusAsync();
+          const status = await currentSound.getStatusAsync();
           if (status.isLoaded) {
             setPosition(status.positionMillis || 0);
             await saveProgress(
@@ -889,7 +1051,7 @@ export default function AudiobookPlayerScreen() {
     // Convert http to https for web compatibility
     let url = coverUrl.trim();
     if (url.startsWith("http://")) {
-      url = url.replace("http://", "https://", 1);
+      url = url.replace("http://", "https://");
     }
 
     // If cover failed to load and not already using proxy, use proxy
@@ -1127,7 +1289,19 @@ export default function AudiobookPlayerScreen() {
         <Text style={styles.author}>{bookDetails.author}</Text>
 
         {bookDetails.description && (
-          <Text style={styles.description}>{bookDetails.description}</Text>
+          <Text style={styles.description}>
+            {bookDetails.description
+              .replace(/&lt;br\s*\/?&gt;/gi, "\n")
+              .replace(/&lt;[^&]*&gt;/gi, "")
+              .replace(/<br\s*\/?>/gi, "\n")
+              .replace(/<[^>]+>/g, "")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&amp;/g, "&")
+              .replace(/&nbsp;/g, " ")
+              .replace(/\n{3,}/g, "\n\n")
+              .trim()}
+          </Text>
         )}
 
         <View style={styles.playerContainer}>
@@ -1171,7 +1345,7 @@ export default function AudiobookPlayerScreen() {
               onPress={togglePlayPause}
               style={[
                 styles.playButton,
-                (isLoadingAudio || !sound) && styles.playButtonDisabled,
+                isLoadingAudio && styles.playButtonDisabled,
               ]}
               disabled={isLoadingAudio}
             >

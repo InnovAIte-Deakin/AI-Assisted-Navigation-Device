@@ -33,7 +33,7 @@ function convertManeuverType(orsType: string): ManeuverType {
 // Fetch route from backend API
 export async function fetchRoute(options: RoutingOptions): Promise<Route> {
   try {
-    const response = await fetch(`${API_BASE}routing`, {
+    const response = await fetch(`${API_BASE}/routing`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
