@@ -51,18 +51,22 @@ def ocr_adapter(reader, image_path: str) -> Dict[str, Any]:
 
     detections = []
     for bbox, text, conf in raw:
-        if conf < 0.3:
+        if conf < 0.25:
+            continue
+        text_clean = text.strip()
+        if not text_clean:
             continue
         try:
             detections.append({
-                "category": text.strip(),
+                "category": text_clean,
                 "confidence": round(float(conf), 4),
                 "bbox": _convert_4corners_to_bbox(bbox),
             })
         except Exception:
             pass
 
-    detections.sort(key=lambda x: x["confidence"], reverse=True)
+    # Sort top-to-bottom by vertical position for reading order
+    detections.sort(key=lambda x: x["bbox"]["y_min"])
 
     return {
         "image_id": path.stem,

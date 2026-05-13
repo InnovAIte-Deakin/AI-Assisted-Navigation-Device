@@ -1,23 +1,44 @@
 // app/profile.tsx
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
   View,
   Pressable,
   TextInput,
-  Image,
   useWindowDimensions,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
+import * as AuthSession from "expo-auth-session";
+import Constants from "expo-constants";
+
 import HomeHeader from "../HomeHeader";
-import { useSession, ProfileRecord } from "../../src/context/SessionContext";
+import { useSession } from "../../src/context/SessionContext";
+import { API_BASE } from "@/src/config";
+
+WebBrowser.maybeCompleteAuthSession();
+
+// ─── Fill in your OAuth Client IDs ──────────────────────────────────────────
+// Google: https://console.cloud.google.com  → APIs & Services → Credentials
+const GOOGLE_EXPO_CLIENT_ID = "358598369481-48h64mbe64oaqvnpfaoptrbqrspv7tga.apps.googleusercontent.com";
+const GOOGLE_IOS_CLIENT_ID = "358598369481-48h64mbe64oaqvnpfaoptrbqrspv7tga.apps.googleusercontent.com";
+const GOOGLE_ANDROID_CLIENT_ID = "358598369481-48h64mbe64oaqvnpfaoptrbqrspv7tga.apps.googleusercontent.com";
+// Microsoft: https://portal.azure.com → App registrations
+const MICROSOFT_CLIENT_ID = "4cdcb61f-dbf8-4272-9683-d9ddb14dee04";
+// Redirect URI — must match what's registered in Azure (Mobile and desktop applications platform)
+const EXPO_REDIRECT_URI = "walkbuddy://auth";
+// ─────────────────────────────────────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const tokens = {
   bg: "#0D1B2A",
@@ -27,6 +48,7 @@ const tokens = {
   gold: "#FCA311",
   divider: "rgba(252,163,17,0.35)",
   inputBg: "#0a121a",
+  error: "#FF6B6B",
 };
 
 function CardTitle({ children }: { children: string }) {
@@ -36,18 +58,25 @@ function CardTitle({ children }: { children: string }) {
 function PrimaryButton({
   label,
   onPress,
+  loading,
 }: {
   label: string;
   onPress: () => void;
+  loading?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+      disabled={loading}
+      style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed, loading && styles.disabledBtn]}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Text style={styles.primaryBtnText}>{label}</Text>
+      {loading ? (
+        <ActivityIndicator size="small" color="#111" />
+      ) : (
+        <Text style={styles.primaryBtnText}>{label}</Text>
+      )}
     </Pressable>
   );
 }
@@ -76,11 +105,13 @@ function RowLink({
   label,
   sublabel,
   onPress,
+  destructive,
 }: {
   icon: string;
   label: string;
   sublabel?: string;
   onPress: () => void;
+  destructive?: boolean;
 }) {
   return (
     <Pressable
@@ -91,10 +122,10 @@ function RowLink({
     >
       <View style={styles.rowLeft}>
         <View style={styles.rowIconWrap}>
-          <Icon name={icon} size={18} color={tokens.gold} />
+          <Icon name={icon} size={18} color={destructive ? tokens.error : tokens.gold} />
         </View>
         <View style={styles.rowTextWrap}>
-          <Text style={styles.rowLabel}>{label}</Text>
+          <Text style={[styles.rowLabel, destructive && { color: tokens.error }]}>{label}</Text>
           {!!sublabel && <Text style={styles.rowSublabel}>{sublabel}</Text>}
         </View>
       </View>
@@ -103,10 +134,11 @@ function RowLink({
   );
 }
 
+type Mode = "login" | "signup";
+
 export default function ProfilePage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-
   const { auth, setAuth } = useSession();
 
   const contentWidth = useMemo(() => {
@@ -115,14 +147,204 @@ export default function ProfilePage() {
     return Math.min(max, Math.max(320, width - padding * 2));
   }, [width]);
 
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPass, setLoginPass] = useState("");
+  const [mode, setMode] = useState<Mode>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [fieldError, setFieldError] = useState("");
 
-  const [createDisplayName, setCreateDisplayName] = useState("");
-  const [createPhotoString, setCreatePhotoString] = useState("");
+  // ── Google OAuth ────────────────────────────────────────────────────────────
+  // webClientId must be a non-empty string on web or the hook throws.
+  // Google sign-in is disabled on web (button is disabled), so we pass a
+  // placeholder to satisfy the requirement without enabling the flow.
+  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest(
+    Platform.OS === "web"
+      ? { webClientId: "not-configured-web-disabled" }
+      : {
+          expoClientId: GOOGLE_EXPO_CLIENT_ID,
+          iosClientId: GOOGLE_IOS_CLIENT_ID,
+          androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+          redirectUri: EXPO_REDIRECT_URI,
+        }
+  );
 
-  const goSettings = () => {
-    router.push("/settings" as any);
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const token = googleResponse.authentication?.accessToken;
+      if (token) handleSocialLogin("google", token);
+    }
+  }, [googleResponse]);
+
+  // ── Microsoft OAuth ─────────────────────────────────────────────────────────
+  const msDiscovery = AuthSession.useAutoDiscovery(
+    "https://login.microsoftonline.com/common/v2.0"
+  );
+  const [msRequest, msResponse, msPromptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: MICROSOFT_CLIENT_ID,
+      scopes: ["openid", "profile", "email", "User.Read"],
+      responseType: AuthSession.ResponseType.Token,
+      redirectUri: EXPO_REDIRECT_URI,
+    },
+    msDiscovery
+  );
+
+  useEffect(() => {
+    if (msResponse?.type === "success") {
+      const token = (msResponse as any).params?.access_token;
+      if (token) handleSocialLogin("microsoft", token);
+    }
+  }, [msResponse]);
+
+  const resetForm = () => {
+    setEmail("");
+    setPassword("");
+    setName("");
+    setFieldError("");
+  };
+
+  const handleSocialLogin = async (provider: "google" | "microsoft", accessToken: string) => {
+    setLoading(true);
+    setFieldError("");
+    try {
+      const res = await fetch(`${API_BASE}/helpers/oauth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, access_token: accessToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFieldError(data.detail || "Social login failed.");
+        return;
+      }
+      setAuth({
+        status: "loggedInWithProfile",
+        token: data.token,
+        profile: {
+          id: String(data.helper.id),
+          email: data.helper.email,
+          displayName: data.helper.name,
+          photoString: "",
+        },
+      });
+    } catch {
+      setFieldError("Could not connect to server. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    const trimEmail = email.trim().toLowerCase();
+    const trimPass = password;
+
+    if (!trimEmail || !trimPass) {
+      setFieldError("Please enter your email and password.");
+      return;
+    }
+    if (!EMAIL_RE.test(trimEmail)) {
+      setFieldError("Please enter a valid email address.");
+      return;
+    }
+
+    setLoading(true);
+    setFieldError("");
+    try {
+      const res = await fetch(`${API_BASE}/helpers/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimEmail, password: trimPass }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFieldError(data.detail || "Login failed. Please check your credentials.");
+        return;
+      }
+
+      setAuth({
+        status: "loggedInWithProfile",
+        token: data.token,
+        profile: {
+          id: String(data.helper.id),
+          email: data.helper.email,
+          displayName: data.helper.name,
+          photoString: "",
+        },
+      });
+      resetForm();
+    } catch {
+      setFieldError("Could not connect to server. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    const trimEmail = email.trim().toLowerCase();
+    const trimName = name.trim();
+    const trimPass = password;
+
+    if (!trimName || !trimEmail || !trimPass) {
+      setFieldError("Please fill in all fields.");
+      return;
+    }
+    if (!EMAIL_RE.test(trimEmail)) {
+      setFieldError("Please enter a valid email address.");
+      return;
+    }
+    if (trimPass.length < 6) {
+      setFieldError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setLoading(true);
+    setFieldError("");
+    try {
+      const res = await fetch(`${API_BASE}/helpers/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimName, email: trimEmail, password: trimPass }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setFieldError(data.detail || "Sign up failed.");
+        return;
+      }
+
+      // Auto-login after signup
+      const loginRes = await fetch(`${API_BASE}/helpers/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimEmail, password: trimPass }),
+      });
+      const loginData = await loginRes.json();
+      if (loginRes.ok) {
+        setAuth({
+          status: "loggedInWithProfile",
+          token: loginData.token,
+          profile: {
+            id: String(loginData.helper.id),
+            email: loginData.helper.email,
+            displayName: loginData.helper.name,
+            photoString: "",
+          },
+        });
+        resetForm();
+      } else {
+        // Signup worked but auto-login failed — switch to login mode
+        setMode("login");
+        setFieldError("Account created! Please log in.");
+      }
+    } catch {
+      setFieldError("Could not connect to server. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -131,48 +353,43 @@ export default function ProfilePage() {
     else router.replace("/" as any);
   };
 
-  const toLoggedOut = () => {
+  const handleLogout = () => {
     setAuth({ status: "loggedOut" });
-
-    setLoginEmail("");
-    setLoginPass("");
-    setCreateDisplayName("");
-    setCreatePhotoString("");
+    resetForm();
   };
 
-  const onLogin = () => {
-    const email = loginEmail.trim();
-    const pass = loginPass;
+  const handleDeleteAccount = async () => {
+    if (auth.status !== "loggedInWithProfile") return;
 
-    if (!email || !pass) {
-      Alert.alert("Missing details", "Enter email and password.");
-      return;
-    }
-
-    setAuth({ status: "loggedInNoProfile", email });
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await fetch(`${API_BASE}/helpers/delete-account`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${auth.token}` },
+              });
+              if (res.ok) {
+                setAuth({ status: "loggedOut" });
+              } else {
+                Alert.alert("Error", "Failed to delete account.");
+              }
+            } catch {
+              Alert.alert("Error", "Could not connect to server.");
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const onCreateProfile = () => {
-    if (auth.status !== "loggedInNoProfile") return;
-
-    const email = auth.email.trim();
-    const name = createDisplayName.trim();
-
-    if (!name) {
-      Alert.alert("Missing details", "Enter a display name.");
-      return;
-    }
-
-    const profile: ProfileRecord = {
-      email,
-      displayName: name,
-      photoString: createPhotoString.trim(),
-    };
-
-    setAuth({ status: "loggedInWithProfile", profile });
-  };
-
-  const renderLoggedOut = () => (
+  const renderAuth = () => (
     <>
       <View style={styles.heroCard}>
         <View style={styles.avatar}>
@@ -181,17 +398,48 @@ export default function ProfilePage() {
         <View style={styles.heroText}>
           <Text style={styles.heroTitle}>Profile</Text>
           <Text style={styles.heroSubtitle}>
-            Log in to view or create your profile. When logged out, nothing is kept on the device.
+            {mode === "login"
+              ? "Log in to your WalkBuddy helper account."
+              : "Create a new WalkBuddy helper account."}
           </Text>
         </View>
       </View>
 
-      <CardTitle>Log in</CardTitle>
+      {/* Tab switcher */}
+      <View style={styles.tabRow}>
+        <Pressable
+          onPress={() => { setMode("login"); setFieldError(""); }}
+          style={[styles.tab, mode === "login" && styles.tabActive]}
+        >
+          <Text style={[styles.tabText, mode === "login" && styles.tabTextActive]}>Log In</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { setMode("signup"); setFieldError(""); }}
+          style={[styles.tab, mode === "signup" && styles.tabActive]}
+        >
+          <Text style={[styles.tabText, mode === "signup" && styles.tabTextActive]}>Sign Up</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.card}>
+        {mode === "signup" && (
+          <>
+            <Text style={styles.inputLabel}>Full Name</Text>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
+              placeholderTextColor="rgba(184,198,212,0.55)"
+              style={styles.input}
+            />
+            <View style={{ height: 12 }} />
+          </>
+        )}
+
         <Text style={styles.inputLabel}>Email</Text>
         <TextInput
-          value={loginEmail}
-          onChangeText={setLoginEmail}
+          value={email}
+          onChangeText={setEmail}
           placeholder="name@example.com"
           placeholderTextColor="rgba(184,198,212,0.55)"
           autoCapitalize="none"
@@ -199,173 +447,134 @@ export default function ProfilePage() {
           style={styles.input}
         />
 
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Password</Text>
+        <View style={{ height: 12 }} />
+        <Text style={styles.inputLabel}>Password</Text>
         <TextInput
-          value={loginPass}
-          onChangeText={setLoginPass}
-          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder={mode === "signup" ? "At least 6 characters" : "Password"}
           placeholderTextColor="rgba(184,198,212,0.55)"
           secureTextEntry
           style={styles.input}
         />
 
+        {!!fieldError && (
+          <Text style={styles.errorText}>{fieldError}</Text>
+        )}
+
         <View style={styles.btnRow}>
-          <PrimaryButton label="Log in" onPress={onLogin} />
+          <PrimaryButton
+            label={mode === "login" ? "Log In" : "Create Account"}
+            onPress={mode === "login" ? handleLogin : handleSignup}
+            loading={loading}
+          />
         </View>
 
-        <Text style={styles.note}>
-          If you don’t have a profile yet, logging in will prompt you to create one.
-        </Text>
+        {/* Toggle link */}
+        <Pressable
+          onPress={() => { setMode(mode === "login" ? "signup" : "login"); setFieldError(""); }}
+          style={styles.toggleLinkWrap}
+        >
+          <Text style={styles.toggleLink}>
+            {mode === "login"
+              ? "Don't have an account? "
+              : "Already have an account? "}
+            <Text style={styles.toggleLinkBold}>
+              {mode === "login" ? "Sign up here" : "Log in here"}
+            </Text>
+          </Text>
+        </Pressable>
       </View>
 
-      <CardTitle>Quick links</CardTitle>
-      <View style={styles.card}>
-       <Text style={styles.note}>
-          Settings unavailable while logged out.
-        </Text>
+      {/* Social login */}
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or continue with</Text>
+        <View style={styles.dividerLine} />
       </View>
+
+      {Constants.executionEnvironment === "storeClient" ? (
+        <View style={styles.socialNotice}>
+          <Icon name="info-circle" size={14} color={tokens.muted} />
+          <Text style={styles.socialNoticeText}>
+            Google & Microsoft sign-in require the full app build. Use email & password above in Expo Go.
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.socialRow}>
+          <Pressable
+            style={({ pressed }) => [styles.socialBtn, pressed && styles.pressed]}
+            onPress={() => googlePromptAsync?.()}
+            disabled={Platform.OS === "web" || !googleRequest || loading}
+            accessibilityLabel="Continue with Google"
+          >
+            <Icon name="google" size={18} color="#EA4335" />
+            <Text style={styles.socialBtnText}>Google</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.socialBtn, pressed && styles.pressed]}
+            onPress={() => msPromptAsync()}
+            disabled={!msRequest || loading}
+            accessibilityLabel="Continue with Microsoft"
+          >
+            <Icon name="windows" size={18} color="#00A4EF" />
+            <Text style={styles.socialBtnText}>Microsoft</Text>
+          </Pressable>
+        </View>
+      )}
     </>
   );
 
-  const renderCreateProfile = (email: string) => (
-    <>
-      <View style={styles.heroCard}>
-        <View style={styles.avatar}>
-          <Icon name="user" size={22} color={tokens.bg} />
-        </View>
-        <View style={styles.heroText}>
-          <Text style={styles.heroTitle}>Create profile</Text>
-          <Text style={styles.heroSubtitle}>
-            Signed in as {email}. Enter a display name and (optional) photo string to create your profile.
-          </Text>
-        </View>
-      </View>
-
-      <CardTitle>Profile details</CardTitle>
-      <View style={styles.card}>
-        <Text style={styles.inputLabel}>Display name</Text>
-        <TextInput
-          value={createDisplayName}
-          onChangeText={setCreateDisplayName}
-          placeholder="Display name"
-          placeholderTextColor="rgba(184,198,212,0.55)"
-          style={styles.input}
-        />
-
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Photo string (optional)</Text>
-        <TextInput
-          value={createPhotoString}
-          onChangeText={setCreatePhotoString}
-          placeholder="data:image/...base64 OR URL OR text"
-          placeholderTextColor="rgba(184,198,212,0.55)"
-          autoCapitalize="none"
-          style={styles.input}
-        />
-
-        <View style={styles.previewWrap}>
-          <Text style={styles.previewLabel}>Preview</Text>
-          <View style={styles.previewRow}>
-            <View style={styles.previewAvatar}>
-              {createPhotoString.trim() ? (
-                <Image
-                  source={{ uri: createPhotoString.trim() }}
-                  style={styles.previewImage}
-                  resizeMode="cover"
-                  onError={() => {}}
-                />
-              ) : (
-                <Icon name="user" size={18} color={tokens.muted} />
-              )}
-            </View>
-            <Text style={styles.previewText} numberOfLines={2}>
-              {createDisplayName.trim() || "Your display name will appear here"}
+  const renderProfile = () => {
+    if (auth.status !== "loggedInWithProfile") return null;
+    const profile = auth.profile;
+    return (
+      <>
+        <View style={styles.profileTopCard}>
+          <View style={styles.profileAvatar}>
+            <Icon name="user" size={28} color={tokens.muted} />
+          </View>
+          <View style={styles.profileMeta}>
+            <Text style={styles.profileName} numberOfLines={1}>
+              {profile.displayName}
+            </Text>
+            <Text style={styles.profileSub} numberOfLines={1}>
+              {profile.email}
             </Text>
           </View>
         </View>
 
-        <View style={styles.btnRow}>
-          <PrimaryButton label="Create profile" onPress={onCreateProfile} />
-          <SecondaryButton label="Log out" onPress={toLoggedOut} />
+        <CardTitle>Navigation</CardTitle>
+        <View style={styles.card}>
+          <RowLink
+            icon="cog"
+            label="Settings"
+            sublabel="App preferences and voice settings"
+            onPress={() => router.push("/settings" as any)}
+          />
         </View>
 
-        <Text style={styles.note}>
-          This will be stored locally using encrypted storage once the secure persistence layer is wired in.
-        </Text>
-      </View>
-
-      <CardTitle>Quick links</CardTitle>
-      <View style={styles.card}>
-        <RowLink
-          icon="cog"
-          label="Settings"
-          sublabel="App settings (in progress)"
-          onPress={goSettings}
-        />
-      </View>
-    </>
-  );
-
-  const renderProfile = (profile: ProfileRecord) => (
-    <>
-      <View style={styles.profileTopCard}>
-        <View style={styles.profileAvatar}>
-          {profile.photoString?.trim() ? (
-            <Image
-              source={{ uri: profile.photoString.trim() }}
-              style={styles.profileImage}
-              resizeMode="cover"
-              onError={() => {}}
-            />
-          ) : (
-            <Icon name="user" size={28} color={tokens.muted} />
-          )}
+        <CardTitle>Account</CardTitle>
+        <View style={styles.card}>
+          <RowLink
+            icon="sign-out"
+            label="Log Out"
+            sublabel="Clears your local session"
+            onPress={handleLogout}
+          />
+          <View style={styles.rowDivider} />
+          <RowLink
+            icon="trash"
+            label="Delete Account"
+            sublabel="Permanently removes your account"
+            onPress={handleDeleteAccount}
+            destructive
+          />
         </View>
-
-        <View style={styles.profileMeta}>
-          <Text style={styles.profileName} numberOfLines={1}>
-            {profile.displayName}
-          </Text>
-          <Text style={styles.profileSub} numberOfLines={1}>
-            {profile.email}
-          </Text>
-        </View>
-      </View>
-
-      <CardTitle>Profile</CardTitle>
-      <View style={styles.card}>
-        <RowLink
-          icon="cog"
-          label="Settings"
-          sublabel="App settings (in progress)"
-          onPress={goSettings}
-        />
-      </View>
-
-      <CardTitle>Session</CardTitle>
-      <View style={styles.card}>
-        <Pressable
-          onPress={toLoggedOut}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Log out"
-        >
-          <View style={styles.rowLeft}>
-            <View style={styles.rowIconWrap}>
-              <Icon name="sign-out" size={18} color={tokens.gold} />
-            </View>
-            <View style={styles.rowTextWrap}>
-              <Text style={styles.rowLabel}>Log out</Text>
-              <Text style={styles.rowSublabel}>
-                Clears locally stored data on this device
-              </Text>
-            </View>
-          </View>
-          <Icon name="chevron-right" size={14} color={tokens.muted} />
-        </Pressable>
-      </View>
-    </>
-  );
-  console.log("AUTH STATE", auth);
+      </>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -382,18 +591,12 @@ export default function ProfilePage() {
       >
         <View style={[styles.content, { width: contentWidth }]}>
           <HomeHeader appTitle="WalkBuddy" showDivider showLocation={true} />
-
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {auth.status === "loggedOut" && renderLoggedOut()}
-            {auth.status === "loggedInNoProfile" &&
-              renderCreateProfile(auth.email)}
-            {auth.status === "loggedInWithProfile" &&
-              renderProfile(auth.profile)}
+            {auth.status === "loggedOut" ? renderAuth() : renderProfile()}
           </ScrollView>
-
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -407,13 +610,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
-
   kb: {
     flex: 1,
     width: "100%",
     alignItems: "center",
   },
-
   content: {
     flex: 1,
     paddingHorizontal: 12,
@@ -434,12 +635,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 20,
   },
-
   scrollContent: {
     paddingBottom: 120,
     gap: 12,
   },
-
   heroCard: {
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -450,7 +649,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-
   avatar: {
     width: 44,
     height: 44,
@@ -460,24 +658,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-
   heroText: {
     flex: 1,
   },
-
   heroTitle: {
     color: tokens.text,
     fontSize: 16,
     fontWeight: "800",
     marginBottom: 4,
   },
-
   heroSubtitle: {
     color: tokens.muted,
     fontSize: 13,
     lineHeight: 18,
   },
-
+  tabRow: {
+    flexDirection: "row",
+    borderWidth: 2,
+    borderColor: tokens.gold,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  tabActive: {
+    backgroundColor: tokens.gold,
+  },
+  tabText: {
+    color: tokens.muted,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  tabTextActive: {
+    color: "#111",
+  },
   sectionTitle: {
     color: tokens.muted,
     fontSize: 12,
@@ -485,7 +703,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginTop: 10,
   },
-
   card: {
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -494,7 +711,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
   },
-
   inputLabel: {
     color: tokens.muted,
     fontSize: 12,
@@ -502,7 +718,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginBottom: 6,
   },
-
   input: {
     backgroundColor: tokens.inputBg,
     borderWidth: 2,
@@ -514,14 +729,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-
+  errorText: {
+    color: tokens.error,
+    fontSize: 13,
+    marginTop: 10,
+    fontWeight: "600",
+  },
   btnRow: {
     marginTop: 14,
     flexDirection: "row",
     gap: 10,
     alignItems: "center",
   },
-
   primaryBtn: {
     flex: 1,
     borderWidth: 2,
@@ -531,15 +750,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 46,
   },
-
   primaryBtnText: {
     color: "#111",
     fontSize: 14,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
-
+  disabledBtn: {
+    opacity: 0.7,
+  },
   secondaryBtn: {
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -550,40 +771,99 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   secondaryBtnText: {
     color: tokens.text,
     fontSize: 14,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
-
   pressed: {
     opacity: 0.85,
   },
-
-  note: {
-    marginTop: 12,
+  toggleLinkWrap: {
+    alignItems: "center",
+    paddingTop: 14,
+  },
+  toggleLink: {
+    color: tokens.muted,
+    fontSize: 13,
+    textAlign: "center",
+  },
+  toggleLinkBold: {
+    color: tokens.gold,
+    fontWeight: "800",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(252,163,17,0.3)",
+  },
+  dividerText: {
     color: tokens.muted,
     fontSize: 12,
-    lineHeight: 16,
-    opacity: 0.9,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
-
+  socialRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  socialBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 2,
+    borderColor: tokens.gold,
+    borderRadius: 12,
+    paddingVertical: 12,
+    backgroundColor: tokens.tile,
+  },
+  socialBtnText: {
+    color: tokens.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  socialNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: tokens.tile,
+    borderWidth: 1,
+    borderColor: "rgba(252,163,17,0.3)",
+    borderRadius: 10,
+    padding: 12,
+  },
+  socialNoticeText: {
+    flex: 1,
+    color: tokens.muted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
   row: {
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-
+  rowDivider: {
+    height: 1,
+    backgroundColor: tokens.divider,
+    marginVertical: 4,
+  },
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
     paddingRight: 12,
   },
-
   rowIconWrap: {
     width: 30,
     height: 30,
@@ -594,69 +874,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
-
   rowTextWrap: {
     flex: 1,
   },
-
   rowLabel: {
     color: tokens.text,
     fontSize: 14,
     fontWeight: "800",
   },
-
   rowSublabel: {
     color: tokens.muted,
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
   },
-
-  previewWrap: {
-    marginTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: tokens.divider,
-    paddingTop: 12,
-  },
-
-  previewLabel: {
-    color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.4,
-    marginBottom: 8,
-  },
-
-  previewRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-
-  previewAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    backgroundColor: tokens.inputBg,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-
-  previewImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  previewText: {
-    flex: 1,
-    color: tokens.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
   profileTopCard: {
     borderWidth: 2,
     borderColor: tokens.gold,
@@ -668,7 +899,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-
   profileAvatar: {
     width: 64,
     height: 64,
@@ -680,23 +910,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-
-  profileImage: {
-    width: "100%",
-    height: "100%",
-  },
-
   profileMeta: {
     flex: 1,
   },
-
   profileName: {
     color: tokens.text,
     fontSize: 18,
     fontWeight: "900",
     marginBottom: 4,
   },
-
   profileSub: {
     color: tokens.muted,
     fontSize: 13,

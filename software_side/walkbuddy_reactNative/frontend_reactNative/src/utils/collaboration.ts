@@ -3,6 +3,10 @@
 
 import { API_BASE } from "../config";
 
+const NGROK_HEADERS: Record<string, string> = API_BASE.includes("ngrok")
+  ? { "ngrok-skip-browser-warning": "true" }
+  : {};
+
 export type CollaborationRole = "user" | "guide";
 export type MessageType =
   | "connected"
@@ -77,6 +81,7 @@ class CollaborationService {
     try {
       const response = await fetch(`${API_BASE}/collaboration/create-session`, {
         method: "POST",
+        headers: { ...NGROK_HEADERS },
       });
       if (!response.ok) {
         throw new Error(`Failed to create session: ${response.status}`);
@@ -111,7 +116,7 @@ class CollaborationService {
       const url = `${API_BASE}/collaboration/session/${encodeURIComponent(normalizedId)}/status`;
       console.log(`[Collaboration] Requesting: ${url}`);
 
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: { ...NGROK_HEADERS } });
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = `Failed to get session status: ${response.status}`;

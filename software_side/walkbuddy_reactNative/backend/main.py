@@ -7,11 +7,17 @@ import logging
 import asyncio
 import sqlite3
 import uuid
+import hashlib
+import secrets
+import re
+
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
 import json
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 from ultralytics import YOLO
 import easyocr
+import tempfile
 from routers import stt
 
 
@@ -46,6 +52,9 @@ from fastapi import (
     HTTPException,
     WebSocket,
     WebSocketDisconnect,
+    UploadFile,
+    File,
+    Header,
     Request,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,6 +77,7 @@ from opentelemetry import trace
 
 # AnyIO (for limiters)
 import anyio
+import httpx
 
 # =========================
 # 3. CONSTANTS
@@ -78,39 +88,93 @@ DB_PATH = BACKEND_DIR / "helpers.db"
 
 tracer = trace.get_tracer("main.websocket")
 
+# In-memory token store: token -> helper_id
+helper_tokens: dict[str, int] = {}
+
 # =========================
 # 4. DB HELPERS
 # =========================
 def init_database():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS helpers (id INTEGER PRIMARY KEY, email TEXT)"
-    )
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS helpers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            age INTEGER,
+            phone TEXT,
+            address TEXT,
+            emergency_contact_name TEXT,
+            emergency_contact_phone TEXT,
+            experience_level TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
     conn.commit()
     conn.close()
 
-# Remove inactive sessions with no connections after a timeout
-async def cleanup_expired_sessions():
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260_000).hex()
+    return f"{salt}:{hashed}"
+
+
+def _verify_password(password: str, stored: str) -> bool:
+    try:
+        salt, hashed = stored.split(":", 1)
+        expected = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260_000).hex()
+        return secrets.compare_digest(hashed, expected)
+    except Exception:
+        return False
+
+
+def _get_helper_by_token(token: str) -> dict:
+    helper_id = helper_tokens.get(token)
+    if not helper_id:
+        raise HTTPException(401, "Invalid or expired token")
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, email, age, phone, experience_level FROM helpers WHERE id=?",
+        (helper_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(401, "User not found")
+    return {
+        "id": row[0],
+        "name": row[1],
+        "email": row[2],
+        "age": row[3],
+        "phone": row[4],
+        "experience_level": row[5],
+    }
+
+
+async def _cleanup_sessions_loop():
+    """Background task: remove expired collaboration sessions every 5 minutes."""
     while True:
-        await asyncio.sleep(60)
-
+        await asyncio.sleep(300)
         now = datetime.now()
-        expired_sessions = []
-
-        for sid, session in list(collaboration_sessions.items()):
-            user_active = session["user_ws"] is not None
-            guide_active = session["guide_ws"] is not None
-
-            last_active = session.get("last_active", session["created_at"])
-
-            if (not user_active and not guide_active) and \
-               (now - last_active > timedelta(minutes=SESSION_TIMEOUT_MINUTES)):
-                expired_sessions.append(sid)
-
-        for sid in expired_sessions:
+        expired = [
+            sid
+            for sid, sess in list(collaboration_sessions.items())
+            if now > sess["created_at"] + timedelta(hours=SESSION_EXPIRY_HOURS)
+        ]
+        for sid in expired:
             del collaboration_sessions[sid]
-            logger.info(f"Removed expired session: {sid}")
+        if expired:
+            logger.info(f"Cleaned up {len(expired)} expired collaboration sessions")
+
+
+def _whisper_transcribe(model, path: str) -> str:
+    """Run Whisper transcription synchronously (called from thread pool)."""
+    segments, _ = model.transcribe(path, beam_size=5)
+    return " ".join(seg.text.strip() for seg in segments).strip()
 
 # =========================
 # 5. APP LIFESPAN (PHASE B)
@@ -177,6 +241,16 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Failed to load LLM: {e}")
             app_state.llm_brain = None
 
+    # --- load Whisper STT ---
+    try:
+        from faster_whisper import WhisperModel
+        logger.info("Loading Whisper STT (tiny model)")
+        app.state.whisper = WhisperModel("tiny", device="cpu", compute_type="int8")
+        logger.info("✅ Whisper STT ready")
+    except Exception as e:
+        logger.error(f"❌ Whisper STT load failed: {e}")
+        app.state.whisper = None
+
     # --- execution capacity ---
     # vision: capacity=1 serialises YOLO — one inference at a time is faster
     # than two competing threads on a single CPU, and anyio's CapacityLimiter
@@ -185,7 +259,7 @@ async def lifespan(app: FastAPI):
     app.state.ocr_limiter = anyio.CapacityLimiter(1)
     app.state.llm_limiter = anyio.CapacityLimiter(1)
 
-    asyncio.create_task(cleanup_expired_sessions())
+    asyncio.create_task(_cleanup_sessions_loop())
 
     yield
 
@@ -275,8 +349,291 @@ init_telemetry(app)
 async def ping():
     return {"ok": True}
 
+
 # =========================
-# 11. COLLABORATION
+# 11. GEOCODING (Nominatim proxy)
+# =========================
+@app.get("/geocode")
+async def geocode_endpoint(q: str):
+    """Geocode a place name to coordinates using OpenStreetMap Nominatim."""
+    if not q.strip():
+        raise HTTPException(400, "Query parameter 'q' is required")
+    try:
+        async with httpx.AsyncClient(
+            timeout=10.0,
+            follow_redirects=True,
+            headers={"User-Agent": "WalkBuddy/1.0"},
+        ) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": q, "format": "json", "limit": "1", "addressdetails": "1"},
+            )
+            resp.raise_for_status()
+            results = resp.json()
+            if not results:
+                raise HTTPException(404, f"No location found for: {q}")
+            r = results[0]
+            return {
+                "name": r.get("display_name", q),
+                "lat": float(r["lat"]),
+                "lng": float(r["lon"]),
+                "address": r.get("address", {}),
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(502, f"Geocoding failed: {e}")
+
+
+# =========================
+# 12. ROUTING (OSRM proxy with fallback)
+# =========================
+# Try multiple OSRM servers in order (more reliable first)
+OSRM_SERVERS = [
+    "https://routing.openstreetmap.de/routed-{profile}/route/v1/{profile}",  # FOSSGIS (more stable)
+    "http://router.project-osrm.org/route/v1/{profile}",  # Public OSRM demo (fallback)
+]
+
+@app.post("/routing")
+async def routing_endpoint(body: dict):
+    """
+    Proxy routing requests to public OSRM servers with fallback.
+    Body: { origin: [lng, lat], destination: [lng, lat], profile: "foot-walking" }
+    """
+    origin = body.get("origin")      # [lng, lat]
+    destination = body.get("destination")  # [lng, lat]
+    profile = body.get("profile", "foot-walking")
+
+    if not origin or not destination:
+        raise HTTPException(400, "origin and destination are required")
+
+    # Map ORS profile names to OSRM profiles
+    osrm_profile_map = {
+        "foot-walking": "foot",
+        "driving-car": "driving",
+        "cycling-regular": "bike",
+    }
+    osrm_profile = osrm_profile_map.get(profile, "foot")
+
+    coords = f"{origin[0]},{origin[1]};{destination[0]},{destination[1]}"
+    params = {"overview": "full", "geometries": "geojson", "steps": "true"}
+
+    last_error = None
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        for server_template in OSRM_SERVERS:
+            base = server_template.format(profile=osrm_profile)
+            url = f"{base}/{coords}"
+            try:
+                resp = await client.get(url, params=params)
+                if resp.status_code == 200:
+                    return resp.json()
+                last_error = f"HTTP {resp.status_code} from {url}"
+            except httpx.TimeoutException:
+                last_error = f"Timeout from {url}"
+            except Exception as e:
+                last_error = str(e)
+
+    raise HTTPException(502, f"All routing servers failed. Last error: {last_error}")
+
+
+# =========================
+# 11. STT TRANSCRIPTION
+# =========================
+@app.post("/stt/transcribe", tags=["stt"])
+async def stt_transcribe(request: Request, file: UploadFile = File(...)):
+    if not request.app.state.whisper:
+        raise HTTPException(503, "STT service unavailable")
+
+    content = await file.read()
+    if not content:
+        return {"text": "", "error": "No audio data received"}
+
+    suffix = os.path.splitext(file.filename or "recording.m4a")[1] or ".m4a"
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+            f.write(content)
+            temp_path = f.name
+
+        text = await anyio.to_thread.run_sync(
+            _whisper_transcribe, request.app.state.whisper, temp_path
+        )
+
+        if not text:
+            return {"text": "", "error": "No speech detected"}
+
+        return {"text": text, "confidence": 0.9}
+
+    except Exception as e:
+        logger.error(f"STT transcription error: {e}")
+        return {"text": "", "error": str(e)}
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
+
+
+# =========================
+# 12. HELPER AUTH
+# =========================
+@app.post("/helpers/signup", tags=["helpers"])
+async def helpers_signup(data: dict):
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not name or not email or not password:
+        raise HTTPException(400, "Name, email, and password are required")
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(400, "Please enter a valid email address")
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO helpers
+               (name, email, password_hash, age, phone, address,
+                emergency_contact_name, emergency_contact_phone, experience_level)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                name,
+                email,
+                _hash_password(password),
+                data.get("age"),
+                data.get("phone"),
+                data.get("address"),
+                data.get("emergency_contact_name"),
+                data.get("emergency_contact_phone"),
+                data.get("experience_level"),
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return {"message": "Account created successfully"}
+    except sqlite3.IntegrityError:
+        raise HTTPException(400, "An account with this email already exists")
+
+
+@app.post("/helpers/login", tags=["helpers"])
+async def helpers_login(data: dict):
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        raise HTTPException(400, "Email and password are required")
+    if not _EMAIL_RE.match(email):
+        raise HTTPException(400, "Please enter a valid email address")
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, email, password_hash FROM helpers WHERE email=?",
+        (email,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row or not _verify_password(password, row[3]):
+        raise HTTPException(401, "Invalid email or password")
+
+    helper_id, name, helper_email, _ = row
+    token = str(uuid.uuid4())
+    helper_tokens[token] = helper_id
+
+    return {
+        "token": token,
+        "helper": {"id": helper_id, "name": name, "email": helper_email},
+    }
+
+
+@app.get("/helpers/me", tags=["helpers"])
+async def helpers_me(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authorization required")
+    return _get_helper_by_token(authorization[7:])
+
+
+@app.delete("/helpers/delete-account", tags=["helpers"])
+async def helpers_delete_account(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authorization required")
+    token = authorization[7:]
+    helper = _get_helper_by_token(token)
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM helpers WHERE id=?", (helper["id"],))
+    conn.commit()
+    conn.close()
+
+    helper_tokens.pop(token, None)
+    return {"message": "Account deleted successfully"}
+
+
+@app.post("/helpers/oauth", tags=["helpers"])
+async def helpers_oauth(data: dict):
+    """Sign in or register via Google or Microsoft OAuth access token."""
+    provider = (data.get("provider") or "").lower()
+    access_token = (data.get("access_token") or "").strip()
+
+    if not provider or not access_token:
+        raise HTTPException(400, "provider and access_token are required")
+
+    # Fetch user info from the provider
+    userinfo_url = {
+        "google": "https://www.googleapis.com/oauth2/v3/userinfo",
+        "microsoft": "https://graph.microsoft.com/v1.0/me",
+    }.get(provider)
+    if not userinfo_url:
+        raise HTTPException(400, f"Unsupported provider: {provider}")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            userinfo_url,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(401, "Could not verify OAuth token with provider")
+
+    info = resp.json()
+    if provider == "google":
+        email = (info.get("email") or "").strip().lower()
+        name = info.get("name") or email.split("@")[0]
+    else:  # microsoft
+        email = (info.get("mail") or info.get("userPrincipalName") or "").strip().lower()
+        name = info.get("displayName") or email.split("@")[0]
+
+    if not email:
+        raise HTTPException(400, "Could not retrieve email from OAuth provider")
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, email FROM helpers WHERE email=?", (email,))
+    row = cursor.fetchone()
+
+    if row:
+        helper_id, helper_name, helper_email = row
+    else:
+        # Auto-create account for new OAuth users (no password needed)
+        cursor.execute(
+            """INSERT INTO helpers (name, email, password_hash) VALUES (?, ?, ?)""",
+            (name, email, ""),
+        )
+        conn.commit()
+        helper_id = cursor.lastrowid
+        helper_name, helper_email = name, email
+
+    conn.close()
+
+    token = str(uuid.uuid4())
+    helper_tokens[token] = helper_id
+    return {
+        "token": token,
+        "helper": {"id": helper_id, "name": helper_name, "email": helper_email},
+    }
+
+
+# =========================
+# 13. COLLABORATION
 # =========================
 def normalize_session_id(sid: str) -> str:
     return sid.strip().upper() if sid else ""
@@ -328,7 +685,7 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
 
         if datetime.now() > session["created_at"] + timedelta(hours=SESSION_EXPIRY_HOURS):
             await websocket.close(1008, "Expired")
-            del collaboration_sessions[sid]
+            collaboration_sessions.pop(sid, None)
             return
 
         if role == "user" and session["user_ws"]:
@@ -340,6 +697,26 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
 
         await websocket.accept()
         session[f"{role}_ws"] = websocket
+
+        # Send connection confirmation with current session state
+        await websocket.send_json({
+            "type": "connected",
+            "role": role,
+            "session_id": sid,
+            "user_connected": session["user_ws"] is not None,
+            "guide_connected": session["guide_ws"] is not None,
+        })
+
+        # Notify the other side that this role has joined
+        other_ws = session["guide_ws"] if role == "user" else session["user_ws"]
+        if other_ws:
+            if role == "user":
+                await other_ws.send_json({"type": "user_connected", "session_id": sid})
+            else:
+                await other_ws.send_json({
+                    "type": "guide_connected",
+                    "helper_name": session.get("guide_name"),
+                })
 
         try:
             while True:
@@ -375,9 +752,18 @@ async def collaboration_websocket(websocket: WebSocket, session_id: str, role: s
             pass
         finally:
             session[f"{role}_ws"] = None
+            # Notify the other side that this role has left
+            other_ws = session["guide_ws"] if role == "user" else session["user_ws"]
+            if other_ws:
+                disconnect_type = "user_disconnected" if role == "user" else "guide_disconnected"
+                try:
+                    await other_ws.send_json({"type": disconnect_type, "session_id": sid})
+                except Exception:
+                    pass
+
 
 # =========================
-# 12. DEV ENTRYPOINT
+# 14. DEV ENTRYPOINT
 # =========================
 if __name__ == "__main__":
     import uvicorn

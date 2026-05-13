@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { WebView } from "react-native-webview";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { useCurrentLocation } from "../src/utils/locationSaver";
 
 // This screen is web-safe.
@@ -97,22 +99,28 @@ export default function LocationMapScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
 
-  const { latitude, longitude, currentLocation, destination, preferDestinationView } =
-    useCurrentLocation();
+  const { currentLocation, destination, preferDestinationView } = useCurrentLocation();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [webReady, setWebReady] = useState(false);
+  const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const paramLat = toNumber(params.lat);
   const paramLng = toNumber(params.lng);
 
-  const fallbackLat =
-    typeof latitude === "number" && Number.isFinite(latitude) ? latitude : undefined;
-  const fallbackLng =
-    typeof longitude === "number" && Number.isFinite(longitude) ? longitude : undefined;
+  const finalLat = paramLat ?? liveCoords?.lat;
+  const finalLng = paramLng ?? liveCoords?.lng;
 
-  const finalLat = paramLat ?? fallbackLat;
-  const finalLng = paramLng ?? fallbackLng;
+  // Fetch live coords as fallback when not passed as params
+  useEffect(() => {
+    if (paramLat !== undefined && paramLng !== undefined) return;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLiveCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    })();
+  }, [paramLat, paramLng]);
 
   const derivedLabel =
     params.label ||
@@ -166,20 +174,16 @@ export default function LocationMapScreen() {
           <View style={styles.webHost}>
             <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
           </View>
+        ) : coordsReady ? (
+          <WebView
+            style={{ flex: 1 }}
+            source={{ html: generateMapHTML(finalLat!, finalLng!, derivedLabel, derivedValue) }}
+            originWhitelist={["*"]}
+            javaScriptEnabled
+          />
         ) : (
           <View style={styles.nativePlaceholder}>
-            <View style={styles.nativeTriangle} />
-            <Text style={styles.nativeNote}>
-              Map preview is currently web-first. Native map can be wired next.
-            </Text>
-          </View>
-        )}
-
-        {!coordsReady && (
-          <View style={styles.bottomBanner}>
-            <Text style={styles.bottomBannerText}>
-              Coords not ready yet. The provider hasn’t supplied numeric lat/lng.
-            </Text>
+            <Text style={[styles.nativeNote, { marginBottom: 0 }]}>Getting your location…</Text>
           </View>
         )}
 
