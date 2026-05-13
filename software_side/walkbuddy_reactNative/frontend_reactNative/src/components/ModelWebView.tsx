@@ -1,5 +1,5 @@
 // src/components/ModelWebView.tsx
-import React, { memo, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -12,12 +12,13 @@ import { WebView } from "react-native-webview";
 type Props = {
   url: string;
   loading?: boolean;
+  onObjectDetected?: (label: string, confidence?: number) => void;
 };
 
-function ModelWebView({ url, loading }: Props) {
+function ModelWebView({ url, loading, onObjectDetected }: Props) {
   const [err, setErr] = useState<string | null>(null);
 
-<<<<<<< HEAD
+
   if (!url) {
     return (
       <View style={styles.container}>
@@ -27,7 +28,7 @@ function ModelWebView({ url, loading }: Props) {
       </View>
     );
   }
-=======
+
   useEffect(() => {
   if (Platform.OS !== "web" || typeof onObjectDetected !== "function") return;
 
@@ -60,8 +61,7 @@ function ModelWebView({ url, loading }: Props) {
 
   window.addEventListener("message", handleMessage);
   return () => window.removeEventListener("message", handleMessage);
-}, [onObjectDetected]);
->>>>>>> be39083 (Refine Vision Assist feedback and WebView detection handling)
+ }, [onObjectDetected]);
 
   // ---------- WEB (browser) ----------
   if (Platform.OS === "web") {
