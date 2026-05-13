@@ -7,7 +7,7 @@ export default ({ config }) => ({
   scheme: "walkbuddy",
   plugins: ["expo-speech-recognition"],
   orientation: "portrait",
-  icon: "./assets/images/icon.png", // Fixed: use correct path to match app.json
+  icon: "./assets/images/icon.png",
   userInterfaceStyle: "light",
   splash: {
     image: "./assets/images/splash-icon.png",
@@ -28,12 +28,12 @@ export default ({ config }) => ({
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
+      foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#ffffff",
     },
   },
   web: {
-    favicon: "./assets/favicon.png",
+    favicon: "./assets/images/favicon.png",
     headers: {
       "Content-Security-Policy":
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;",

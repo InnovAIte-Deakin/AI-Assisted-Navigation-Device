@@ -22,7 +22,7 @@ import * as AuthSession from "expo-auth-session";
 import Constants from "expo-constants";
 
 import HomeHeader from "../HomeHeader";
-import { useSession } from "../SessionContext";
+import { useSession } from "../../src/context/SessionContext";
 import { API_BASE } from "@/src/config";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -347,6 +347,12 @@ export default function ProfilePage() {
     }
   };
 
+  const handleBack = () => {
+    const canGoBack = (router as any)?.canGoBack?.() ?? false;
+    if (canGoBack) router.back();
+    else router.replace("/" as any);
+  };
+
   const handleLogout = () => {
     setAuth({ status: "loggedOut" });
     resetForm();
@@ -572,6 +578,13 @@ export default function ProfilePage() {
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
+      <Pressable
+        onPress={handleBack}
+        style={styles.backBtnFloating}
+        accessibilityLabel="Go back"
+      >
+        <Icon name="arrow-left" size={20} color={tokens.gold} />
+      </Pressable>
       <KeyboardAvoidingView
         style={styles.kb}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -595,6 +608,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.bg,
     alignItems: "center",
+    position: "relative",
   },
   kb: {
     flex: 1,
@@ -604,7 +618,22 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 14,
+  },
+
+  backBtnFloating: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(27,38,59,0.65)",
+    borderWidth: 1.5,
+    borderColor: tokens.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20,
   },
   scrollContent: {
     paddingBottom: 120,

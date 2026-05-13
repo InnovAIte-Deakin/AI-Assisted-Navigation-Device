@@ -348,32 +348,273 @@ async def get_filter_options():
 async def get_popular_audiobooks(
     limit: int = Query(10, ge=1, le=50),
 ):
-    cache_key = f"{CACHE_VERSION}:popular:{limit}"
-    cached = cache_get(cache_key)
-    if cached:
-        return cached
+    popular_titles = [
+        "Pride and Prejudice",
+        "Frankenstein",
+        "Alice's Adventures in Wonderland",
+        "The Adventures of Sherlock Holmes",
+        "Moby Dick",
+        "Dracula",
+        "The Time Machine",
+        "The War of the Worlds",
+        "Treasure Island",
+        "Jane Eyre",
+        "Wuthering Heights",
+        "A Christmas Carol",
+        "Little Women",
+        "The Secret Garden",
+        "The Call of the Wild",
+        "Anne of Green Gables",
+        "The Wonderful Wizard of Oz",
+        "The Adventures of Tom Sawyer",
+        "Adventures of Huckleberry Finn",
+        "The Picture of Dorian Gray",
+        "The Strange Case of Dr. Jekyll and Mr. Hyde",
+        "The Count of Monte Cristo",
+        "Great Expectations",
+        "A Tale of Two Cities",
+        "Oliver Twist",
+        "The Jungle Book",
+        "Peter Pan",
+        "Around the World in Eighty Days",
+        "Robinson Crusoe",
+        "The Invisible Man"
+    ]
 
-    # No title filter — LibriVox returns latest books by default
-    data = await librivox_get(
-        {"format": "json", "extended": "1", "limit": limit * 2},
-        allow_404=True,
-    )
+    def get_books_from_data(data):
+        books = []
 
-    if not data:
-        return {"query": "", "count": 0, "results": []}
+        if isinstance(data, dict):
+            if "books" in data:
+                books = data["books"] if isinstance(data["books"], list) else []
+            elif "book" in data:
+                book_item = data["book"]
+                if isinstance(book_item, dict):
+                    books = [book_item]
+                elif isinstance(book_item, list):
+                    books = book_item
+        elif isinstance(data, list):
+            books = data
 
-    books = data.get("books", []) if isinstance(data, dict) else data
-    results = []
-    for book in books:
-        parsed = _parse_book(book)
-        if parsed:
-            results.append(parsed)
-        if len(results) >= limit:
-            break
+        return books
 
-    response_data = {"query": "", "count": len(results), "results": results}
-    cache_set(cache_key, response_data, ttl=3600)
-    return response_data
+    def convert_book(book):
+        book_id_raw = book.get("id")
+        book_id = str(book_id_raw) if book_id_raw is not None else ""
+
+        if not book_id:
+            return None
+
+        title = book.get("title") or "Untitled"
+
+        author = "Unknown Author"
+        if "author" in book and book["author"]:
+            author = str(book["author"]).strip()
+        elif "authors" in book and isinstance(book["authors"], list) and len(book["authors"]) > 0:
+            first_author = book["authors"][0]
+            if isinstance(first_author, dict):
+                first_name = first_author.get("first_name", "")
+                last_name = first_author.get("last_name", "")
+                author = f"{first_name} {last_name}".strip() or "Unknown Author"
+            elif isinstance(first_author, str):
+                author = first_author.strip() or "Unknown Author"
+
+        total_duration = 0
+        duration_formatted = "0:00"
+
+        if "totaltime" in book and book["totaltime"]:
+            try:
+                time_str = str(book["totaltime"])
+                time_parts = time_str.split(":")
+
+                if len(time_parts) == 3:
+                    total_duration = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
+                elif len(time_parts) == 2:
+                    total_duration = int(time_parts[0]) * 60 + int(time_parts[1])
+
+                hours = total_duration // 3600
+                minutes = (total_duration % 3600) // 60
+                duration_formatted = f"{hours}:{minutes:02d}" if hours > 0 else f"{minutes}"
+            except (ValueError, TypeError, IndexError):
+                pass
+
+        book_language = book.get("language") or "Unknown"
+
+        book_genre = ""
+        if "subject" in book and book["subject"]:
+            book_genre = normalize_genre(str(book["subject"]))
+        elif "genre" in book and book["genre"]:
+            book_genre = normalize_genre(str(book["genre"]))
+        elif "category" in book and book["category"]:
+            book_genre = normalize_genre(str(book["category"]))
+
+        description = book.get("description") or ""
+
+        cover_url = ""
+        if "coverart" in book and book["coverart"]:
+            cover_url = str(book["coverart"])
+        elif "cover" in book and book["cover"]:
+            cover_url = str(book["cover"])
+        elif "url_zip_file" in book and book["url_zip_file"]:
+            cover_url = str(book["url_zip_file"]).replace(".zip", "_1200.jpg")
+
+        if cover_url and cover_url.startswith("http://"):
+            cover_url = cover_url.replace("http://", "https://", 1)
+
+        sample_audio_url = ""
+        if "sections" in book and isinstance(book["sections"], list) and len(book["sections"]) > 0:
+            first_section = book["sections"][0]
+            if isinstance(first_section, dict):
+                sample_audio_url = first_section.get("listen_url") or ""
+
+        if not sample_audio_url and book_id:
+            sample_audio_url = f"https://archive.org/download/{book_id}/{book_id}_01.mp3"
+
+        return {
+            "id": book_id,
+            "title": title,
+            "author": author,
+            "duration": total_duration,
+            "duration_formatted": duration_formatted,
+            "language": book_language,
+            "description": description,
+            "cover_url": cover_url,
+            "genre": book_genre,
+            "sample_audio_url": sample_audio_url,
+            "first_track_url": sample_audio_url
+        }
+
+    try:
+        cache_key = f"{CACHE_VERSION}:popular:{limit}"
+        cached_result = cache_get(cache_key)
+
+        if cached_result:
+            print("[Audiobooks] Cache hit for popular audiobooks")
+            return cached_result
+
+        results = []
+        seen_ids = set()
+
+        for title_query in popular_titles:
+            if len(results) >= limit:
+                break
+
+            search_attempts = [
+                title_query,
+                f"^{title_query}"
+            ]
+
+            for search_title in search_attempts:
+                if len(results) >= limit:
+                    break
+
+                params = {
+                    "format": "json",
+                    "title": search_title,
+                    "extended": "1",
+                    "limit": 5
+                }
+
+                data = await librivox_get(
+                    params,
+                    timeout_total=12.0,
+                    timeout_connect=5.0,
+                    allow_404=True
+                )
+
+                if data is None:
+                    continue
+
+                books = get_books_from_data(data)
+
+                for book in books:
+                    if not isinstance(book, dict):
+                        continue
+
+                    try:
+                        converted_book = convert_book(book)
+
+                        if not converted_book:
+                            continue
+
+                        book_id = converted_book["id"]
+
+                        if book_id in seen_ids:
+                            continue
+
+                        results.append(converted_book)
+                        seen_ids.add(book_id)
+                        break
+
+                    except Exception as book_err:
+                        print(f"[Audiobooks] Error parsing popular book {book.get('id', 'unknown')}: {book_err}")
+                        continue
+
+        if len(results) < limit:
+            fallback_params = {
+                "format": "json",
+                "extended": "1",
+                "limit": 100
+            }
+
+            fallback_data = await librivox_get(
+                fallback_params,
+                timeout_total=12.0,
+                timeout_connect=5.0,
+                allow_404=True
+            )
+
+            if fallback_data is not None:
+                fallback_books = get_books_from_data(fallback_data)
+
+                for book in fallback_books:
+                    if len(results) >= limit:
+                        break
+
+                    if not isinstance(book, dict):
+                        continue
+
+                    try:
+                        converted_book = convert_book(book)
+
+                        if not converted_book:
+                            continue
+
+                        book_id = converted_book["id"]
+
+                        if book_id in seen_ids:
+                            continue
+
+                        results.append(converted_book)
+                        seen_ids.add(book_id)
+
+                    except Exception as book_err:
+                        print(f"[Audiobooks] Error parsing fallback popular book {book.get('id', 'unknown')}: {book_err}")
+                        continue
+
+        response_data = {
+            "query": "popular",
+            "count": len(results),
+            "results": results,
+            "filters_applied": {
+                "language": None,
+                "genre": None,
+                "min_duration": None,
+                "max_duration": None,
+                "sort": "popular"
+            }
+        }
+
+        cache_set(cache_key, response_data)
+        return response_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Audiobooks] Popular audiobooks error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Popular audiobooks failed: {str(e)}")
 
 
 @router.get("/stream")

@@ -205,6 +205,20 @@ Query the offline LLM using the current navigation memory as context.
 - LLM is capacity-limited to 1 concurrent inference (`anyio.CapacityLimiter(1)`)
 - Returns `{ "response": "Brain offline." }` if the model file was not found at startup
 
+#### `POST /stt/transcribe`
+
+Accepts a multipart audio file upload.
+
+**Request:** `multipart/form-data` with field `file` (audio file)
+
+**Response:**
+
+```json
+{
+  "transcript": "..."
+}
+```
+
 ### Collaboration (Ask-a-Friend)
 
 #### `POST /collaboration/create-session`
@@ -257,6 +271,91 @@ WebSocket endpoint for real-time collaboration. `role` must be `user` or `guide`
 | `webrtc_answer` | guide → user   | WebRTC signalling. Relayed to the other party            |
 | `webrtc_ice`    | either         | ICE candidate. Relayed to the other party                |
 | `guidance`      | guide → user   | Text or audio guidance from guide to user                |
+
+### Helper Authentication
+
+#### `POST /helpers/signup`
+
+Create a new helper account.
+
+**Request:** `application/json`
+
+```json
+{
+  "name": "Alex",
+  "age": 25,
+  "email": "alex@example.com",
+  "phone": "0400000000",
+  "address": "Melbourne",
+  "emergency_contact_name": "Sam",
+  "emergency_contact_phone": "0411111111",
+  "experience_level": "Beginner",
+  "password": "password123"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "message": "Helper account created successfully",
+  "helper_id": "uuid"
+}
+```
+
+**Errors:**
+
+- `409` if the email is already registered
+
+
+#### `POST /helpers/login`
+
+Log in with helper credentials.
+
+**Request:** `application/json`
+
+```json
+{
+  "email": "alex@example.com",
+  "password": "password123"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "token": "session-token",
+  "helper": {
+    "id": "uuid",
+    "name": "Alex",
+    "age": 25,
+    "email": "alex@example.com",
+    "phone": "0400000000",
+    "address": "Melbourne",
+    "emergency_contact_name": "Sam",
+    "emergency_contact_phone": "0411111111",
+    "experience_level": "Beginner"
+  }
+}
+```
+
+**Errors:**
+
+- `401` if credentials are invalid
+
+#### `DELETE /helpers/{helper_id}`
+
+Delete a helper account.
+
+**Request:** query parameter `token`
+
+**Response:** `204 No Content`
+
+**Errors:**
+
+- `401` if unauthenticated
+- `404` if helper not found
 
 ### Audiobooks
 
@@ -590,3 +689,16 @@ Model weights are mounted from `ML_side/models/` — ensure both `best.pt` and t
 | `PYTTSX3_DRIVER`              | (system default)             | TTS backend (`espeak` in Docker)                               |
 | `TTS_RATE`                    | (pyttsx3 default)            | Speech rate (`170` in Docker)                                  |
 | `LIBRIVOX_VERIFY_SSL`         | `1`                          | Set to `0` to disable SSL verification for LibriVox (dev only) |
+| `WALKBUDDY_ALLOWED_ORIGINS`   | `http://localhost:8081,http://localhost:8000` | Comma-separated list of allowed origins for CORS |
+| `WALKBUDDY_API_KEY` | (not set) | API key required for authenticated requests |
+
+### API Key Authentication
+
+Set the API key as an environment variable before starting the backend:
+
+WALKBUDDY_API_KEY=your-secret-key docker compose up
+
+All protected endpoints require a valid API key via:
+
+- X-API-Key header
+- or Authorization: Bearer <key>

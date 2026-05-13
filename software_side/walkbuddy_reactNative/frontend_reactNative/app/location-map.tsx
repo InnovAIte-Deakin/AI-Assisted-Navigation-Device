@@ -4,7 +4,7 @@ import { WebView } from "react-native-webview";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
-import { useCurrentLocation } from "./lib/locationSaver";
+import { useCurrentLocation } from "../src/utils/locationSaver";
 
 // This screen is web-safe.
 // Web uses a Leaflet iframe (same concept as the working exterior map panel).

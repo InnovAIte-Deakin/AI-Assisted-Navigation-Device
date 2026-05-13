@@ -1,5 +1,5 @@
 // frontend_reactNative/src/api/client.ts
-import { API_BASE } from "../config";
+import { API_BASE, API_KEY } from "../config";
 
 const NGROK_HEADERS: Record<string, string> = API_BASE.includes("ngrok")
   ? { "ngrok-skip-browser-warning": "true" }
@@ -45,7 +45,8 @@ export async function detectObject(imageBlob: Blob): Promise<VisionResponse> {
     method: "POST",
     body: formData,
     headers: {
-      Accept: "application/json",
+      "Accept": "application/json",
+      "X-API-Key": API_KEY,
       ...NGROK_HEADERS,
     },
   });
@@ -64,13 +65,37 @@ export async function recognizeText(imageBlob: Blob): Promise<OcrResponse> {
     method: "POST",
     body: formData,
     headers: {
-      Accept: "application/json",
+      "Accept": "application/json",
+      "X-API-Key": API_KEY,
       ...NGROK_HEADERS,
     },
   });
 
   if (!res.ok) {
     throw new Error(`OCR failed: ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function askTwoBrain(
+  imageBlob: Blob,
+  question: string
+): Promise<ChatResponse> {
+  const formData = new FormData();
+  formData.append("file", imageBlob as any, "frame.jpg");
+
+  const res = await fetch(`${API_BASE}/chat`, {
+    method: "POST",
+    body: formData,
+    headers: {
+      "Accept": "application/json",
+      "X-API-Key": API_KEY,
+      ...NGROK_HEADERS,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Chat failed: ${res.status}`);
   }
   return await res.json();
 }
