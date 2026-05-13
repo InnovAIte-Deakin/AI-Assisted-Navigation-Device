@@ -154,7 +154,7 @@ async def vision_endpoint(request: Request, file: UploadFile = File(...)):
         for d in result["detections"]:
             state.memory.add_event(**_event_from_detection(d))
 
-        guidance, _risk = _guidance_payload(result, max_messages=1)
+        guidance, _risk = _guidance_payload(result, max_messages=3)
 
         return {
             "detections": result["detections"],
@@ -418,7 +418,7 @@ async def vision_ws_endpoint(websocket: WebSocket):
                             for d in result["detections"]:
                                 state.memory.add_event(**_event_from_detection(d))
 
-                            guidance, risk_level_str = _guidance_payload(result, max_messages=1)
+                            guidance, risk_level_str = _guidance_payload(result, max_messages=3)
 
                             frame_span.set_attribute("frame.inference_ms", inference_ms)
                             frame_span.set_attribute("frame.detection_count", len(result["detections"]))
