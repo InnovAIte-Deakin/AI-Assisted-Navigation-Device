@@ -35,6 +35,11 @@ class Detection:
     category: str
     confidence: float
     bbox: Dict[str, int]  # {x_min, y_min, x_max, y_max}
+    direction: Optional[str] = None
+    is_moving: bool = False
+    motion_direction: str = "unknown"
+    motion_magnitude: str = "low"
+    approaching: bool = False
 
 
 @dataclass
@@ -138,7 +143,10 @@ def calculate_proximity(bbox: Dict[str, int], image_width: int, image_height: in
 def assess_risk_level(
     object_type: ObjectType,
     confidence: float,
-    proximity: str
+    proximity: str,
+    is_moving: bool = False,
+    approaching: bool = False,
+    motion_direction: str = "unknown",
 ) -> RiskLevel:
     """
     Assess risk level based on object type, confidence, and proximity.
@@ -165,6 +173,15 @@ def assess_risk_level(
             base_risk = RiskLevel.HIGH
         elif base_risk == RiskLevel.LOW:
             base_risk = RiskLevel.MEDIUM
+
+    if approaching:
+        if base_risk.value < RiskLevel.HIGH.value:
+            base_risk = RiskLevel.HIGH
+    elif is_moving and motion_direction in {"toward_center", "away_from_center"}:
+        if base_risk.value < RiskLevel.HIGH.value:
+            base_risk = RiskLevel.HIGH
+    elif is_moving and base_risk.value < RiskLevel.MEDIUM.value:
+        base_risk = RiskLevel.MEDIUM
     
     # Increase risk if low confidence (uncertainty)
     if confidence < 0.5:
@@ -241,17 +258,40 @@ def generate_guidance_message(
         object_type = ObjectType.OBSTACLE
     
     # Calculate spatial information
-    position = calculate_spatial_position(detection.bbox, image_width)
+    position = detection.direction or calculate_spatial_position(detection.bbox, image_width)
     proximity = calculate_proximity(detection.bbox, image_width, image_height)
     
     # Assess risk
-    risk_level = assess_risk_level(object_type, detection.confidence, proximity)
+    risk_level = assess_risk_level(
+        object_type,
+        detection.confidence,
+        proximity,
+        is_moving=detection.is_moving,
+        approaching=detection.approaching,
+        motion_direction=detection.motion_direction,
+    )
     
     # Format object name
     object_name = format_object_name(detection.category)
     
     # Generate message based on position and proximity
-    if position == "ahead":
+    if detection.approaching and position == "ahead":
+        message = f"{object_name} approaching ahead"
+    elif detection.is_moving:
+        if detection.motion_direction == "left":
+            message = f"{object_name} moving left"
+        elif detection.motion_direction == "right":
+            message = f"{object_name} moving right"
+        elif detection.motion_direction == "toward_center":
+            message = f"{object_name} moving into your path"
+        elif detection.motion_direction == "away_from_center":
+            message = f"{object_name} moving away from your path"
+        else:
+            message = f"{object_name} moving ahead"
+
+        if proximity == "nearby" and "nearby" not in message:
+            message = f"{message}, nearby"
+    elif position == "ahead":
         if proximity == "nearby":
             message = f"{object_name} ahead, nearby"
         else:
@@ -352,7 +392,12 @@ def process_adapter_output(
             detection = Detection(
                 category=det_dict.get("category", ""),
                 confidence=det_dict.get("confidence", 0.0),
-                bbox=det_dict.get("bbox", {})
+                bbox=det_dict.get("bbox", {}),
+                direction=det_dict.get("direction"),
+                is_moving=det_dict.get("is_moving", False),
+                motion_direction=det_dict.get("motion_direction", "unknown"),
+                motion_magnitude=det_dict.get("motion_magnitude", "low"),
+                approaching=det_dict.get("approaching", False),
             )
             detections.append(detection)
     
@@ -412,6 +457,5 @@ if __name__ == "__main__":
         print(f"  - '{msg.message}' (risk: {msg.risk_level.name}, priority: {msg.priority})")
     
     print("\n" + "=" * 70)
-
 
 

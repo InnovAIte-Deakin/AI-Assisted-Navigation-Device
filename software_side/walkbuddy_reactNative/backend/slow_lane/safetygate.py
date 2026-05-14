@@ -19,16 +19,36 @@ HAZARD_CONFIDENCE_THRESHOLD = 0.5
 def extract_hazards(events: List[Dict]) -> List[str]:
     hazards = []
     for e in events:
-        label = str(e.get("label", "")).lower()
+        label = str(e.get("label") or e.get("category", "")).lower()
         direction = str(e.get("direction", "")).lower()
         confidence = float(e.get("confidence", 0.0))
-        if (
-            any(h in label for h in HAZARD_KEYWORDS)
-            and "ahead" in direction
-            and confidence >= HAZARD_CONFIDENCE_THRESHOLD
-        ):
-            hazards.append(f"{e.get('label')} {e.get('direction')}")
+        is_ahead = "ahead" in direction or direction == "center"
+        is_moving = bool(e.get("is_moving", False))
+        approaching = bool(e.get("approaching", False))
+        motion_direction = str(e.get("motion_direction", "")).lower()
+        crossing_center = motion_direction in {"toward_center", "away_from_center"}
+
+        if not is_ahead:
+            continue
+
+        if any(h in label for h in HAZARD_KEYWORDS) and confidence >= HAZARD_CONFIDENCE_THRESHOLD:
+            hazards.append(_format_hazard(e))
+            continue
+
+        if confidence >= HAZARD_CONFIDENCE_THRESHOLD and (approaching or (is_moving and crossing_center)):
+            hazards.append(_format_hazard(e))
     return hazards
+
+
+def _format_hazard(event: Dict) -> str:
+    label = event.get("label") or event.get("category") or "object"
+    direction = event.get("direction", "ahead")
+    if event.get("approaching"):
+        return f"{label} approaching {direction}"
+    if event.get("is_moving"):
+        motion_direction = event.get("motion_direction", "moving")
+        return f"{label} moving {motion_direction} {direction}"
+    return f"{label} {direction}"
 
 
 def safe_or_stop_recommendation(events: List[Dict]) -> Optional[str]:

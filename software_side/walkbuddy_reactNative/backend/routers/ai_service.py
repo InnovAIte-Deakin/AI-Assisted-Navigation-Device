@@ -4,13 +4,14 @@ import time
 import tempfile
 import logging
 import anyio
-from fastapi import APIRouter, UploadFile, File, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, UploadFile, File, Request, WebSocket, WebSocketDisconnect, HTTPException
 from opentelemetry import trace
 
 from adapters.vision_adapter import vision_adapter
 from adapters.ocr_adapter import ocr_adapter
 from internal import state
-from tts_service.message_reasoning import process_adapter_output, calculate_spatial_position
+from internal.motion_tracker import MotionTracker
+from tts_service.message_reasoning import process_adapter_output
 from slow_lane import safe_or_stop_recommendation
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,40 @@ def current_scene_response(events):
     return "I can see " + ", ".join(descriptions) + "."
 
 
+def _image_dimensions(result: dict) -> tuple[int, int]:
+    shape = result.get("metadata", {}).get("image_shape") or ()
+    if len(shape) >= 2:
+        return int(shape[1]), int(shape[0])
+    return 640, 480
+
+
+def _event_from_detection(detection: dict) -> dict:
+    return {
+        "label": detection["category"],
+        "direction": detection.get("direction", "ahead"),
+        "distance_m": None,
+        "confidence": detection["confidence"],
+        "track_id": detection.get("track_id"),
+        "is_moving": detection.get("is_moving", False),
+        "motion_direction": detection.get("motion_direction", "unknown"),
+        "motion_magnitude": detection.get("motion_magnitude", "low"),
+        "approaching": detection.get("approaching", False),
+    }
+
+
+def _guidance_payload(result: dict, max_messages: int = 1) -> tuple[str, str]:
+    events = [_event_from_detection(d) for d in result["detections"]]
+    safety_message = safe_or_stop_recommendation(events)
+    if safety_message:
+        return safety_message, "CRITICAL"
+
+    image_width, image_height = _image_dimensions(result)
+    msgs = process_adapter_output(result, image_width=image_width, image_height=image_height, max_messages=max_messages)
+    if msgs:
+        return msgs[0].message, msgs[0].risk_level.name
+    return "Path clear", "CLEAR"
+
+
 @router.post("/vision")
 async def vision_endpoint(request: Request, file: UploadFile = File(...)):
     if not request.app.state.yolo:
@@ -116,19 +151,10 @@ async def vision_endpoint(request: Request, file: UploadFile = File(...)):
             logger.error(f"Vision adapter error: {e}")
             raise HTTPException(500, "Vision processing failed")
 
-        # Use real spatial direction from bounding box instead of hardcoding "ahead"
-        image_width = result.get("metadata", {}).get("image_shape", [480, 640])[1]
         for d in result["detections"]:
-            direction = calculate_spatial_position(d["bbox"], image_width)
-            state.memory.add_event(
-                label=d["category"],
-                direction=direction,
-                distance_m=None,
-                confidence=d["confidence"],
-            )
+            state.memory.add_event(**_event_from_detection(d))
 
-        msgs = process_adapter_output(result, max_messages=1)
-        guidance = msgs[0].message if msgs else "Path clear"
+        guidance, _risk = _guidance_payload(result, max_messages=1)
 
         return {
             "detections": result["detections"],
@@ -310,6 +336,7 @@ async def vision_ws_endpoint(websocket: WebSocket):
         return
 
     limiter = websocket.app.state.vision_limiter
+    tracker = MotionTracker()
     client_host = websocket.client.host if websocket.client else "unknown"
     frames_processed = 0
     total_inference_ms = 0
@@ -377,26 +404,21 @@ async def vision_ws_endpoint(websocket: WebSocket):
                             result = await anyio.to_thread.run_sync(
                                 vision_adapter, yolo, temp_path
                             )
+                            image_width, image_height = _image_dimensions(result)
+                            result["detections"] = tracker.update(
+                                result["detections"],
+                                image_width=image_width,
+                                image_height=image_height,
+                            )
 
                             inference_ms = int((time.monotonic() - t0) * 1000)
                             total_inference_ms += inference_ms
                             frames_processed += 1
 
                             for d in result["detections"]:
-                                state.memory.add_event(
-                                    label=d["category"],
-                                    direction=d.get("direction", "ahead"),
-                                    distance_m=None,
-                                    confidence=d["confidence"],
-                                )
+                                state.memory.add_event(**_event_from_detection(d))
 
-                            msgs = process_adapter_output(result, max_messages=1)
-                            if msgs:
-                                guidance = msgs[0].message
-                                risk_level_str = msgs[0].risk_level.name
-                            else:
-                                guidance = "Path clear"
-                                risk_level_str = "CLEAR"
+                            guidance, risk_level_str = _guidance_payload(result, max_messages=1)
 
                             frame_span.set_attribute("frame.inference_ms", inference_ms)
                             frame_span.set_attribute("frame.detection_count", len(result["detections"]))
