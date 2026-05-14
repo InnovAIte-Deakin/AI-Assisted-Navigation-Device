@@ -8,6 +8,10 @@ const tunnelOverride = process.env.EXPO_PUBLIC_API_BASE;
 
 export const API_KEY = process.env.EXPO_PUBLIC_WALKBUDDY_API_KEY || "";
 
+export const GRADIO_URL =
+  process.env.EXPO_PUBLIC_GRADIO_URL || "http://localhost:7860";
+
+
 const lanHost = Constants.expoConfig?.hostUri?.split(":")[0];
 const isIp = (h?: string) => !!h && /^\d+\.\d+\.\d+\.\d+$/.test(h);
 

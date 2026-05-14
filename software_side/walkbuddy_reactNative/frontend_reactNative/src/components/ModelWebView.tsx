@@ -1,5 +1,5 @@
 // src/components/ModelWebView.tsx
-import React, { memo, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -12,10 +12,12 @@ import { WebView } from "react-native-webview";
 type Props = {
   url: string;
   loading?: boolean;
+  onObjectDetected?: (label: string, confidence?: number) => void;
 };
 
-function ModelWebView({ url, loading }: Props) {
+function ModelWebView({ url, loading, onObjectDetected }: Props) {
   const [err, setErr] = useState<string | null>(null);
+
 
   if (!url) {
     return (
@@ -26,6 +28,40 @@ function ModelWebView({ url, loading }: Props) {
       </View>
     );
   }
+
+  useEffect(() => {
+  if (Platform.OS !== "web" || typeof onObjectDetected !== "function") return;
+
+  const handleMessage = (event: MessageEvent) => {
+    const raw = event.data;
+
+    try {
+      const msg = typeof raw === "string" ? JSON.parse(raw) : raw;
+
+      if (msg?.type === "DETECTION" && typeof msg?.label === "string") {
+  const cleanLabel = msg.label.trim().toLowerCase();
+
+  const confidence =
+    typeof msg.confidence === "number" ? msg.confidence : undefined;
+
+  onObjectDetected(cleanLabel, confidence);
+  return;
+}
+
+      if (typeof msg?.label === "string") {
+  onObjectDetected(msg.label.trim().toLowerCase());
+  return;
+}
+    } catch {
+      if (typeof raw === "string") {
+       onObjectDetected(raw.trim().toLowerCase());
+      }
+    }
+  };
+
+  window.addEventListener("message", handleMessage);
+  return () => window.removeEventListener("message", handleMessage);
+ }, [onObjectDetected]);
 
   // ---------- WEB (browser) ----------
   if (Platform.OS === "web") {
