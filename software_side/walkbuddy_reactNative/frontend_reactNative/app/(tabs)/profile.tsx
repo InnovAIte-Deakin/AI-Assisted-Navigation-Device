@@ -42,9 +42,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const tokens = {
   bg: "#0D1B2A",
-  tile: "#111",
-  text: "#E0E1DD",
-  muted: "#b8c6d4",
+  card: "#0d1f32",
+  text: "#e8eef6",
+  muted: "#6b7f99",
   gold: "#FCA311",
   divider: "rgba(252,163,17,0.35)",
   inputBg: "#0a121a",
@@ -391,9 +391,13 @@ export default function ProfilePage() {
 
   const renderAuth = () => (
     <>
+      {/* Hero */}
       <View style={styles.heroCard}>
-        <View style={styles.avatar}>
-          <Icon name="user" size={22} color={tokens.bg} />
+        <View style={styles.heroAvatarWrap}>
+          <View style={styles.heroAvatar}>
+            <Icon name="user" size={32} color="#0D1B2A" />
+          </View>
+          <View style={styles.heroAvatarRing} />
         </View>
         <View style={styles.heroText}>
           <Text style={styles.heroTitle}>Profile</Text>
@@ -531,17 +535,20 @@ export default function ProfilePage() {
     const profile = auth.profile;
     return (
       <>
-        <View style={styles.profileTopCard}>
-          <View style={styles.profileAvatar}>
-            <Icon name="user" size={28} color={tokens.muted} />
+        {/* Profile hero */}
+        <View style={styles.profileHeroCard}>
+          <View style={styles.profileAvatarWrap}>
+            <Icon name="user" size={32} color="#0D1B2A" />
           </View>
-          <View style={styles.profileMeta}>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {profile.displayName}
-            </Text>
-            <Text style={styles.profileSub} numberOfLines={1}>
-              {profile.email}
-            </Text>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {profile.displayName}
+          </Text>
+          <Text style={styles.profileEmail} numberOfLines={1}>
+            {profile.email}
+          </Text>
+          <View style={styles.profileBadge}>
+            <Icon name="check-circle" size={12} color="#0D1B2A" />
+            <Text style={styles.profileBadgeText}>Logged in</Text>
           </View>
         </View>
 
@@ -594,6 +601,7 @@ export default function ProfilePage() {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             {auth.status === "loggedOut" ? renderAuth() : renderProfile()}
           </ScrollView>
@@ -637,41 +645,71 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 120,
-    gap: 12,
+    gap: 14,
   },
+
+  // ─── Hero (logged out) ───
   heroCard: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    flexDirection: "row",
+    backgroundColor: tokens.card,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    padding: 28,
     alignItems: "center",
+    gap: 12,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
+
+  heroAvatarWrap: {
+    position: "relative",
+    width: 80,
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+
+  heroAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    zIndex: 1,
   },
+
+  heroAvatarRing: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "rgba(252,163,17,0.3)",
+  },
+
   heroText: {
     flex: 1,
   },
   heroTitle: {
     color: tokens.text,
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: 0.3,
   },
   heroSubtitle: {
     color: tokens.muted,
     fontSize: 13,
-    lineHeight: 18,
+    textAlign: "center",
+    lineHeight: 20,
+    fontWeight: "500",
   },
+
   tabRow: {
     flexDirection: "row",
     borderWidth: 2,
@@ -696,38 +734,128 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: "#111",
   },
+
+  // ─── Profile hero (logged in) ───
+  profileHeroCard: {
+    backgroundColor: tokens.card,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    padding: 28,
+    alignItems: "center",
+    gap: 8,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+
+  profileAvatarWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: tokens.gold,
+    borderWidth: 3,
+    borderColor: tokens.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: 4,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+
+  profileName: {
+    color: tokens.text,
+    fontSize: 22,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  profileEmail: {
+    color: tokens.muted,
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  profileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: tokens.gold,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+
+  profileBadgeText: {
+    color: "#0D1B2A",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  // ─── Section title ───
   sectionTitle: {
     color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    marginTop: 10,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    paddingHorizontal: 4,
   },
+
+  // ─── Card ───
   card: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    backgroundColor: tokens.card,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.2)",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 4,
   },
+
+  // ─── Input ───
   inputLabel: {
     color: tokens.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.4,
-    marginBottom: 6,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: tokens.inputBg,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+
+  inputIcon: {
+    width: 18,
   },
   input: {
-    backgroundColor: tokens.inputBg,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    flex: 1,
     color: tokens.text,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
+    backgroundColor: tokens.inputBg,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
   errorText: {
     color: tokens.error,
@@ -735,26 +863,31 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontWeight: "600",
   },
+
+  // ─── Buttons ───
   btnRow: {
-    marginTop: 14,
+    marginTop: 20,
     flexDirection: "row",
     gap: 10,
     alignItems: "center",
   },
   primaryBtn: {
     flex: 1,
-    borderWidth: 2,
-    borderColor: tokens.gold,
     backgroundColor: tokens.gold,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 50,
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 46,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
   primaryBtnText: {
-    color: "#111",
-    fontSize: 14,
+    color: "#0D1B2A",
+    fontSize: 15,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
@@ -762,20 +895,40 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   secondaryBtn: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.4)",
     backgroundColor: "transparent",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderRadius: 50,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryBtnText: {
-    color: tokens.text,
-    fontSize: 14,
+    color: tokens.muted,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: tokens.gold,
+    borderRadius: 50,
+    paddingVertical: 16,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+
+  logoutBtnText: {
+    color: "#0D1B2A",
+    fontSize: 15,
     fontWeight: "900",
-    letterSpacing: 0.4,
   },
   pressed: {
     opacity: 0.85,
@@ -824,7 +977,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.gold,
     borderRadius: 12,
     paddingVertical: 12,
-    backgroundColor: tokens.tile,
+    backgroundColor: tokens.card,
   },
   socialBtnText: {
     color: tokens.text,
@@ -835,7 +988,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
-    backgroundColor: tokens.tile,
+    backgroundColor: tokens.card,
     borderWidth: 1,
     borderColor: "rgba(252,163,17,0.3)",
     borderRadius: 10,
@@ -847,8 +1000,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+
+  // ─── Row links ───
   row: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -865,21 +1020,22 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   rowIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: tokens.text,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(252,163,17,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(252,163,17,0.25)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: 12,
   },
   rowTextWrap: {
     flex: 1,
   },
   rowLabel: {
     color: tokens.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
   },
   rowSublabel: {
@@ -887,41 +1043,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
-  },
-  profileTopCard: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    backgroundColor: tokens.inputBg,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  profileMeta: {
-    flex: 1,
-  },
-  profileName: {
-    color: tokens.text,
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-  profileSub: {
-    color: tokens.muted,
-    fontSize: 13,
-    fontWeight: "700",
   },
 });

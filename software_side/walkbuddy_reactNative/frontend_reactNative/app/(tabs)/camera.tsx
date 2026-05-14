@@ -234,13 +234,11 @@ export default function CameraAssistScreen() {
       const { w: imgW, h: imgH } = frameMeta;
       const { w: viewW, h: viewH } = previewLayout;
       if (imgW <= 0 || imgH <= 0 || viewW <= 0 || viewH <= 0) return null;
-
       const scale = Math.max(viewW / imgW, viewH / imgH);
       const scaledW = imgW * scale;
       const scaledH = imgH * scale;
       const offsetX = (scaledW - viewW) / 2;
       const offsetY = (scaledH - viewH) / 2;
-
       const x1 = bbox.x_min * scale - offsetX;
       const y1 = bbox.y_min * scale - offsetY;
       const x2 = bbox.x_max * scale - offsetX;
@@ -577,7 +575,7 @@ export default function CameraAssistScreen() {
       // Resume WS vision streaming after OCR
       scheduleNextFrame(300);
     }
-  }, [isOcrCapturing, tts, scheduleNextFrame]);
+  }, [isOcrCapturing, tts, scheduleNextFrame, maybeSpeak]);
 
   // ── Voice / chat ────────────────────────────────────────────────────────
   const processQuery = useCallback(async (queryText: string) => {
@@ -610,11 +608,6 @@ export default function CameraAssistScreen() {
     }
   }, [tts]);
 
-  const stopListeningHard = useCallback(() => {
-    try { sttService.stopListening(); } catch {}
-    setIsListening(false);
-  }, [sttService]);
-
   const startListening = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (Platform.OS === "web") {
@@ -641,13 +634,8 @@ export default function CameraAssistScreen() {
   }, [sttService, processQuery, stopListeningHard]);
 
   const stopListening = useCallback(async () => {
-    if (Platform.OS === "web") {
-      stopListeningHard();
-      return;
-    }
-
+    if (Platform.OS === "web") { stopListeningHard(); return; }
     setIsVoiceProcessing(true);
-
     try {
       const result = await sttService.stopRecordingNative();
       if (result.error) { Alert.alert("Transcription Error", result.error); return; }
@@ -664,7 +652,6 @@ export default function CameraAssistScreen() {
 
   const micStart = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || isListening) return;
-
     micLockRef.current = true;
     tts.stop(); // interrupt any ongoing guidance speech
     try {
@@ -677,7 +664,6 @@ export default function CameraAssistScreen() {
 
   const micStop = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || !isListening) return;
-
     micLockRef.current = true;
     try { await stopListening(); }
     finally { setTimeout(() => { micLockRef.current = false; }, 120); }
@@ -786,7 +772,6 @@ export default function CameraAssistScreen() {
         <Text style={{ color: "#fff", marginBottom: 12 }}>
           Camera access is required.
         </Text>
-
         <Pressable style={styles.primaryBtn} onPress={requestPermission}>
           <Text style={styles.primaryBtnText}>Grant Permission</Text>
         </Pressable>
@@ -1005,10 +990,8 @@ const styles = StyleSheet.create({
   },
 
   box: {
-    position: "absolute",
-    borderWidth: 2,
-    borderColor: GOLD,
-    borderRadius: 8,
+    position: "absolute", borderWidth: 2,
+    borderColor: GOLD, borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.15)",
   },
 
@@ -1022,6 +1005,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     paddingHorizontal: 2,
   },
-
-
 });
