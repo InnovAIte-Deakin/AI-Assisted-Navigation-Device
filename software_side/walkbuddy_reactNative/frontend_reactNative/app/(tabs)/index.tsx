@@ -58,6 +58,7 @@ export default function HomePage() {
   const goToSavedPlaces = () => router.push("/places");
   const goToFavourites = () => router.push("/favourites" as any);
   const goToProfile = () => router.push("/profile");
+  const goToEmergency = () => router.push("/emergency" as any);
 
   const goToCameraVoice = () =>
     router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
@@ -136,92 +137,101 @@ export default function HomePage() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { width: contentWidth }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <HomeHeader
-          greeting={greeting}
-          appTitle="WalkBuddy"
-          showDivider
-          showLocation
-        />
-
-        <View style={styles.mainArea}>
-          <BounceButton label="SEARCH" onPress={openSearch} search />
-
-          <View style={styles.grid}>
-            <ActionTile
-              icon="volume-up"
-              label="SCREEN READER"
-              onPress={goToScreenReader}
-            />
-            <ActionTile
-              icon="file-text"
-              label="TEXT READER"
-              onPress={goToCameraOCR}
-            />
-            <ActionTile
-              icon="microphone"
-              label="VOICE ASSIST"
-              onPress={goToCameraVoice}
-            />
-            <ActionTile
-              icon="map-marker"
-              label="PLACES"
-              onPress={goToSavedPlaces}
-            />
-          </View>
-        </View>
-
-        {/* VISION */}
-        <View
-          style={[
-            styles.visionWrapper,
-            visionPreviewOn && styles.visionActive,
-          ]}
+      <View style={[styles.content, { width: contentWidth }]}>
+        <ScrollView
+          style={styles.pageScroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.visionRow}>
-            <Text style={styles.visionTitle}>VISION ASSIST</Text>
+          <HomeHeader
+            greeting={greeting}
+            appTitle="WalkBuddy"
+            showDivider
+            showLocation
+          />
 
-            <View style={styles.visionToggle}>
-              <Text style={styles.visionToggleText}>
-                {visionEnabled ? "On" : "Off"}
-              </Text>
-              <Switch
-                value={visionEnabled}
-                onValueChange={setVisionEnabled}
-                trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+          <View style={styles.mainArea}>
+            <BounceButton label="SEARCH" onPress={openSearch} search />
+
+            <View style={styles.grid}>
+              <ActionTile
+                icon="volume-up"
+                label="SCREEN READER"
+                onPress={goToScreenReader}
+              />
+              <ActionTile
+                icon="file-text"
+                label="TEXT READER"
+                onPress={goToCameraOCR}
+              />
+              <ActionTile
+                icon="microphone"
+                label="VOICE ASSIST"
+                onPress={goToCameraVoice}
+              />
+              <ActionTile
+                icon="map-marker"
+                label="PLACES"
+                onPress={goToSavedPlaces}
+              />
+              <ActionTile
+                icon="exclamation-triangle"
+                label="EMERGENCY"
+                onPress={goToEmergency}
               />
             </View>
           </View>
 
-          <Pressable
-            onPress={toggleVisionPreview}
-            style={({ pressed }) => [
-              styles.visionCard,
-              pressed && styles.pressed,
+          {/* VISION */}
+          <View
+            style={[
+              styles.visionWrapper,
+              visionPreviewOn && styles.visionActive,
             ]}
           >
-            <View style={styles.visionInner}>
-              {visionEnabled && visionPreviewOn ? (
-                <ModelWebView url={visionUrl} loading={loading} />
-              ) : (
-                <View style={styles.previewPlaceholder}>
-                  <Icon name="eye" size={28} color={tokens.muted} />
-                  <Text style={styles.previewText}>
-                    {visionEnabled ? "Tap to start camera" : "Vision disabled"}
-                  </Text>
-                  <Text style={styles.previewSubtext}>
-                    Starting camera gives live surroundings
-                  </Text>
-                </View>
-              )}
+            <View style={styles.visionRow}>
+              <Text style={styles.visionTitle}>VISION ASSIST</Text>
+
+              <View style={styles.visionToggle}>
+                <Text style={styles.visionToggleText}>
+                  {visionEnabled ? "On" : "Off"}
+                </Text>
+
+                <Switch
+                  value={visionEnabled}
+                  onValueChange={setVisionEnabled}
+                  trackColor={{ false: "#23384d", true: "#2d4b66" }}
+                  thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+                />
+              </View>
             </View>
-          </Pressable>
-        </View>
-      </ScrollView>
+
+            <Pressable
+              onPress={toggleVisionPreview}
+              style={({ pressed }) => [
+                styles.visionCard,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.visionInner}>
+                {visionEnabled && visionPreviewOn ? (
+                  <ModelWebView url={visionUrl} loading={loading} />
+                ) : (
+                  <View style={styles.previewPlaceholder}>
+                    <Icon name="eye" size={28} color={tokens.muted} />
+                    <Text style={styles.previewText}>
+                      {visionEnabled ? "Tap to start camera" : "Vision disabled"}
+                    </Text>
+                    <Text style={styles.previewSubtext}>
+                      Starting camera gives live surroundings
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </View>
 
       {/* ─── Search Modal ─── */}
       <Modal
@@ -444,12 +454,14 @@ function ActionTile({
               pointerEvents="none"
               style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
             />
+
             <Icon
               name={icon}
               size={24}
               color="#071a2a"
               style={styles.tileIcon}
             />
+
             <Text style={styles.tileText}>{label}</Text>
           </View>
         </Animated.View>
@@ -480,9 +492,8 @@ const styles = StyleSheet.create({
   },
 
   content: {
+    flex: 1,
     paddingHorizontal: 12,
-    gap: 18,
-    paddingBottom: 40,
   },
 
   pressed: {
@@ -490,8 +501,20 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
 
+  pageScroll: {
+    flex: 1,
+    width: "100%",
+  },
+
+  scrollContent: {
+    gap: 18,
+    paddingBottom: 120,
+  },
+
   mainArea: {
     gap: 0,
+    width: "100%",
+    paddingTop: 10,
   },
 
   searchButton: {
@@ -631,6 +654,7 @@ const styles = StyleSheet.create({
 
   visionCard: {
     width: "100%",
+    minHeight: 220,
     flex: 1,
     backgroundColor: "#0d1f32",
     borderWidth: 1.5,
