@@ -1,5 +1,5 @@
 from collections import deque
-from typing import Deque, Dict, Optional
+from typing import Any, Deque, Dict, Optional
 
 
 class NavigationMemory:
@@ -17,15 +17,16 @@ class NavigationMemory:
         direction: str,
         distance_m: Optional[float],
         confidence: float,
+        **extra: Any,
     ):
-        self.buffer.append(
-            {
-                "label": label,
-                "direction": direction,
-                "distance_m": distance_m,
-                "confidence": confidence,
-            }
-        )
+        event = {
+            "label": label,
+            "direction": direction,
+            "distance_m": distance_m,
+            "confidence": confidence,
+        }
+        event.update(extra)
+        self.buffer.append(event)
 
     def to_context_text(self, n: int = 30) -> str:
         """
@@ -39,6 +40,8 @@ class NavigationMemory:
                 else "unknown distance"
             )
             lines.append(
-                f"- {e['label']} {e['direction']}, {dist} (conf {e['confidence']:.2f})"
+                f"- {e['label']} {e['direction']}, {dist} "
+                f"(conf {e['confidence']:.2f}, moving={e.get('is_moving', False)}, "
+                f"approaching={e.get('approaching', False)})"
             )
         return "\n".join(lines)
