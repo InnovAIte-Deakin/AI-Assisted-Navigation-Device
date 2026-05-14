@@ -23,12 +23,11 @@ import { useSession, ProfileRecord } from "../SessionContext";
 
 const tokens = {
   bg: "#0D1B2A",
-  tile: "#111",
-  text: "#E0E1DD",
-  muted: "#b8c6d4",
+  card: "#0d1f32",
+  text: "#e8eef6",
+  muted: "#6b7f99",
   gold: "#FCA311",
-  divider: "rgba(252,163,17,0.35)",
-  inputBg: "#0a121a",
+  inputBg: "#162233",
 };
 
 function CardTitle({ children }: { children: string }) {
@@ -129,7 +128,6 @@ export default function ProfilePage() {
 
   const toLoggedOut = () => {
     setAuth({ status: "loggedOut" });
-
     setLoginEmail("");
     setLoginPass("");
     setCreateDisplayName("");
@@ -139,127 +137,138 @@ export default function ProfilePage() {
   const onLogin = () => {
     const email = loginEmail.trim();
     const pass = loginPass;
-
     if (!email || !pass) {
       Alert.alert("Missing details", "Enter email and password.");
       return;
     }
-
     setAuth({ status: "loggedInNoProfile", email });
   };
 
   const onCreateProfile = () => {
     if (auth.status !== "loggedInNoProfile") return;
-
     const email = auth.email.trim();
     const name = createDisplayName.trim();
-
     if (!name) {
       Alert.alert("Missing details", "Enter a display name.");
       return;
     }
-
     const profile: ProfileRecord = {
       email,
       displayName: name,
       photoString: createPhotoString.trim(),
     };
-
     setAuth({ status: "loggedInWithProfile", profile });
   };
 
   const renderLoggedOut = () => (
     <>
+      {/* Hero */}
       <View style={styles.heroCard}>
-        <View style={styles.avatar}>
-          <Icon name="user" size={22} color={tokens.bg} />
+        <View style={styles.heroAvatarWrap}>
+          <View style={styles.heroAvatar}>
+            <Icon name="user" size={32} color="#0D1B2A" />
+          </View>
+          <View style={styles.heroAvatarRing} />
         </View>
-        <View style={styles.heroText}>
-          <Text style={styles.heroTitle}>Profile</Text>
-          <Text style={styles.heroSubtitle}>
-            Log in to view or create your profile. When logged out, nothing is kept on the device.
-          </Text>
-        </View>
+        <Text style={styles.heroTitle}>Welcome to WalkBuddy</Text>
+        <Text style={styles.heroSubtitle}>
+          Log in to access your profile and personalise your experience.
+        </Text>
       </View>
 
-      <CardTitle>Log in</CardTitle>
+      {/* Login form */}
+      <CardTitle>LOG IN</CardTitle>
       <View style={styles.card}>
         <Text style={styles.inputLabel}>Email</Text>
-        <TextInput
-          value={loginEmail}
-          onChangeText={setLoginEmail}
-          placeholder="name@example.com"
-          placeholderTextColor="rgba(184,198,212,0.55)"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          style={styles.input}
-        />
+        <View style={styles.inputWrap}>
+          <Icon name="envelope" size={14} color={tokens.muted} style={styles.inputIcon} />
+          <TextInput
+            value={loginEmail}
+            onChangeText={setLoginEmail}
+            placeholder="name@example.com"
+            placeholderTextColor={tokens.muted}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={styles.input}
+          />
+        </View>
 
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Password</Text>
-        <TextInput
-          value={loginPass}
-          onChangeText={setLoginPass}
-          placeholder="Password"
-          placeholderTextColor="rgba(184,198,212,0.55)"
-          secureTextEntry
-          style={styles.input}
-        />
+        <Text style={[styles.inputLabel, { marginTop: 16 }]}>Password</Text>
+        <View style={styles.inputWrap}>
+          <Icon name="lock" size={16} color={tokens.muted} style={styles.inputIcon} />
+          <TextInput
+            value={loginPass}
+            onChangeText={setLoginPass}
+            placeholder="Password"
+            placeholderTextColor={tokens.muted}
+            secureTextEntry
+            style={styles.input}
+          />
+        </View>
 
         <View style={styles.btnRow}>
           <PrimaryButton label="Log in" onPress={onLogin} />
         </View>
 
         <Text style={styles.note}>
-          If you don’t have a profile yet, logging in will prompt you to create one.
+          Don't have a profile yet? Logging in will prompt you to create one.
         </Text>
       </View>
 
-      <CardTitle>Quick links</CardTitle>
+      {/* Quick links */}
+      <CardTitle>QUICK LINKS</CardTitle>
       <View style={styles.card}>
-       <Text style={styles.note}>
-          Settings unavailable while logged out.
-        </Text>
+        <View style={styles.lockedRow}>
+          <Icon name="lock" size={14} color={tokens.muted} />
+          <Text style={styles.lockedText}>Settings unavailable while logged out.</Text>
+        </View>
       </View>
     </>
   );
 
   const renderCreateProfile = (email: string) => (
     <>
+      {/* Hero */}
       <View style={styles.heroCard}>
-        <View style={styles.avatar}>
-          <Icon name="user" size={22} color={tokens.bg} />
+        <View style={styles.heroAvatarWrap}>
+          <View style={styles.heroAvatar}>
+            <Icon name="user-plus" size={28} color="#0D1B2A" />
+          </View>
+          <View style={styles.heroAvatarRing} />
         </View>
-        <View style={styles.heroText}>
-          <Text style={styles.heroTitle}>Create profile</Text>
-          <Text style={styles.heroSubtitle}>
-            Signed in as {email}. Enter a display name and (optional) photo string to create your profile.
-          </Text>
-        </View>
+        <Text style={styles.heroTitle}>Create your profile</Text>
+        <Text style={styles.heroSubtitle}>Signed in as {email}</Text>
       </View>
 
-      <CardTitle>Profile details</CardTitle>
+      <CardTitle>PROFILE DETAILS</CardTitle>
       <View style={styles.card}>
         <Text style={styles.inputLabel}>Display name</Text>
-        <TextInput
-          value={createDisplayName}
-          onChangeText={setCreateDisplayName}
-          placeholder="Display name"
-          placeholderTextColor="rgba(184,198,212,0.55)"
-          style={styles.input}
-        />
+        <View style={styles.inputWrap}>
+          <Icon name="user" size={14} color={tokens.muted} style={styles.inputIcon} />
+          <TextInput
+            value={createDisplayName}
+            onChangeText={setCreateDisplayName}
+            placeholder="Display name"
+            placeholderTextColor={tokens.muted}
+            style={styles.input}
+          />
+        </View>
 
-        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Photo string (optional)</Text>
-        <TextInput
-          value={createPhotoString}
-          onChangeText={setCreatePhotoString}
-          placeholder="data:image/...base64 OR URL OR text"
-          placeholderTextColor="rgba(184,198,212,0.55)"
-          autoCapitalize="none"
-          style={styles.input}
-        />
+        <Text style={[styles.inputLabel, { marginTop: 16 }]}>Photo (optional)</Text>
+        <View style={styles.inputWrap}>
+          <Icon name="image" size={14} color={tokens.muted} style={styles.inputIcon} />
+          <TextInput
+            value={createPhotoString}
+            onChangeText={setCreatePhotoString}
+            placeholder="URL or base64 image"
+            placeholderTextColor={tokens.muted}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+        </View>
 
         <View style={styles.previewWrap}>
-          <Text style={styles.previewLabel}>Preview</Text>
+          <Text style={styles.previewLabel}>PREVIEW</Text>
           <View style={styles.previewRow}>
             <View style={styles.previewAvatar}>
               {createPhotoString.trim() ? (
@@ -283,13 +292,9 @@ export default function ProfilePage() {
           <PrimaryButton label="Create profile" onPress={onCreateProfile} />
           <SecondaryButton label="Log out" onPress={toLoggedOut} />
         </View>
-
-        <Text style={styles.note}>
-          This will be stored locally using encrypted storage once the secure persistence layer is wired in.
-        </Text>
       </View>
 
-      <CardTitle>Quick links</CardTitle>
+      <CardTitle>QUICK LINKS</CardTitle>
       <View style={styles.card}>
         <RowLink
           icon="cog"
@@ -303,8 +308,9 @@ export default function ProfilePage() {
 
   const renderProfile = (profile: ProfileRecord) => (
     <>
-      <View style={styles.profileTopCard}>
-        <View style={styles.profileAvatar}>
+      {/* Profile hero */}
+      <View style={styles.profileHeroCard}>
+        <View style={styles.profileAvatarWrap}>
           {profile.photoString?.trim() ? (
             <Image
               source={{ uri: profile.photoString.trim() }}
@@ -313,21 +319,22 @@ export default function ProfilePage() {
               onError={() => {}}
             />
           ) : (
-            <Icon name="user" size={28} color={tokens.muted} />
+            <Icon name="user" size={32} color="#0D1B2A" />
           )}
         </View>
-
-        <View style={styles.profileMeta}>
-          <Text style={styles.profileName} numberOfLines={1}>
-            {profile.displayName}
-          </Text>
-          <Text style={styles.profileSub} numberOfLines={1}>
-            {profile.email}
-          </Text>
+        <Text style={styles.profileName} numberOfLines={1}>
+          {profile.displayName}
+        </Text>
+        <Text style={styles.profileEmail} numberOfLines={1}>
+          {profile.email}
+        </Text>
+        <View style={styles.profileBadge}>
+          <Icon name="check-circle" size={12} color="#0D1B2A" />
+          <Text style={styles.profileBadgeText}>Logged in</Text>
         </View>
       </View>
 
-      <CardTitle>Profile</CardTitle>
+      <CardTitle>PROFILE</CardTitle>
       <View style={styles.card}>
         <RowLink
           icon="cog"
@@ -337,31 +344,20 @@ export default function ProfilePage() {
         />
       </View>
 
-      <CardTitle>Session</CardTitle>
+      <CardTitle>SESSION</CardTitle>
       <View style={styles.card}>
         <Pressable
           onPress={toLoggedOut}
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.logoutBtn, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="Log out"
         >
-          <View style={styles.rowLeft}>
-            <View style={styles.rowIconWrap}>
-              <Icon name="sign-out" size={18} color={tokens.gold} />
-            </View>
-            <View style={styles.rowTextWrap}>
-              <Text style={styles.rowLabel}>Log out</Text>
-              <Text style={styles.rowSublabel}>
-                Clears locally stored data on this device
-              </Text>
-            </View>
-          </View>
-          <Icon name="chevron-right" size={14} color={tokens.muted} />
+          <Icon name="sign-out" size={18} color="#0D1B2A" />
+          <Text style={styles.logoutBtnText}>Log out</Text>
         </Pressable>
       </View>
     </>
   );
-  console.log("AUTH STATE", auth);
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -375,14 +371,12 @@ export default function ProfilePage() {
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             {auth.status === "loggedOut" && renderLoggedOut()}
-            {auth.status === "loggedInNoProfile" &&
-              renderCreateProfile(auth.email)}
-            {auth.status === "loggedInWithProfile" &&
-              renderProfile(auth.profile)}
+            {auth.status === "loggedInNoProfile" && renderCreateProfile(auth.email)}
+            {auth.status === "loggedInWithProfile" && renderProfile(auth.profile)}
           </ScrollView>
-
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -410,86 +404,195 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingBottom: 120,
-    gap: 12,
+    gap: 14,
   },
 
+  // ─── Hero (logged out / create profile) ───
   heroCard: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    flexDirection: "row",
+    backgroundColor: tokens.card,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    padding: 28,
     alignItems: "center",
+    gap: 12,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
 
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
+  heroAvatarWrap: {
+    position: "relative",
+    width: 80,
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+
+  heroAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    zIndex: 1,
   },
 
-  heroText: {
-    flex: 1,
+  heroAvatarRing: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "rgba(252,163,17,0.3)",
   },
 
   heroTitle: {
     color: tokens.text,
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: 0.3,
   },
 
   heroSubtitle: {
     color: tokens.muted,
     fontSize: 13,
-    lineHeight: 18,
+    textAlign: "center",
+    lineHeight: 20,
+    fontWeight: "500",
   },
 
+  // ─── Profile hero (logged in) ───
+  profileHeroCard: {
+    backgroundColor: tokens.card,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    padding: 28,
+    alignItems: "center",
+    gap: 8,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+
+  profileAvatarWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: tokens.gold,
+    borderWidth: 3,
+    borderColor: tokens.gold,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: 4,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+
+  profileImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  profileName: {
+    color: tokens.text,
+    fontSize: 22,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  profileEmail: {
+    color: tokens.muted,
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  profileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: tokens.gold,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+
+  profileBadgeText: {
+    color: "#0D1B2A",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  // ─── Section title ───
   sectionTitle: {
     color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    marginTop: 10,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    paddingHorizontal: 4,
   },
 
+  // ─── Card ───
   card: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    backgroundColor: tokens.card,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.2)",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 4,
   },
 
+  // ─── Input ───
   inputLabel: {
     color: tokens.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.4,
-    marginBottom: 6,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: tokens.inputBg,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.3)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+
+  inputIcon: {
+    width: 18,
   },
 
   input: {
-    backgroundColor: tokens.inputBg,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    flex: 1,
     color: tokens.text,
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
   },
 
+  // ─── Buttons ───
   btnRow: {
-    marginTop: 14,
+    marginTop: 20,
     flexDirection: "row",
     gap: 10,
     alignItems: "center",
@@ -497,38 +600,61 @@ const styles = StyleSheet.create({
 
   primaryBtn: {
     flex: 1,
-    borderWidth: 2,
-    borderColor: tokens.gold,
     backgroundColor: tokens.gold,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 50,
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
 
   primaryBtnText: {
-    color: "#111",
-    fontSize: 14,
+    color: "#0D1B2A",
+    fontSize: 15,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
 
   secondaryBtn: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
+    borderWidth: 1.5,
+    borderColor: "rgba(252,163,17,0.4)",
     backgroundColor: "transparent",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderRadius: 50,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",
   },
 
   secondaryBtnText: {
-    color: tokens.text,
-    fontSize: 14,
+    color: tokens.muted,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: tokens.gold,
+    borderRadius: 50,
+    paddingVertical: 16,
+    shadowColor: tokens.gold,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+
+  logoutBtnText: {
+    color: "#0D1B2A",
+    fontSize: 15,
     fontWeight: "900",
-    letterSpacing: 0.4,
   },
 
   pressed: {
@@ -539,12 +665,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: tokens.muted,
     fontSize: 12,
-    lineHeight: 16,
-    opacity: 0.9,
+    lineHeight: 18,
   },
 
+  lockedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+
+  lockedText: {
+    color: tokens.muted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  // ─── Row links ───
   row: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -558,14 +697,15 @@ const styles = StyleSheet.create({
   },
 
   rowIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: tokens.text,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(252,163,17,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(252,163,17,0.25)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    marginRight: 12,
   },
 
   rowTextWrap: {
@@ -574,7 +714,7 @@ const styles = StyleSheet.create({
 
   rowLabel: {
     color: tokens.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
   },
 
@@ -585,33 +725,34 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
+  // ─── Preview ───
   previewWrap: {
-    marginTop: 14,
+    marginTop: 20,
     borderTopWidth: 1,
-    borderTopColor: tokens.divider,
-    paddingTop: 12,
+    borderTopColor: "rgba(252,163,17,0.15)",
+    paddingTop: 16,
   },
 
   previewLabel: {
     color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.4,
-    marginBottom: 8,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    marginBottom: 12,
   },
 
   previewRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
 
   previewAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
-    borderColor: tokens.gold,
+    borderColor: "rgba(252,163,17,0.4)",
     backgroundColor: tokens.inputBg,
     alignItems: "center",
     justifyContent: "center",
@@ -626,53 +767,7 @@ const styles = StyleSheet.create({
   previewText: {
     flex: 1,
     color: tokens.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  profileTopCard: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  profileAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    backgroundColor: tokens.inputBg,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-
-  profileImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  profileMeta: {
-    flex: 1,
-  },
-
-  profileName: {
-    color: tokens.text,
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-
-  profileSub: {
-    color: tokens.muted,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
   },
 });
