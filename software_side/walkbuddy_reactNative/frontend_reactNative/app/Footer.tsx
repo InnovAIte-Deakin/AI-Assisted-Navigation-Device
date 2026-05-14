@@ -11,6 +11,7 @@ const TABS = [
   { icon: "book", route: "audiobooks" },
   { icon: "question-circle", route: "ask-a-friend-web" },
   { icon: "map", route: "places" },
+  { icon: "location-arrow", route: "predictive-path" },
 ];
 
 const BAR_SIDE_PADDING = 8;

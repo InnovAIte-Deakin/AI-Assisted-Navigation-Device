@@ -11,6 +11,7 @@ export default function TabLayout() {
       <Tabs.Screen name="indoor" options={{ title: "Indoor" }} />
       <Tabs.Screen name="exterior" options={{ title: "Exterior" }} />
       <Tabs.Screen name="camera" options={{ title: "Camera" }} />
+      <Tabs.Screen name="predictive-path" options={{ title: "Path AI" }} />
       <Tabs.Screen name="places" options={{ title: "Places" }} />
       <Tabs.Screen name="favourites" options={{ title: "Favourites" }} />
     </Tabs>
