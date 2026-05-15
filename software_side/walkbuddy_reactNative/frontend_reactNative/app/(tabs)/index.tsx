@@ -5,7 +5,6 @@ import {
   Alert,
   Animated,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -66,13 +65,8 @@ export default function HomePage() {
   const goToCameraOCR = () =>
     router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
 
-  const goToScreenReader = () => {
-    const title = "Coming soon";
-    const msg = "Screen Reader is not implemented yet.";
-    Platform.OS === "web"
-      ? (globalThis as any).alert?.(`${title}\n\n${msg}`)
-      : Alert.alert(title, msg);
-  };
+  const goToScreenReader = () =>
+    router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
 
   useEffect(() => {
     if (!visionEnabled) {
@@ -178,6 +172,11 @@ export default function HomePage() {
                 icon="exclamation-triangle"
                 label="EMERGENCY"
                 onPress={goToEmergency}
+              />
+              <ActionTile
+                icon="road"
+                label="PREDICTIVE PATH"
+                onPress={() => router.push("/predictive-path" as any)}
               />
             </View>
           </View>

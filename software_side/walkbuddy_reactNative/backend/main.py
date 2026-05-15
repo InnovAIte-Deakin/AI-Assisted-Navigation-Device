@@ -279,6 +279,10 @@ app = FastAPI(
 # =========================
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # WebSocket connections must bypass HTTP middleware entirely
+        if request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         excluded_paths = {
             "/ping",
             "/docs",
@@ -316,10 +320,7 @@ origins_env = os.getenv("WALKBUDDY_ALLOWED_ORIGINS")
 if origins_env:
     allow_origins = [origin.strip() for origin in origins_env.split(",")]
 else:
-    allow_origins = [
-        "http://localhost:8081",
-        "http://localhost:8000"
-    ]
+    allow_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
