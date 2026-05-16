@@ -6,6 +6,14 @@ def _find_event(events: List[Dict], label: str):
             return event
     return None
 
+from typing import Dict, List, Tuple
+
+def _find_event(events: List[Dict], label: str):
+    for event in events:
+        if str(event.get("label", "")).lower() == label.lower():
+            return event
+    return None
+
 def evaluate_case(case_data: Dict, response_data: Dict, default_threshold: float = 0.5) -> Tuple[bool, List[dict], dict]:
     errors = []
     expected = case_data.get("expected", {})
@@ -13,7 +21,7 @@ def evaluate_case(case_data: Dict, response_data: Dict, default_threshold: float
     raw_events = response_data.get("events", [])
     threshold = case_data.get("confidence_threshold", default_threshold)
     
-    # Filter predictions
+    # Filter predictions based on the sweep threshold
     filtered_events = [e for e in raw_events if e.get("confidence", 0.0) >= threshold]
 
     required_labels = expected.get("required_labels", [])
@@ -30,7 +38,7 @@ def evaluate_case(case_data: Dict, response_data: Dict, default_threshold: float
     for label in required_labels:
         event = _find_event(filtered_events, label)
         if event is None:
-            fn += 1 # We missed something we were supposed to find
+            fn += 1 # Missed an expected object
             raw_match = _find_event(raw_events, label)
             if raw_match:
                 errors.append({
@@ -48,7 +56,7 @@ def evaluate_case(case_data: Dict, response_data: Dict, default_threshold: float
                 })
         else:
             matched_labels.add(label)
-            tp += 1 # We correctly found an expected object
+            tp += 1 # Correctly found an expected object
 
     # --- STEP 2: Direction Errors ---
     for label, expected_direction in required_directions.items():
@@ -66,7 +74,7 @@ def evaluate_case(case_data: Dict, response_data: Dict, default_threshold: float
     for event in filtered_events:
         actual_label = event.get("label")
         if actual_label not in required_labels:
-            fp += 1 # We found something that shouldn't be there
+            fp += 1 # Found something that shouldn't be there
             errors.append({
                 "type": "False Positive",
                 "label": actual_label,
