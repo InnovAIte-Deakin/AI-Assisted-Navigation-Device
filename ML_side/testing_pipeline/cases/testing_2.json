@@ -1,0 +1,14 @@
+{
+  "name": "testing_2",
+  "endpoint": "detect",
+  "image": "test_assets/test.png",
+  "expected": {
+    "required_labels": [
+      "office-chair"
+    ],
+    "required_directions": {
+      "office-chair": "directly ahead"
+    },
+    "min_event_count": 1
+  }
+}

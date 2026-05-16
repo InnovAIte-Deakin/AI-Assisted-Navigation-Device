@@ -1,18 +1,19 @@
 {
-    "name": "detect_office_scene",
-    "endpoint": "detect",
-    "image": "testing_pipeline/test_assets/test.png",
-    "expected": {
-        "required_labels": [
-            "office-chair",
-            "monitor",
-            "whiteboard"
-        ],
-        "required_directions": {
-            "office-chair": "directly ahead",
-            "monitor": "directly ahead",
-            "whiteboard": "to the right"
-        },
-        "min_event_count": 3
-    }
+  "name": "detect_office_scene",
+  "scenario": "office_environment",
+  "endpoint": "detect",
+  "image": "test_assets/test.png",
+  "expected": {
+    "required_labels": [
+      "office-chair",
+      "whiteboard",
+      "monitor"
+    ],
+    "required_directions": {
+      "office-chair": "directly ahead",
+      "whiteboard": "to the right",
+      "monitor": "directly ahead"
+    },
+    "min_event_count": 3
+  }
 }

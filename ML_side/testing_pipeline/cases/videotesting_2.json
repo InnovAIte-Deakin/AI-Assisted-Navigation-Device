@@ -1,0 +1,14 @@
+{
+  "name": "videotesting_2",
+  "scenario": "dynamic_walkthrough",
+  "endpoint": "detect",
+  "video": "test_assets/testing.mp4",
+  "frame_step": 10,
+  "expected": {
+    "required_labels": [],
+    "required_directions": {},
+    "min_event_count": 1,
+    "min_frames_with_events": 1,
+    "min_detection_rate": 0.1
+  }
+}
