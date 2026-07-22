@@ -288,7 +288,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             "/redoc",
         }
 
-        if request.method == "OPTIONS" or request.url.path in excluded_paths:
+        if request.method == "OPTIONS" or request.url.path in excluded_paths or request.url.path.startswith("/collaboration/ws"):
             return await call_next(request)
 
         api_key = os.getenv("WALKBUDDY_API_KEY")
