@@ -67,15 +67,21 @@ The following runtime files are not stored in GitHub:
 
 Known SharePoint location:
 
-```text
-AIAND_REPO/ML_side/2026 Trimester 1/models/v1
-```
+### Where to download the model files
+
+For easier access, the required files are shared in the project Teams chat inside:
+
+`T2 2026 Setup Assets`
+
+The folder link is shared or pinned in Teams.
+
+The original archive location remains:
+
+`AIAND_REPO/ML_side/2026 Trimester 1/models/v1`
 
 Download both files and place them in:
 
-```text
-ML_side/models/
-```
+`ML_side/models/`
 
 Do not rename or commit them.
 

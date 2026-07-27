@@ -40,6 +40,12 @@ Information is labelled as:
 
 Some runtime files are not stored in GitHub and must be downloaded from Teams or SharePoint.
 
+For easier team access, copies of the required runtime files are shared in the project Teams folder:
+
+`T2 2026 Setup Assets`
+
+The original `AIAND_REPO` location remains the archive source. Do not place the private Teams sharing link inside this public repository.
+
 Known SharePoint location:
 
 `AIAND_REPO/ML_side/2026 Trimester 1/models/v1`
