@@ -121,16 +121,16 @@ The ML side produces weights. The software side consumes them. There is no share
 | File | Model | Used by | Notes |
 |---|---|---|---|
 | `models/best.pt` | YOLOv8n | `vision_adapter.py` | Confidence threshold 0.25 set in `routers/ai_service.py` |
-| `models/llama-3.2-1b-instruct-q4_k_m.gguf` | Llama 3.2-1B (quantized) | `backend/slow_lane/brain.py` | Offline, runs via llama-cpp-python. **Not in repo — run `setup_models.py` to download.** |
+| `models/llama-3.2-1b-instruct-q4_k_m.gguf` | Llama 3.2-1B (quantized) | `backend/slow_lane/brain.py` | Offline, runs via llama-cpp-python. **Not stored in Git — follow the authoritative `docs/LOCAL_SETUP.md` model-asset process. The backend setup script is an optional helper for this GGUF only; it does not provide `best.pt`.** |
 
-### Produced but Not Integrated
+### Historical TFLite Export Workflow
 
 | File | Format | Notes |
 |---|---|---|
-| `models/best.tflite` | TensorFlow Lite (int8) | Exported last trimester, not integrated into the app |
-| `models/best_float16.tflite` | TensorFlow Lite (float16) | Exported last trimester, not integrated into the app |
+| `models/best.tflite` | TensorFlow Lite (int8) | Historical export target; not currently present in the repository |
+| `models/best_float16.tflite` | TensorFlow Lite (float16) | Historical export target; not currently present in the repository |
 
-These files are the pathway to on-device inference — running YOLO directly on the mobile device rather than requiring a server connection. See **Future Directions** for context.
+The export commands and related workflow remain in `notebooks/cohort-2/04_training_and_depth_estimation.ipynb` as historical and experimental evidence. On-device inference is not integrated into the app. See **Future Directions** for context.
 
 ---
 
@@ -283,7 +283,7 @@ These are inherited problems that directly affect the reliability of the current
 
 ### Tier 3 — Architectural Improvements
 
-- **Integrate `best.tflite` / `best_float16.tflite` for on-device inference.** The TFLite exports already exist. Integrating them into the React Native app via a TFLite library would remove the dependency on the backend server for object detection — critical for a navigation aid that may be used in low-connectivity environments.
+- **Export and integrate TFLite models for on-device inference.** `best.tflite` and `best_float16.tflite` are not currently present in the repository. Recreating the historical export workflow and integrating the resulting artifacts into the React Native app via a TFLite library would remove the dependency on the backend server for object detection — critical for a navigation aid that may be used in low-connectivity environments.
 - **Expand the dataset to more indoor environments.** The current dataset is specific to library and office settings. Hallways, elevators, staircases, and bathrooms would make the model more general and more useful in the real environments the app is designed for.
 - **Continuous frame scanning.** The frontend currently sends frames on-demand. Automatic periodic scanning (e.g. every 2 seconds) would make navigation guidance proactive rather than reactive.
 
@@ -306,8 +306,6 @@ ML_side/
 │   └── yolo_v11n/
 ├── models/
 │   ├── best.pt                   # YOLOv8n weights — loaded by backend (deployed)
-│   ├── best.tflite               # TFLite export — not yet integrated
-│   ├── best_float16.tflite       # TFLite float16 export — not yet integrated
 │   └── llama-3.2-1b-instruct-q4_k_m.gguf  # Offline LLM — loaded by backend (deployed)
 ├── notebooks/
 │   ├── cohort-1/
@@ -316,31 +314,26 @@ ML_side/
 │   │   └── 03_ocr_integration.ipynb
 │   └── cohort-2/
 │       └── 04_training_and_depth_estimation.ipynb
-├── setup_models.py               # Downloads the Llama GGUF model (see Setup below)
-└── requirements.txt              # Python deps for ML work
+└── README.md
 ```
 
 ---
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Prepare the backend environment
+
+Follow `docs/LOCAL_SETUP.md` to create and configure the backend environment. ML-side setup does not use a separate `ML_side/requirements.txt` file.
+
+### 2. Optional GGUF download helper
+
+`docs/LOCAL_SETUP.md` is the authoritative setup process for model assets. The Llama GGUF file (`llama-3.2-1b-instruct-q4_k_m.gguf`) is not stored in Git because it is too large. After following that process, the backend setup script is available as an optional helper to download this GGUF into `ML_side/models/` if it is missing:
 
 ```bash
-pip install -r requirements.txt
+python software_side/walkbuddy_reactNative/backend/setup_models.py
 ```
 
-Key packages: `torch`, `ultralytics`, `easyocr`, `opencv-python`, `llama-cpp-python`
-
-### 2. Download the Llama model
-
-The Llama GGUF file (`llama-3.2-1b-instruct-q4_k_m.gguf`) is not stored in the repo — it's too large. Run the setup script to download it directly from HuggingFace into `models/`:
-
-```bash
-python setup_models.py
-```
-
-The script will skip the download if the file already exists. `best.pt` is already in the repo under `models/` and requires no setup.
+The helper downloads only the GGUF; it does not provide `best.pt`. Obtain `best.pt` through the approved model-asset process documented in `docs/LOCAL_SETUP.md`.
 
 ### 3. Download the dataset
 
