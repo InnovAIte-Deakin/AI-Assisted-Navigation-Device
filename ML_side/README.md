@@ -21,6 +21,9 @@ The postmortem and Cohort 1/Cohort 2 experiment sections below preserve historic
 
 The experimental entry point and historical demo material should not be used to infer production backend behaviour.
 
+For a reproducible, read-only baseline of a locally supplied `best.pt`, see
+[`docs/current_model_baseline.md`](docs/current_model_baseline.md).
+
 ### Unresolved Work
 
 The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.
