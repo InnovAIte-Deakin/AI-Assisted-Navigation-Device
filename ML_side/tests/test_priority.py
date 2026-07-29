@@ -6,7 +6,7 @@ Run: pytest ML_side/tests/test_priority.py -v
 
 import pytest
 
-# ── Priority config (mirrors navigation_pipeline.py) ──────────────────────────
+# ── Legacy/demo 15-class priority policy retained for these tests ─────────────
 
 OBJECT_PRIORITY = {
     "stairs":            5,
