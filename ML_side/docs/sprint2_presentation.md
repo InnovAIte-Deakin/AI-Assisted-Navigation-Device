@@ -4,7 +4,7 @@
 
 ---
 
-> Historical retirement note (2026 T2): the isolated `ML_side/src/llm_integration` prototype, including `navigation_pipeline.py`, was retired after audit because it was not used by production and targeted an obsolete 15-class taxonomy. References to it below record sprint history only.
+> Historical retirement note (2026 T2): the isolated `ML_side/src/llm_integration` prototype, including `navigation_pipeline.py`, was retired after audit because it was not used by production and targeted an obsolete 15-class taxonomy. The simulated `deployment/api.py`, `priority_demo_cli.py`, and their dedicated tests were also retired because they were isolated from production and used duplicate 15-class priority logic. References below record sprint history only.
 
 SLide 0
 
