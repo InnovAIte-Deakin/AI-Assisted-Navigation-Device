@@ -2,6 +2,29 @@
 
 WalkBuddy is an AI-assisted indoor navigation system for visually impaired users. The ML side is responsible for object detection, OCR, and the offline LLM that powers navigation guidance.
 
+## Current Status and Boundaries
+
+### Verified Current Behaviour
+
+- The production backend is `software_side/walkbuddy_reactNative/backend/main.py`. It consumes the model artifacts under `ML_side/models/`; it is the source to use when assessing deployed behaviour.
+- The repository-configured v1 training class set is: `book`, `books`, `monitor`, `office-chair`, `whiteboard`, `table`, `tv`, and `couch`. The active `best.pt` model metadata still requires confirmation by inspecting `model.names` in a valid backend environment.
+- Safety warnings do occur. The current safety-gate policy can issue a warning for qualifying high-confidence detections ahead, including several of the deployed furniture labels. This does not establish end-to-end mobile runtime behaviour, which still requires runtime testing.
+
+### Historical Information
+
+The postmortem and Cohort 1/Cohort 2 experiment sections below preserve historical evidence and known lineage gaps. They are not a substitute for the current production code, model metadata, or runtime testing.
+
+### Experimental and Demo Functionality
+
+- `ML_side/main.py` is experimental and is not the production backend.
+- `ML_side/deployment/api.py` is a simulated demo API that returns fabricated detections; it does not run the deployed model.
+
+Neither entry point should be used to infer production backend behaviour.
+
+### Unresolved Work
+
+The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.
+
 ---
 
 ## Postmortem — Last Trimester
@@ -72,7 +95,7 @@ When you produce new weights:
 
 ## ML ↔ Software Integration
 
-The backend (`software_side/walkbuddy_reactNative/backend/`) loads models from this directory via a Docker volume mount:
+The production backend, `software_side/walkbuddy_reactNative/backend/main.py`, loads model artifacts from `ML_side/models/` during local execution, or through the Docker volume mount when run with Docker:
 
 ```yaml
 # docker-compose.yml
@@ -229,11 +252,11 @@ These are inherited problems that directly affect the reliability of the current
 
 **Critical**
 
-- **Safety gate / YOLO class mismatch.** The deterministic safety gate (`backend/slow_lane/safetygate.py`) triggers on labels including `stairs`, `wall`, `door`, `person`, `obstacle`, `pole`, `edge`. The YOLO model detects none of these — it only knows `book, books, monitor, office-chair, whiteboard, table, tv, couch`. The safety gate can **never fire** from a real YOLO detection. This is the most significant gap in the system.
+- **Safety coverage and risk-policy mismatch.** The deterministic safety gate (`backend/slow_lane/safetygate.py`) does produce warnings for qualifying high-confidence detections ahead, including several deployed furniture labels. However, the v1 model does not detect important navigation hazards such as `stairs`, `wall`, `door`, `person`, `obstacle`, `pole`, or `edge`. Separate class-to-risk policies across safety, vision, and TTS can also assign ordinary objects inconsistent or overly severe treatment. Cross-stream review is required before changing runtime behaviour.
 
 **Moderate**
 
-- **`person` contradiction.** `backend/tts_service/message_reasoning.py` maps `person` as `ObjectType.SAFE`. `backend/slow_lane/safetygate.py` treats `person` as a hazard. These are inconsistent and need to be reconciled.
+- **Class-to-risk policy alignment.** Agree the intended handling for each detected class across `message_reasoning.py`, `safetygate.py`, and the vision adapter before altering warnings or spoken guidance.
 - **OCR detections not stored to NavigationMemory.** Vision detections feed the LLM's context buffer; OCR detections do not. If the camera reads an "EXIT" sign, the LLM has no knowledge of it.
 - **Proximity is a bbox area heuristic.** Proximity ("nearby" vs "far") is estimated by whether the bounding box covers >10% of the image. This is a rough proxy. Actual depth estimation would be more reliable.
 
@@ -249,12 +272,12 @@ These are inherited problems that directly affect the reliability of the current
 
 ### Tier 1 — Fix What Is Broken
 
-- **Add hazard classes to the YOLO dataset.** Train on `stairs`, `door`, `person` at minimum so the safety gate can actually trigger from real detections. This is the highest-impact change possible — it makes the safety system functional rather than theoretical. Requires new data collection and annotation, then a new training run against dataset v2.
+- **Add hazard classes to the YOLO dataset.** Train on `stairs`, `door`, `person` at minimum so deployed detection coverage includes important navigation hazards beyond the furniture cases the current safety gate can warn about. Requires new data collection and annotation, then a new training run against dataset v2.
 - **Integrate depth estimation into the backend.** Cohort 2 explored this in notebooks. Wiring it into `routers/ai_service.py` would replace the bbox-area proximity heuristic with actual distance estimates from the same camera frame — no additional hardware required.
 
 ### Tier 2 — Quality Improvements
 
-- **Resolve the `person` contradiction.** Decide whether a detected person is a hazard or safe, and make `message_reasoning.py` and `safetygate.py` consistent. A person directly ahead is a mobility obstacle and should be treated as one.
+- **Align class-to-risk policies.** Make the safety gate, vision adapter, and TTS reasoning apply the agreed policy consistently. This requires ML, Deployment, Software, and Code Integration review before runtime behaviour changes.
 - **Wire OCR detections into NavigationMemory.** OCR results are currently returned to the frontend but not stored in the memory buffer the LLM reads from. Adding OCR events to memory means the LLM can reference sign text when answering navigation questions.
 - **Expand TTS to surface multiple detections.** `process_detections()` currently returns `max_messages=1`. If a chair is on the left and a table is ahead, only one is announced. Increasing to 2–3 with priority ordering would give users a fuller picture.
 
