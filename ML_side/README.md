@@ -17,9 +17,9 @@ The postmortem and Cohort 1/Cohort 2 experiment sections below preserve historic
 ### Experimental and Demo Functionality
 
 - `ML_side/main.py` is experimental and is not the production backend.
-- `ML_side/deployment/api.py` is a simulated demo API that returns fabricated detections; it does not run the deployed model.
+- The isolated simulated API and duplicate priority demonstration (`ML_side/deployment/api.py` and `ML_side/priority_demo_cli.py`) were retired in 2026 T2. They returned fabricated detections and used a legacy 15-class class-priority policy; neither represented deployed behaviour.
 
-Neither entry point should be used to infer production backend behaviour.
+The experimental entry point and historical demo material should not be used to infer production backend behaviour.
 
 ### Unresolved Work
 
