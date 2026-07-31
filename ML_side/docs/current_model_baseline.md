@@ -97,6 +97,52 @@ representative baseline dataset is still pending.
   accepted as the future production model.
 - A larger representative test set and a labelled validation set are still required.
 
+## Completed qualitative baseline review
+
+The completed local review processed 33 images with zero processing failures and
+an average inference time of 85.43 ms.
+
+Detected model-class totals were:
+
+- `books`: 37
+- `monitor`: 3
+- `office-chair`: 3
+- `table`: 1
+
+| Assessment | Count |
+|---|---:|
+| Correct detection | 4 |
+| Incorrect class | 2 |
+| Missed supported object | 11 |
+| False positive | 6 |
+| Expected no detection | 3 |
+| Unsupported class | 6 |
+| Mixed result | 1 |
+| Total | 33 |
+
+The current seven-class model successfully produced some correct detections, but
+supported classes were frequently missed in this small review. Incorrect-class
+and false-positive detections also occurred. Important navigation objects were
+outside the current model taxonomy. The `books` class produced many more
+detections than the other classes, including false-positive patterns identified
+during visual review.
+
+The current artifact is useful as a baseline but should not automatically be
+accepted as the final WalkBuddy navigation model. Any future candidate model
+must be compared against this baseline using the approved target taxonomy and
+dataset. A labelled validation dataset will still be required to calculate
+precision, recall, and mAP.
+
+### Limitations
+
+- This was an unlabelled qualitative evaluation.
+- Filenames were hints only; every image was directly reviewed.
+- The 33 images were not a statistically balanced benchmark.
+- Qualitative assessment counts are not accuracy percentages.
+- No precision, recall, or mAP values were calculated.
+- Inference time may vary across hardware and execution environments.
+- Local source images and generated result files are not committed.
+
 ## Review template
 
 Record qualitative errors alongside the generated JSON rather than changing the
@@ -105,8 +151,3 @@ model or configuration during baseline collection.
 | Run | Image or class | False positive | Missed detection | Notes |
 | --- | --- | --- | --- | --- |
 | _add run identifier_ | _add image/class_ | _yes/no and detail_ | _yes/no and detail_ | _observed conditions_ |
-
-## Results
-
-_No evaluation results are recorded in this repository. Add local observations
-to a team-approved report after reviewing the generated output._
