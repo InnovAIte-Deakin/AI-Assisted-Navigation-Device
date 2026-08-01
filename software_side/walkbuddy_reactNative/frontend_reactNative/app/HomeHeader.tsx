@@ -39,7 +39,7 @@ function isHomeBySegments(segments: string[]) {
 }
 
 export default function HomeHeader({
-  greeting = "Hi!",
+  greeting = "Hi there 👋",
   appTitle = "WalkBuddy",
   onPressProfile,
   showDivider = true,
@@ -147,7 +147,7 @@ export default function HomeHeader({
           hitSlop={10}
           style={styles.profileBtn}
         >
-          <Icon name="user-circle" size={34} color={tokens.gold} />
+          <Icon name="user-circle" size={38} color={tokens.gold} />
         </Pressable>
       </View>
 
@@ -158,7 +158,7 @@ export default function HomeHeader({
           <Text style={styles.locationLabel}>{derived.label}</Text>
           <Pressable onPress={handleLocationPress}>
             <View style={styles.locationCard}>
-              <Icon name="map-marker" size={16} color={tokens.gold} style={styles.locationIcon} />
+              <Icon name="map-marker" size={20} color={tokens.gold} style={styles.locationIcon} />
               <Text style={styles.locationValue} numberOfLines={1}>
                 {derived.value || "Current location"}
               </Text>
@@ -196,86 +196,86 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
 
-  headerRow: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 18,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 10,
-    position: "relative",
-    backgroundColor: "#11273a",
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
 
-  greeting: {
-    color: tokens.text,
-    fontSize: 18,
-    fontWeight: "700",
-    flexShrink: 1,
-    zIndex: 1,
-  },
+// Home Header UI improvements
+ headerRow: {
+  width: "100%",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 18,
+  paddingVertical: 12,
+  paddingHorizontal: 18,
+  backgroundColor: "#11273a",
+  borderRadius: 18,
+},
 
-  title: {
-    color: tokens.text,
-    fontSize: 30,
-    fontWeight: "900",
-    position: "absolute",
-    left: 0,
-    right: 0,
-    textAlign: "center",
-  },
+// Greeting text styling
+greeting: {
+  color: tokens.text,
+  fontSize: 17,
+  fontWeight: "600",
+  width: 90,
+},
 
-  profileBtn: {
-    marginLeft: "auto",
-    paddingVertical: 4,
-    zIndex: 1,
-  },
+
+// Application title styling
+ title: {
+  flex: 1,
+  color: tokens.text,
+  fontSize: 26,
+  fontWeight: "900",
+  textAlign: "center",
+},
+
+// Profile button styling
+profileBtn: {
+  width: 44,
+  alignItems: "flex-end",
+},
 
   topDivider: {
-    borderBottomWidth: 1,
+    borderBottomWidth: 1.5,
     borderBottomColor: tokens.divider,
     marginBottom: 12,
   },
-
+// Location section container
   locationWrap: {
     width: "100%",
     marginBottom: 16,
   },
 
+  // Location section label
   locationLabel: {
     color: tokens.muted,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0.6,
     marginBottom: 8,
   },
 
+// Location information card
   locationCard: {
     backgroundColor: "#0d1f32",
     borderWidth: 1.5,
     borderColor: "rgba(242,169,0,0.4)",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
 
+// Location icon
   locationIcon: {
     marginRight: 2,
   },
 
+  // Location text
   locationValue: {
     color: tokens.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     flex: 1,
   },
