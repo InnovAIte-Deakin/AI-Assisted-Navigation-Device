@@ -1,38 +1,48 @@
-import pandas as pd
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-from ml_predictor import MLPredictor
+if __package__:
+    from .ml_predictor import MLPredictor
+else:
+    from ml_predictor import MLPredictor
 
-df = pd.read_csv("sensor_data.csv")
 
-y_true = df["risk_label"].astype(str).tolist()
+def main() -> None:
+    import pandas as pd
+    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
-ml = MLPredictor()
+    df = pd.read_csv("sensor_data.csv")
 
-y_pred = []
+    y_true = df["risk_label"].astype(str).tolist()
 
-for _, row in df.iterrows():
-    result = ml.predict(row["speed"], row["heading"], row["gyro"])
+    ml = MLPredictor()
 
-    # Handle different possible return types from ml_predictor.py
-    if isinstance(result, dict):
-        pred = result.get("prediction") or result.get("label") or result.get("risk_label")
-    elif isinstance(result, tuple) or isinstance(result, list):
-        pred = result[0]
-    else:
-        pred = result
+    y_pred = []
 
-    y_pred.append(str(pred))
+    for _, row in df.iterrows():
+        result = ml.predict(row["speed"], row["heading"], row["gyro"])
 
-labels = ["front", "front_right", "safe"]
+        # Handle different possible return types from ml_predictor.py
+        if isinstance(result, dict):
+            pred = result.get("prediction") or result.get("label") or result.get("risk_label")
+        elif isinstance(result, tuple) or isinstance(result, list):
+            pred = result[0]
+        else:
+            pred = result
 
-print("\nAccuracy:")
-print(accuracy_score(y_true, y_pred))
+        y_pred.append(str(pred))
 
-print("\nConfusion Matrix:")
-print(confusion_matrix(y_true, y_pred, labels=labels))
+    labels = ["front", "front_right", "safe"]
 
-print("\nLabels order:")
-print(labels)
+    print("\nAccuracy:")
+    print(accuracy_score(y_true, y_pred))
 
-print("\nClassification Report:")
-print(classification_report(y_true, y_pred, labels=labels))
+    print("\nConfusion Matrix:")
+    print(confusion_matrix(y_true, y_pred, labels=labels))
+
+    print("\nLabels order:")
+    print(labels)
+
+    print("\nClassification Report:")
+    print(classification_report(y_true, y_pred, labels=labels))
+
+
+if __name__ == "__main__":
+    main()

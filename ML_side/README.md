@@ -2,6 +2,32 @@
 
 WalkBuddy is an AI-assisted indoor navigation system for visually impaired users. The ML side is responsible for object detection, OCR, and the offline LLM that powers navigation guidance.
 
+## Current Status and Boundaries
+
+### Verified Current Behaviour
+
+- The production backend is `software_side/walkbuddy_reactNative/backend/main.py`. It consumes the model artifacts under `ML_side/models/`; it is the source to use when assessing deployed behaviour.
+- The repository-configured v1 training class set is: `book`, `books`, `monitor`, `office-chair`, `whiteboard`, `table`, `tv`, and `couch`. The active `best.pt` model metadata still requires confirmation by inspecting `model.names` in a valid backend environment.
+- Safety warnings do occur. The current safety-gate policy can issue a warning for qualifying high-confidence detections ahead, including several of the deployed furniture labels. This does not establish end-to-end mobile runtime behaviour, which still requires runtime testing.
+
+### Historical Information
+
+The postmortem and Cohort 1/Cohort 2 experiment sections below preserve historical evidence and known lineage gaps. They are not a substitute for the current production code, model metadata, or runtime testing.
+
+### Experimental and Demo Functionality
+
+- `ML_side/main.py` is experimental and is not the production backend.
+- The isolated simulated API and duplicate priority demonstration (`ML_side/deployment/api.py` and `ML_side/priority_demo_cli.py`) were retired in 2026 T2. They returned fabricated detections and used a legacy 15-class class-priority policy; neither represented deployed behaviour.
+
+The experimental entry point and historical demo material should not be used to infer production backend behaviour.
+
+For a reproducible, read-only baseline of a locally supplied `best.pt`, see
+[`docs/current_model_baseline.md`](docs/current_model_baseline.md).
+
+### Unresolved Work
+
+The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.
+
 ---
 
 ## Postmortem — Last Trimester
@@ -72,7 +98,7 @@ When you produce new weights:
 
 ## ML ↔ Software Integration
 
-The backend (`software_side/walkbuddy_reactNative/backend/`) loads models from this directory via a Docker volume mount:
+The production backend, `software_side/walkbuddy_reactNative/backend/main.py`, loads model artifacts from `ML_side/models/` during local execution, or through the Docker volume mount when run with Docker:
 
 ```yaml
 # docker-compose.yml
@@ -98,16 +124,16 @@ The ML side produces weights. The software side consumes them. There is no share
 | File | Model | Used by | Notes |
 |---|---|---|---|
 | `models/best.pt` | YOLOv8n | `vision_adapter.py` | Confidence threshold 0.25 set in `routers/ai_service.py` |
-| `models/llama-3.2-1b-instruct-q4_k_m.gguf` | Llama 3.2-1B (quantized) | `backend/slow_lane/brain.py` | Offline, runs via llama-cpp-python. **Not in repo — run `setup_models.py` to download.** |
+| `models/llama-3.2-1b-instruct-q4_k_m.gguf` | Llama 3.2-1B (quantized) | `backend/slow_lane/brain.py` | Offline, runs via llama-cpp-python. **Not stored in Git — follow the authoritative `docs/LOCAL_SETUP.md` model-asset process. The backend setup script is an optional helper for this GGUF only; it does not provide `best.pt`.** |
 
-### Produced but Not Integrated
+### Historical TFLite Export Workflow
 
 | File | Format | Notes |
 |---|---|---|
-| `models/best.tflite` | TensorFlow Lite (int8) | Exported last trimester, not integrated into the app |
-| `models/best_float16.tflite` | TensorFlow Lite (float16) | Exported last trimester, not integrated into the app |
+| `models/best.tflite` | TensorFlow Lite (int8) | Historical export target; not currently present in the repository |
+| `models/best_float16.tflite` | TensorFlow Lite (float16) | Historical export target; not currently present in the repository |
 
-These files are the pathway to on-device inference — running YOLO directly on the mobile device rather than requiring a server connection. See **Future Directions** for context.
+The export commands and related workflow remain in `notebooks/cohort-2/04_training_and_depth_estimation.ipynb` as historical and experimental evidence. On-device inference is not integrated into the app. See **Future Directions** for context.
 
 ---
 
@@ -229,11 +255,11 @@ These are inherited problems that directly affect the reliability of the current
 
 **Critical**
 
-- **Safety gate / YOLO class mismatch.** The deterministic safety gate (`backend/slow_lane/safetygate.py`) triggers on labels including `stairs`, `wall`, `door`, `person`, `obstacle`, `pole`, `edge`. The YOLO model detects none of these — it only knows `book, books, monitor, office-chair, whiteboard, table, tv, couch`. The safety gate can **never fire** from a real YOLO detection. This is the most significant gap in the system.
+- **Safety coverage and risk-policy mismatch.** The deterministic safety gate (`backend/slow_lane/safetygate.py`) does produce warnings for qualifying high-confidence detections ahead, including several deployed furniture labels. However, the v1 model does not detect important navigation hazards such as `stairs`, `wall`, `door`, `person`, `obstacle`, `pole`, or `edge`. Separate class-to-risk policies across safety, vision, and TTS can also assign ordinary objects inconsistent or overly severe treatment. Cross-stream review is required before changing runtime behaviour.
 
 **Moderate**
 
-- **`person` contradiction.** `backend/tts_service/message_reasoning.py` maps `person` as `ObjectType.SAFE`. `backend/slow_lane/safetygate.py` treats `person` as a hazard. These are inconsistent and need to be reconciled.
+- **Class-to-risk policy alignment.** Agree the intended handling for each detected class across `message_reasoning.py`, `safetygate.py`, and the vision adapter before altering warnings or spoken guidance.
 - **OCR detections not stored to NavigationMemory.** Vision detections feed the LLM's context buffer; OCR detections do not. If the camera reads an "EXIT" sign, the LLM has no knowledge of it.
 - **Proximity is a bbox area heuristic.** Proximity ("nearby" vs "far") is estimated by whether the bounding box covers >10% of the image. This is a rough proxy. Actual depth estimation would be more reliable.
 
@@ -249,18 +275,18 @@ These are inherited problems that directly affect the reliability of the current
 
 ### Tier 1 — Fix What Is Broken
 
-- **Add hazard classes to the YOLO dataset.** Train on `stairs`, `door`, `person` at minimum so the safety gate can actually trigger from real detections. This is the highest-impact change possible — it makes the safety system functional rather than theoretical. Requires new data collection and annotation, then a new training run against dataset v2.
+- **Add hazard classes to the YOLO dataset.** Train on `stairs`, `door`, `person` at minimum so deployed detection coverage includes important navigation hazards beyond the furniture cases the current safety gate can warn about. Requires new data collection and annotation, then a new training run against dataset v2.
 - **Integrate depth estimation into the backend.** Cohort 2 explored this in notebooks. Wiring it into `routers/ai_service.py` would replace the bbox-area proximity heuristic with actual distance estimates from the same camera frame — no additional hardware required.
 
 ### Tier 2 — Quality Improvements
 
-- **Resolve the `person` contradiction.** Decide whether a detected person is a hazard or safe, and make `message_reasoning.py` and `safetygate.py` consistent. A person directly ahead is a mobility obstacle and should be treated as one.
+- **Align class-to-risk policies.** Make the safety gate, vision adapter, and TTS reasoning apply the agreed policy consistently. This requires ML, Deployment, Software, and Code Integration review before runtime behaviour changes.
 - **Wire OCR detections into NavigationMemory.** OCR results are currently returned to the frontend but not stored in the memory buffer the LLM reads from. Adding OCR events to memory means the LLM can reference sign text when answering navigation questions.
 - **Expand TTS to surface multiple detections.** `process_detections()` currently returns `max_messages=1`. If a chair is on the left and a table is ahead, only one is announced. Increasing to 2–3 with priority ordering would give users a fuller picture.
 
 ### Tier 3 — Architectural Improvements
 
-- **Integrate `best.tflite` / `best_float16.tflite` for on-device inference.** The TFLite exports already exist. Integrating them into the React Native app via a TFLite library would remove the dependency on the backend server for object detection — critical for a navigation aid that may be used in low-connectivity environments.
+- **Export and integrate TFLite models for on-device inference.** `best.tflite` and `best_float16.tflite` are not currently present in the repository. Recreating the historical export workflow and integrating the resulting artifacts into the React Native app via a TFLite library would remove the dependency on the backend server for object detection — critical for a navigation aid that may be used in low-connectivity environments.
 - **Expand the dataset to more indoor environments.** The current dataset is specific to library and office settings. Hallways, elevators, staircases, and bathrooms would make the model more general and more useful in the real environments the app is designed for.
 - **Continuous frame scanning.** The frontend currently sends frames on-demand. Automatic periodic scanning (e.g. every 2 seconds) would make navigation guidance proactive rather than reactive.
 
@@ -283,8 +309,6 @@ ML_side/
 │   └── yolo_v11n/
 ├── models/
 │   ├── best.pt                   # YOLOv8n weights — loaded by backend (deployed)
-│   ├── best.tflite               # TFLite export — not yet integrated
-│   ├── best_float16.tflite       # TFLite float16 export — not yet integrated
 │   └── llama-3.2-1b-instruct-q4_k_m.gguf  # Offline LLM — loaded by backend (deployed)
 ├── notebooks/
 │   ├── cohort-1/
@@ -293,31 +317,26 @@ ML_side/
 │   │   └── 03_ocr_integration.ipynb
 │   └── cohort-2/
 │       └── 04_training_and_depth_estimation.ipynb
-├── setup_models.py               # Downloads the Llama GGUF model (see Setup below)
-└── requirements.txt              # Python deps for ML work
+└── README.md
 ```
 
 ---
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Prepare the backend environment
+
+Follow `docs/LOCAL_SETUP.md` to create and configure the backend environment. ML-side setup does not use a separate `ML_side/requirements.txt` file.
+
+### 2. Optional GGUF download helper
+
+`docs/LOCAL_SETUP.md` is the authoritative setup process for model assets. The Llama GGUF file (`llama-3.2-1b-instruct-q4_k_m.gguf`) is not stored in Git because it is too large. After following that process, the backend setup script is available as an optional helper to download this GGUF into `ML_side/models/` if it is missing:
 
 ```bash
-pip install -r requirements.txt
+python software_side/walkbuddy_reactNative/backend/setup_models.py
 ```
 
-Key packages: `torch`, `ultralytics`, `easyocr`, `opencv-python`, `llama-cpp-python`
-
-### 2. Download the Llama model
-
-The Llama GGUF file (`llama-3.2-1b-instruct-q4_k_m.gguf`) is not stored in the repo — it's too large. Run the setup script to download it directly from HuggingFace into `models/`:
-
-```bash
-python setup_models.py
-```
-
-The script will skip the download if the file already exists. `best.pt` is already in the repo under `models/` and requires no setup.
+The helper downloads only the GGUF; it does not provide `best.pt`. Obtain `best.pt` through the approved model-asset process documented in `docs/LOCAL_SETUP.md`.
 
 ### 3. Download the dataset
 
