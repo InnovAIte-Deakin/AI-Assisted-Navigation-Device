@@ -77,9 +77,7 @@ app/
 
 Stack routes (non-tab, accessible via router.push):
   /search                   Destination search
-  /navigate                 Navigation assistant
   /location-map             Map view
-  /interiorNav              Indoor navigation detail
   /audiobooks-player        Playback screen
   /audiobooks-favourites    Saved audiobooks
   /audiobooks-history       Listening history
@@ -245,15 +243,13 @@ Saved locations. Managed via `CurrentLocationProvider`.
 | `/audiobooks-history` | `app/audiobooks-history.tsx` | Reads history from AsyncStorage |
 | `/audiobooks-listen-later` | `app/audiobooks-listen-later.tsx` | Reads listen-later list from AsyncStorage |
 | `/search` | `app/search.tsx` | Destination search input |
-| `/navigate` | `app/navigate.tsx` | Navigation assistant |
 | `/location-map` | `app/location-map.tsx` | Map view |
-| `/interiorNav` | `app/interiorNav.tsx` | Indoor navigation detail |
 | `/settings` | `app/settings.tsx` | App settings (navigation preferences via `src/utils/settings.ts`) |
 | `/helper-web` | `app/helper-web.tsx` | Guide-side interface (web-only, auth broken — see Known Gaps) |
 
 ### Category Screens (Audiobook Genres)
 
-Standalone screens for genre browsing: `/geography`, `/history`, `/kids`, `/quietstudyroom`, `/helpdesk`, `/IT`, `/SCI-FI`, `/FinanceScreen`. These exist as navigation targets from audiobooks-related flows.
+Standalone screens for genre browsing: `/history`. These exist as navigation targets from audiobooks-related flows.
 
 ---
 
@@ -425,23 +421,14 @@ frontend_reactNative/
 │   ├── audiobooks-history.tsx          History list (AsyncStorage)
 │   ├── audiobooks-listen-later.tsx     Watch list (AsyncStorage)
 │   ├── search.tsx                      Destination search
-│   ├── navigate.tsx                    Navigation assistant
 │   ├── location-map.tsx                Map view
-│   ├── interiorNav.tsx                 Indoor navigation detail
 │   ├── settings.tsx                    App settings
 │   ├── helper-web.tsx                  Guide-side interface (web, auth broken)
-│   ├── lib/
-│   │   ├── locationSaver.tsx           CurrentLocationProvider — GPS + destination context
-│   │   ├── liveLocation.tsx            Live location utilities
-│   │   └── favourites.tsx              Favourites helpers
-│   ├── geography.tsx                   Audiobook genre screen
-│   ├── history.tsx                     Audiobook genre screen
-│   ├── kids.tsx                        Audiobook genre screen
-│   ├── quietstudyroom.tsx              Audiobook category screen
-│   ├── helpdesk.tsx                    Audiobook category screen
-│   ├── IT.tsx                          Audiobook category screen
-│   ├── SCI-FI.tsx                      Audiobook genre screen
-│   └── FinanceScreen.tsx               Audiobook category screen
+│   └── lib/
+│       ├── locationSaver.tsx           CurrentLocationProvider — GPS + destination context
+│       ├── liveLocation.tsx            Live location utilities
+│       └── favourites.tsx              Favourites helpers
+│   
 │
 ├── src/
 │   ├── api/
