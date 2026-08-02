@@ -462,3 +462,39 @@ async def vision_ws_endpoint(websocket: WebSocket):
             avg_ms = (total_inference_ms // frames_processed) if frames_processed > 0 else 0
             conn_span.set_attribute("ws.frames_processed", frames_processed)
             conn_span.set_attribute("ws.avg_inference_ms", avg_ms)
+
+@router.get("/switch/{mode}")
+async def switch_mode(mode: str):
+    """
+    Temporary endpoint to match the frontend API.
+    """
+
+    valid_modes = ["gradio", "ocr"]
+
+    if mode not in valid_modes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported mode '{mode}'"
+        )
+
+    logger.info(f"[API] Switch requested: {mode}")
+
+    return {
+        "success": True,
+        "mode": mode,
+        "message": f"Switched to {mode}"
+    }
+
+
+@router.get("/stop")
+async def stop_all():
+    """
+    Temporary endpoint to match the frontend API.
+    """
+
+    logger.info("[API] Stop requested")
+
+    return {
+        "success": True,
+        "message": "Processing stopped"
+    }
