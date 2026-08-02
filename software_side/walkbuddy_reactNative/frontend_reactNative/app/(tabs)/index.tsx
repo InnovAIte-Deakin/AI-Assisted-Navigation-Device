@@ -333,6 +333,7 @@ export default function HomePage() {
 
 /* COMPONENTS */
 
+// Search button component with press animation
 function BounceButton({ label, onPress, search }: { label: string; onPress: () => void; search?: boolean }) {
   const scale = useRef(new Animated.Value(1)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -384,7 +385,7 @@ function BounceButton({ label, onPress, search }: { label: string; onPress: () =
         />
         <Icon
           name="search"
-          size={16}
+          size={18}
           color={tokens.text}
           style={styles.searchIcon}
         />
@@ -394,6 +395,7 @@ function BounceButton({ label, onPress, search }: { label: string; onPress: () =
   );
 }
 
+// Feature card component with press animation
 function ActionTile({
   icon,
   label,
@@ -457,7 +459,7 @@ function ActionTile({
 
             <Icon
               name={icon}
-              size={24}
+              size={28}
               color="#071a2a"
               style={styles.tileIcon}
             />
@@ -517,39 +519,45 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 
+  // Search button styling
   searchButton: {
-    width: "100%",
-    backgroundColor: "#12314a",
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 50,
-    paddingVertical: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 4,
+   width: "100%",
+  backgroundColor: "#12314a",
+  borderWidth: 2,
+  borderColor: tokens.gold,
+  borderRadius: 18,
+  paddingVertical: 18,
+  paddingHorizontal: 20,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 10,
+  marginBottom: 12,
+  overflow: "hidden",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.18,
+  shadowRadius: 8,
+  elevation: 5,
   },
 
+  // Search button icon
   searchIcon: {
     marginRight: 2,
   },
 
+  // Press animation overlay
   searchPressOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.10)",
   },
 
+  // Search button text
   searchText: {
     color: tokens.text,
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
 
   sectionCard: {
@@ -573,28 +581,32 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
+  // Feature card container
   tile: {
     width: "48%",
+    marginBottom:8,
   },
 
+  // Feature card outer border
   tileOuter: {
     borderWidth: 2,
     borderColor: tokens.gold,
-    borderRadius: 22,
+    borderRadius: 20,
     shadowColor: tokens.gold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     elevation: 6,
   },
 
+  // Feature card content
   tileInner: {
     width: "100%",
     backgroundColor: tokens.gold,
     borderRadius: 20,
-    minHeight: 108,
-    paddingVertical: 18,
-    paddingHorizontal: 8,
+    minHeight: 120,
+    paddingVertical: 20,
+    paddingHorizontal: 12,
     alignItems: "center",
     gap: 8,
     overflow: "hidden",
@@ -605,52 +617,68 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
   },
 
+  // Feature card icon
   tileIcon: {},
 
+  // Feature card title
   tileText: {
     color: "#071a2a",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
     textAlign: "center",
-    letterSpacing: 0.3,
-  },
-
-  visionWrapper: {
-    backgroundColor: tokens.card,
-    borderRadius: 16,
-    padding: 12,
-  },
-
-  visionActive: {
-    borderWidth: 1,
-    borderColor: tokens.gold,
-  },
-
-  visionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-
-  visionTitle: {
-    color: tokens.text,
-    fontSize: 15,
-    fontWeight: "900",
     letterSpacing: 0.5,
   },
 
-  visionToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
+// Vision Assist section container
+ visionWrapper: {
+  backgroundColor: "#0b1520",
+  borderRadius: 20,
+  padding: 16,
+  marginTop: 8,
+  marginBottom: 12,
 
-  visionToggleText: {
-    color: tokens.muted,
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.25,
+  shadowRadius: 8,
+  elevation: 5,
+},
+
+  // Highlight Vision Assist when active
+visionActive: {
+  borderWidth: 2,
+  borderColor: tokens.gold,
+},
+
+ // Vision header layout
+visionRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  marginBottom: 14,
+},
+
+  // Vision Assist heading
+visionTitle: {
+  color: tokens.text,
+  fontSize: 22,
+  fontWeight: "900",
+  letterSpacing: 0.8,
+},
+
+  // Vision toggle layout
+visionToggle: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+},
+
+  // Toggle status text
+visionToggleText: {
+  color: tokens.text,
+  fontSize: 15,
+  fontWeight: "700",
+},
 
   visionCard: {
     width: "100%",
