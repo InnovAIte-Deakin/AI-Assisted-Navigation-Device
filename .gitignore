@@ -20,6 +20,7 @@ ML_side/data/val_dataset/
 ML_side/models/*
 !ML_side/models/README.md
 ML_side/evaluation_results/
+ML_side/artifacts/
 
 software_side/walkbuddy_reactNative/frontend_reactNative/package-lock.json
 software_side.zip

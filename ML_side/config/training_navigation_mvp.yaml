@@ -1,0 +1,28 @@
+# Template only: replace with reviewed local inputs before real training.
+schema_version: "1.0.0"
+experiment_name: "navigation-mvp-candidate"
+dataset:
+  manifest_path: "ML_side/datasets/sample_manifest.json"
+  yaml_path: "dataset.yaml"
+  inspection_report_path: null
+  stage: "candidate"
+model:
+  # Exactly one local path is required. Neither field may be a URL or model identifier.
+  architecture_path: "ML_side/training/local_navigation_architecture.yaml"
+  initial_weights_path: null
+training:
+  epochs: 100
+  image_size: 640
+  batch_size: 16
+  device: "cpu"
+  workers: 2
+  seed: 42
+  optimizer: "AdamW"
+  learning_rate: 0.001
+  confidence: 0.001
+  iou: 0.7
+  deterministic: true
+  resume_behavior: "never"
+output:
+  root: "ML_side/artifacts/navigation_mvp"
+notes: "Template only. A reviewed approved manifest, local dataset, and local model file are required."
