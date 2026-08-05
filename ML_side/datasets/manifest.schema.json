@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://walkbuddy.example/schema/dataset-manifest-1.0.0.json",
+  "title": "WalkBuddy navigation dataset manifest",
+  "description": "Git-safe metadata for a candidate WalkBuddy navigation-model dataset release.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset",
+    "source_provenance",
+    "licence",
+    "taxonomy",
+    "splits",
+    "quality",
+    "storage_release"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "source_version",
+        "description",
+        "release_date",
+        "release_decision"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "source_version": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "release_date": { "type": "string", "minLength": 1 },
+        "release_decision": {
+          "type": "string",
+          "enum": ["draft", "under_review", "approved_for_training", "rejected", "retired", "example_only"]
+        }
+      }
+    },
+    "source_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_reference", "accessed_on"],
+      "properties": {
+        "source_reference": { "type": "string", "minLength": 1 },
+        "accessed_on": { "type": "string", "minLength": 1 },
+        "original_source": { "type": "string", "minLength": 1 },
+        "publisher": { "type": "string", "minLength": 1 }
+      }
+    },
+    "licence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "evidence_reference",
+        "machine_learning_use_permitted",
+        "modification_permitted",
+        "redistribution_permitted",
+        "attribution_required",
+        "attribution_requirements",
+        "restrictions",
+        "reviewer",
+        "review_date",
+        "review_decision"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "evidence_reference": { "type": "string", "minLength": 1 },
+        "machine_learning_use_permitted": { "type": "boolean" },
+        "modification_permitted": { "type": "boolean" },
+        "redistribution_permitted": { "type": "boolean" },
+        "attribution_required": { "type": "boolean" },
+        "attribution_requirements": { "type": "string" },
+        "restrictions": { "type": "string" },
+        "reviewer": { "type": "string", "minLength": 1 },
+        "review_date": { "type": "string", "minLength": 1 },
+        "review_decision": {
+          "type": "string",
+          "enum": ["pending", "approved", "conditional", "rejected", "example_only"]
+        }
+      }
+    },
+    "taxonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_classes",
+        "class_mappings",
+        "excluded_source_classes",
+        "unmapped_source_classes",
+        "bounding_box_coordinate_format"
+      ],
+      "properties": {
+        "target_classes": {
+          "type": "array",
+          "minItems": 8,
+          "items": { "$ref": "#/$defs/targetClass" }
+        },
+        "class_mappings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classMapping" }
+        },
+        "excluded_source_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceClassDecision" }
+        },
+        "unmapped_source_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceClassDecision" }
+        },
+        "bounding_box_coordinate_format": {
+          "type": "string",
+          "enum": ["normalized_xywh", "pixel_xywh"]
+        }
+      }
+    },
+    "splits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["train", "validation", "test"],
+      "properties": {
+        "train": { "$ref": "#/$defs/split" },
+        "validation": { "$ref": "#/$defs/split" },
+        "test": { "$ref": "#/$defs/split" }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image_count",
+        "annotation_count",
+        "duplicate_count",
+        "corrupt_file_count",
+        "invalid_annotation_count",
+        "excluded_sample_count",
+        "quality_review_status",
+        "known_limitations"
+      ],
+      "properties": {
+        "image_count": { "type": "integer", "minimum": 0 },
+        "annotation_count": { "type": "integer", "minimum": 0 },
+        "duplicate_count": { "type": "integer", "minimum": 0 },
+        "corrupt_file_count": { "type": "integer", "minimum": 0 },
+        "invalid_annotation_count": { "type": "integer", "minimum": 0 },
+        "excluded_sample_count": { "type": "integer", "minimum": 0 },
+        "checksums": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "pattern": "^(sha256:)?[A-Fa-f0-9]{64}$" }
+        },
+        "quality_review_status": {
+          "type": "string",
+          "enum": ["not_reviewed", "in_progress", "completed", "blocked", "example_only"]
+        },
+        "known_limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "storage_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authoritative_storage_reference",
+        "git_safe_metadata_only",
+        "release_version"
+      ],
+      "properties": {
+        "authoritative_storage_reference": { "type": "string", "minLength": 1 },
+        "git_safe_metadata_only": { "type": "boolean", "const": true },
+        "release_version": { "type": "string", "minLength": 1 },
+        "manifest_checksum": { "type": "string", "pattern": "^(sha256:)?[A-Fa-f0-9]{64}$" },
+        "associated_git_commit": { "type": "string", "minLength": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "targetClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "classMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_class",
+        "target_class_id",
+        "target_class_name",
+        "mapping_rationale",
+        "review_decision"
+      ],
+      "properties": {
+        "source_class": { "type": "string", "minLength": 1 },
+        "target_class_id": { "type": "integer", "minimum": 0 },
+        "target_class_name": { "type": "string", "minLength": 1 },
+        "mapping_rationale": { "type": "string", "minLength": 1 },
+        "review_decision": { "type": "string", "const": "mapped" }
+      }
+    },
+    "sourceClassDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_class", "reason"],
+      "properties": {
+        "source_class": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["samples"],
+      "properties": {
+        "samples": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sample" }
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_id", "image_path", "group_id", "labelled"],
+      "properties": {
+        "sample_id": { "type": "string", "minLength": 1 },
+        "image_path": { "type": "string", "minLength": 1 },
+        "label_path": { "type": "string", "minLength": 1 },
+        "group_id": { "type": "string", "minLength": 1 },
+        "labelled": { "type": "boolean" },
+        "checksum": { "type": "string", "pattern": "^(sha256:)?[A-Fa-f0-9]{64}$" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "annotation_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bounding_box_count": { "type": "integer", "minimum": 0 },
+            "class_ids": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "bounding_boxes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/boundingBox" }
+        }
+      }
+    },
+    "boundingBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class_id", "x", "y", "width", "height"],
+      "properties": {
+        "class_id": { "type": "integer", "minimum": 0 },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number" },
+        "height": { "type": "number" }
+      }
+    }
+  }
+}
