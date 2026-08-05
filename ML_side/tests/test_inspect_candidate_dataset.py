@@ -157,6 +157,11 @@ def test_valid_minimal_dataset_passes_with_explicit_mapping_and_groups(tmp_path:
     report = inspect(root, yaml_path, metadata_path=metadata_path, group_map_path=group_map_for(root))
 
     assert report["quality_verdict"] == "pass"
+    assert report["dataset_identity"] == "fictional-candidate-v1"
+    assert report["dataset_source_version"] == "fictional-v1"
+    markdown = inspector.render_markdown_report(report)
+    assert "Dataset identity: `fictional-candidate-v1`" in markdown
+    assert "Source version: `fictional-v1`" in markdown
     assert report["totals"]["image_count"] == 2  # type: ignore[index]
     assert report["annotation_counts_by_walkbuddy_target_class"][0]["count"] == 2  # type: ignore[index]
 

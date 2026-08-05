@@ -156,4 +156,48 @@ python .\ML_side\tools\inspect_candidate_dataset.py `
   --generate-manifest
 ```
 
-The reports are `dataset_quality_report.json` and `dataset_quality_report.md`; apart from isolated execution-time metadata, their ordering is deterministic for unchanged input. Keep raw images, labels, review evidence, and generated reports in controlled external storage rather than Git. After appropriate independent review, the resulting candidate manifest can feed a future controlled training workflow; this tool itself does not perform training or select a model.
+The reports are `dataset_quality_report.json` and `dataset_quality_report.md`; apart from isolated execution-time metadata, their ordering is deterministic for unchanged input. They record both `dataset_identity` and `dataset_source_version` when reviewed metadata is supplied. Reports generated before that source-version field was added must be regenerated before they can be used by the release builder. Keep raw images, labels, review evidence, and generated reports in controlled external storage rather than Git. After appropriate independent review, the resulting candidate manifest can feed a future controlled training workflow; this tool itself does not perform training or select a model.
+
+## Build a controlled canonical release
+
+`../tools/build_navigation_dataset_release.py` is the controlled bridge from an inspected local YOLO candidate to a copied, versioned WalkBuddy release. It uses the exact approved taxonomy above, rewrites only included label class IDs, and never infers semantic equivalence from source class names. It reads the source dataset, source manifest, inspection report, and reviewed mapping configuration without changing them; the release output must be a controlled external directory, outside both the source root and this Git repository.
+
+Start from [`../config/dataset_release.example.json`](../config/dataset_release.example.json). It is fictional metadata, not a real mapping or approval. Its `source_taxonomy` must exactly match the source YOLO YAML, including class ID, spelling, case, and order. Every source class must have exactly one explicit decision: a mapping to the matching approved ID/name pair, an excluded decision with a reason, or an unresolved decision. Unresolved classes block release creation. Unknown fields, duplicate class decisions, unknown source IDs, and targets outside the approved eight classes are rejected.
+
+An excluded annotation is deliberately removed and counted. `empty_image_policy: retain_negative` retains images that become empty after exclusion with an empty YOLO label file; `exclude_image` omits those images and labels together. Images that were already empty negative samples are retained in their original split under either policy and are reported separately from exclusion-created negatives. Release name and version must be safe single path components containing only letters, numbers, dots, underscores, and hyphens.
+
+The source manifest must pass file checks, record an approved licence review that permits machine-learning use, and identify the same case-sensitive dataset ID, exact source version, and exact source taxonomy recorded by the passing inspector report. The builder rejects cross-split duplicate-image or explicit group-leakage findings, unsafe paths, symlink escapes, missing files, source-YAML/mapping taxonomy mismatch, same-stem image collisions, and an output location that overlaps the source. A structurally completed release is not legal, privacy, ethical, model-quality, safety, production, or training approval. Its generated manifest defaults to `under_review`; `approved_for_training` is accepted only when explicitly supplied metadata also records an approved ML-permitted licence review and completed quality review.
+
+Always begin with a dry run. It validates every input, plans deterministic filenames and label rows, calculates class/exclusion/split counts and checksums, and writes nothing:
+
+```powershell
+python .\ML_side\tools\build_navigation_dataset_release.py `
+  --source-root D:\controlled-datasets\candidate-navigation-v1 `
+  --source-yaml D:\controlled-datasets\candidate-navigation-v1\dataset.yaml `
+  --source-manifest D:\controlled-reports\candidate-navigation-v1\candidate_manifest.json `
+  --inspection-report D:\controlled-reports\candidate-navigation-v1\dataset_quality_report.json `
+  --mapping-config D:\controlled-review\navigation-release-mapping.json `
+  --output-root D:\controlled-datasets\releases `
+  --release-name navigation-mvp-v1 `
+  --release-version v1 `
+  --dry-run
+```
+
+On macOS or Linux, use the same local-only inputs with forward slashes and `python ML_side/tools/build_navigation_dataset_release.py`. A real copy is blocked unless `--confirm-build` is supplied; `--dry-run` and `--confirm-build` cannot be combined.
+
+```powershell
+python .\ML_side\tools\build_navigation_dataset_release.py `
+  --source-root D:\controlled-datasets\candidate-navigation-v1 `
+  --source-yaml D:\controlled-datasets\candidate-navigation-v1\dataset.yaml `
+  --source-manifest D:\controlled-reports\candidate-navigation-v1\candidate_manifest.json `
+  --inspection-report D:\controlled-reports\candidate-navigation-v1\dataset_quality_report.json `
+  --mapping-config D:\controlled-review\navigation-release-mapping.json `
+  --output-root D:\controlled-datasets\releases `
+  --release-name navigation-mvp-v1 `
+  --release-version v1 `
+  --confirm-build
+```
+
+The completed release has `images/train`, `images/val`, optional `images/test`, matching `labels` directories, a release-relative `dataset.yaml`, `release_manifest.json`, `release_build_report.json`, `release_build_report.md`, and `release_checksums.json`. Files are copied through a temporary sibling staging directory and promoted only after manifest, label, checksum, and inspector verification pass. A failed build removes that staging directory where possible and never treats it as a completed release. The JSON and Markdown reports derive from the same canonical counts and record source/released samples, mapped/excluded annotations, negatives, eligibility verification, and input/output SHA-256 checksums. `release_checksums.json` lists the substantive copied images, rewritten labels, YAML, and manifest; it intentionally does not checksum itself or the reports, avoiding recursive checksum churn. The deterministic release identity derives from the reviewed inputs, destination plan, and output label content; Git state is recorded separately and does not alter that identity. Keep releases, images, labels, reports, and any weights in controlled external storage rather than Git.
+
+After an independent reviewer explicitly promotes the generated manifest to the eligible decision, the release can be used as the local `--dataset-root` for [`../training/train_navigation_model.py`](../training/train_navigation_model.py) dry-run. Training remains a separate controlled operation; this builder neither trains a model nor establishes that the dataset is fit for one.
