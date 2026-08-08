@@ -895,6 +895,9 @@ def inspect_dataset(
         "dataset_identity": metadata.get("dataset", {}).get("id")
         if isinstance(metadata, Mapping) and isinstance(metadata.get("dataset"), Mapping)
         else None,
+        "dataset_source_version": metadata.get("dataset", {}).get("source_version")
+        if isinstance(metadata, Mapping) and isinstance(metadata.get("dataset"), Mapping)
+        else None,
         "settings": {"image_decoding": decode_images, "checksums": checksums},
         "splits": split_reports,
         "source_taxonomy": [{"id": class_id, "name": name} for class_id, name in source_taxonomy.items()],
@@ -997,6 +1000,11 @@ def render_markdown_report(report: Mapping[str, object]) -> str:
         "",
         f"Tool: `{report['tool']['name']}` {report['tool']['version']}.",  # type: ignore[index]
         f"Execution time (runtime metadata): {report['execution']['time_utc']}."  # type: ignore[index]
+        "",
+        "## Source identity",
+        "",
+        f"- Dataset identity: `{report.get('dataset_identity') or 'not recorded'}`.",
+        f"- Source version: `{report.get('dataset_source_version') or 'not recorded'}`.",
         "",
         "## Quality verdict",
         "",
