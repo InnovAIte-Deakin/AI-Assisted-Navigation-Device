@@ -13,6 +13,7 @@ import copy
 import hashlib
 import json
 import math
+import re
 import shutil
 import subprocess
 import sys
@@ -40,6 +41,7 @@ CANONICAL_TAXONOMY = manifest_validator.APPROVED_TAXONOMY
 CANONICAL_TARGETS = manifest_validator.APPROVED_TARGETS
 SPLITS = ("train", "validation", "test")
 EMPTY_POLICIES = frozenset({"retain_negative", "exclude_image"})
+URI_SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 
 
 class DatasetReleaseError(Exception):
@@ -132,8 +134,10 @@ def _reject_nonlocal_path(path: Path, label: str) -> None:
     raw = str(path)
     folded = raw.casefold()
     windows_path = PureWindowsPath(raw)
+    uri_scheme = URI_SCHEME.match(raw)
     if (
-        folded.startswith(("http://", "https://", "http:\\", "https:\\", "file:"))
+        (uri_scheme is not None and len(uri_scheme.group()) > 2)
+        or folded.startswith(("http://", "https://", "http:\\", "https:\\", "file:"))
         or raw.startswith(("\\\\", "//"))
         or (windows_path.drive.endswith(":") and len(windows_path.drive) > 2)
         or (windows_path.drive and not windows_path.is_absolute())

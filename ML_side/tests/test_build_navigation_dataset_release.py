@@ -6,7 +6,7 @@ import base64
 import json
 import shutil
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -378,6 +378,15 @@ def test_nonlocal_cli_input_forms_are_rejected(tmp_path: Path, unsafe: str) -> N
     paths = fixture(tmp_path)
     with pytest.raises(builder.DatasetReleaseError, match="controlled local filesystem path"):
         builder.create_release_plan(source_root=paths["source"], source_yaml_path=paths["yaml"], source_manifest_path=paths["manifest"], inspection_report_path=paths["report"], mapping_path=paths["mapping"], output_root=Path(unsafe), release_name="fictional-release", release_version="v1")
+
+
+@pytest.mark.parametrize("unsafe", ["http://example.invalid/source", "https://example.invalid/source", "file://controlled/source"])
+def test_posix_normalised_uri_inputs_are_rejected_before_filesystem_resolution(unsafe: str) -> None:
+    posix_value = PurePosixPath(unsafe)
+    assert str(posix_value).startswith(unsafe.split(":", 1)[0] + ":/")
+
+    with pytest.raises(builder.DatasetReleaseError, match="controlled local filesystem path"):
+        builder._reject_nonlocal_path(posix_value, "output root")
 
 
 def test_repository_output_root_and_wrong_mapping_schema_version_are_rejected(tmp_path: Path) -> None:
