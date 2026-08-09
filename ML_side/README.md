@@ -24,6 +24,10 @@ The experimental entry point and historical demo material should not be used to 
 For a reproducible, read-only baseline of a locally supplied `best.pt`, see
 [`docs/current_model_baseline.md`](docs/current_model_baseline.md).
 
+For offline candidate validation, versioned evaluation artifacts, and explicit
+promotion-gate review, see
+[`docs/candidate_model_promotion.md`](docs/candidate_model_promotion.md).
+
 ### Unresolved Work
 
 The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.

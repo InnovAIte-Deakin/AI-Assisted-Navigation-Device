@@ -50,14 +50,27 @@ as `null` with an explanation; no values are estimated or fabricated.
 
 Each run writes these files to the requested output directory:
 
-- `model_metadata.json` — local path, size, SHA-256, and class mapping.
-- `summary.json` — run mode and aggregate results.
-- `predictions.json` — unlabelled mode only; per-image detections and failures.
-- `validation_metrics.json` — labelled mode only; available validation metrics.
+All machine-readable artifacts use schema version `1.0.0`, include tool
+identity and model lineage, and omit absolute local paths. The descriptions
+below retain the existing filenames for compatibility.
+
+Labelled-validation artifacts also record the metric semantics: aggregate and
+per-class precision, recall, mAP50, and mAP50-95 are fractions from 0 to 1;
+available inference timing is in milliseconds per image.
+
+- `model_metadata.json` — versioned model filename, size, SHA-256, and class mapping.
+- `summary.json` — versioned run mode, effective settings, lineage, and aggregate results.
+- `predictions.json` — versioned unlabelled-mode per-image detections and failures.
+- `validation_metrics.json` — versioned labelled-mode available validation metrics.
 - `baseline_report.md` — readable summary.
 
 The tool refuses to write into a non-empty output directory unless `--overwrite`
 is supplied. It never copies source images into the output directory.
+
+Unlabelled audits record the explicit operating confidence and IoU used for
+`model.predict`. Labelled validation records its separate Ultralytics AP
+configuration and does not force those operating-point values into
+`model.val`.
 
 ## Verified local smoke test
 

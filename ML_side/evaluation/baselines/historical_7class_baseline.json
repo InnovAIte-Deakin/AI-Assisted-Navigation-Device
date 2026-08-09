@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "tool": {
+    "name": "historical_7class_baseline",
+    "version": "1.0.0"
+  },
+  "baseline_type": "historical_reference",
+  "model": {
+    "filename": "best.pt",
+    "file_size_bytes": 6244458,
+    "sha256": "198df54da4f6aa071b342bee77b100e78f243df785b325ec364036e106572238",
+    "class_count": 7,
+    "class_id_to_name": {
+      "0": "book",
+      "1": "books",
+      "2": "monitor",
+      "3": "office-chair",
+      "4": "whiteboard",
+      "5": "table",
+      "6": "tv"
+    },
+    "ordered_class_names": [
+      "book",
+      "books",
+      "monitor",
+      "office-chair",
+      "whiteboard",
+      "table",
+      "tv"
+    ]
+  },
+  "mode": "unlabelled_qualitative_review",
+  "evaluation_settings": {
+    "operating_point_inference": {
+      "confidence": null,
+      "iou": null,
+      "note": "The historical review did not record a controlled operating-point configuration."
+    },
+    "validation_ap": null
+  },
+  "results": {
+    "images_processed": 33,
+    "processing_failures": 0,
+    "average_inference_time_ms": 85.43,
+    "detection_counts_by_class": {
+      "books": 37,
+      "monitor": 3,
+      "office-chair": 3,
+      "table": 1
+    }
+  },
+  "source": {
+    "document": "ML_side/docs/current_model_baseline.md",
+    "section": "Completed qualitative baseline review"
+  },
+  "limitations": [
+    "This artifact uses a historical seven-class taxonomy that differs from the approved eight-class navigation taxonomy.",
+    "It cannot be used as an automatic accuracy-promotion gate for the first eight-class candidate.",
+    "The prior review was an unlabelled qualitative review, not a like-for-like eight-class labelled evaluation.",
+    "Historical evaluation settings may differ from a future controlled evaluation.",
+    "No precision, recall, mAP, or per-class validation metrics are recorded here."
+  ]
+}
