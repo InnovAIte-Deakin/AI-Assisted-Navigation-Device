@@ -10,6 +10,7 @@ import uuid
 import hashlib
 import secrets
 import re
+import time
 
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
 import json
@@ -72,6 +73,12 @@ from routers import ai_service as ai_router
 from routers import helpers as helpers_router
 from routers import auth as auth_router
 from predictive_path import router as pred_router
+from ml_runtime import (
+    MLRuntimeState,
+    ModelMetadataError,
+    capture_model_lineage,
+    router as ml_runtime_router,
+)
 
 # Telemetry
 from telemetry import init_telemetry
@@ -185,17 +192,48 @@ def _whisper_transcribe(model, path: str) -> str:
 async def lifespan(app: FastAPI):
     logger.info("🚀 Backend startup")
 
+    # Runtime state is reset for each application startup and is shared by
+    # REST and WebSocket inference worker threads.
+    app.state.ml_runtime = MLRuntimeState()
+
     # --- init DB ---
     init_database()
 
     # --- load YOLO ---
+    yolo_load_started = time.perf_counter()
     try:
-        logger.info(f"Loading YOLO from {YOLO_MODEL_PATH}")
+        if not YOLO_MODEL_PATH.is_file():
+            raise FileNotFoundError(YOLO_MODEL_PATH)
+        logger.info("Loading YOLO model artifact: %s", YOLO_MODEL_PATH.name)
         app.state.yolo = YOLO(str(YOLO_MODEL_PATH))
-        logger.info("✅ YOLO ready")
-    except Exception as e:
-        logger.error(f"❌ YOLO load failed: {e}")
+    except FileNotFoundError:
+        load_duration_ms = (time.perf_counter() - yolo_load_started) * 1000
+        logger.error("YOLO load failed: model artifact is missing")
         app.state.yolo = None
+        app.state.ml_runtime.set_model_load_failure(
+            YOLO_MODEL_PATH, load_duration_ms, "model_file_missing"
+        )
+    except Exception:
+        load_duration_ms = (time.perf_counter() - yolo_load_started) * 1000
+        logger.exception("YOLO load failed")
+        app.state.yolo = None
+        app.state.ml_runtime.set_model_load_failure(
+            YOLO_MODEL_PATH, load_duration_ms, "model_load_failed"
+        )
+    else:
+        load_duration_ms = (time.perf_counter() - yolo_load_started) * 1000
+        try:
+            app.state.ml_runtime.set_model_lineage(
+                capture_model_lineage(YOLO_MODEL_PATH, app.state.yolo, load_duration_ms)
+            )
+        except (ModelMetadataError, OSError):
+            # The model is usable even if optional lineage capture fails; retain
+            # a safe status instead of exposing the operational exception.
+            logger.exception("YOLO model metadata capture failed")
+            app.state.ml_runtime.set_model_metadata_failure(
+                YOLO_MODEL_PATH, load_duration_ms
+            )
+        logger.info("✅ YOLO ready")
 
     # --- load EasyOCR ---
     try:
@@ -275,6 +313,9 @@ app = FastAPI(
     title="WalkBuddy Unified Backend",
     lifespan=lifespan,
 )
+app.state.yolo = None
+app.state.ocr_reader = None
+app.state.ml_runtime = MLRuntimeState()
 
 # =========================
 # 7. MIDDLEWARE
@@ -283,6 +324,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         excluded_paths = {
             "/ping",
+            "/ml/ready",
             "/docs",
             "/openapi.json",
             "/redoc",
@@ -340,6 +382,7 @@ app.include_router(helpers_router.router)
 app.include_router(stt.router)
 app.include_router(auth_router.router)
 app.include_router(pred_router.router)
+app.include_router(ml_runtime_router)
 
 # =========================
 # 9. TELEMETRY

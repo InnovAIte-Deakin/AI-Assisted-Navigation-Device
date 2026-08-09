@@ -6,6 +6,7 @@ import logging
 import anyio
 from fastapi import APIRouter, UploadFile, File, Request, WebSocket, WebSocketDisconnect, HTTPException
 from opentelemetry import trace
+from fastapi.responses import JSONResponse
 
 from adapters.vision_adapter import vision_adapter
 from adapters.ocr_adapter import ocr_adapter
@@ -13,10 +14,59 @@ from internal import state
 from internal.motion_tracker import MotionTracker
 from tts_service.message_reasoning import process_adapter_output
 from slow_lane import safe_or_stop_recommendation
+from ml_runtime import (
+    inference_failed_error,
+    model_unavailable_error,
+    websocket_error_payload,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 tracer = trace.get_tracer("ai_service")
+
+
+def _begin_vision_metrics(app) -> float | None:
+    """Start aggregate timing without allowing instrumentation to affect vision."""
+    runtime = getattr(app.state, "ml_runtime", None)
+    if runtime is None:
+        return None
+    try:
+        runtime.metrics.begin_inference()
+        return time.perf_counter()
+    except Exception:
+        # Metrics are best-effort observability; never reject a vision request
+        # merely because recording operational state failed.
+        logger.exception("Unable to start vision runtime metrics")
+        return None
+
+
+def _finish_vision_metrics(app, started_at: float | None, *, successful: bool) -> None:
+    """Finish aggregate timing without allowing instrumentation to affect vision."""
+    if started_at is None:
+        return
+    runtime = getattr(app.state, "ml_runtime", None)
+    if runtime is None:
+        return
+    try:
+        runtime.metrics.finish_inference(
+            (time.perf_counter() - started_at) * 1000, successful=successful
+        )
+    except Exception:
+        # Metrics are best-effort observability; never reject a vision request
+        # merely because recording operational state failed.
+        logger.exception("Unable to finish vision runtime metrics")
+
+
+def _record_dropped_vision_frame(app) -> None:
+    """Record a deliberately skipped frame without affecting WebSocket handling."""
+    runtime = getattr(app.state, "ml_runtime", None)
+    if runtime is None:
+        return
+    try:
+        runtime.metrics.record_dropped_frame()
+    except Exception:
+        # A malformed runtime metrics object must not alter WebSocket handling.
+        logger.exception("Unable to record dropped vision frame")
 
 
 def normalize_vision_events(raw_events):
@@ -127,7 +177,7 @@ def _guidance_payload(result: dict, max_messages: int = 1) -> tuple[str, str]:
 @router.post("/vision")
 async def vision_endpoint(request: Request, file: UploadFile = File(...)):
     if not request.app.state.yolo:
-        raise HTTPException(503, "Vision model unavailable")
+        return JSONResponse(status_code=503, content=model_unavailable_error())
 
     content = await file.read()
     if not content:
@@ -142,14 +192,22 @@ async def vision_endpoint(request: Request, file: UploadFile = File(...)):
 
         try:
             async with request.app.state.vision_limiter:
-                result = await anyio.to_thread.run_sync(
-                    vision_adapter,
-                    request.app.state.yolo,
-                    temp_path,
-                )
-        except Exception as e:
-            logger.error(f"Vision adapter error: {e}")
-            raise HTTPException(500, "Vision processing failed")
+                metrics_started_at = _begin_vision_metrics(request.app)
+                try:
+                    result = await anyio.to_thread.run_sync(
+                        vision_adapter,
+                        request.app.state.yolo,
+                        temp_path,
+                    )
+                except Exception:
+                    _finish_vision_metrics(
+                        request.app, metrics_started_at, successful=False
+                    )
+                    raise
+                _finish_vision_metrics(request.app, metrics_started_at, successful=True)
+        except Exception:
+            logger.exception("Vision adapter error")
+            return JSONResponse(status_code=500, content=inference_failed_error())
 
         for d in result["detections"]:
             state.memory.add_event(**_event_from_detection(d))
@@ -319,7 +377,8 @@ async def vision_ws_endpoint(websocket: WebSocket):
                          "risk_level": str, "inference_time_ms": int,
                          "server_timestamp_ms": int}
                     OR {"type": "frame_dropped", "frame_id": str, "reason": str}
-                    OR {"type": "error", "frame_id": str|null, "message": str}
+                    OR {"type": "error", "code": str, "frame_id": str|null,
+                        "message": str}
       Server → text:   {"type": "ping"}  (every ~15 s)
       Client → text:   {"type": "pong"}
     """
@@ -327,11 +386,9 @@ async def vision_ws_endpoint(websocket: WebSocket):
 
     yolo = websocket.app.state.yolo
     if yolo is None:
-        await websocket.send_text(json.dumps({
-            "type": "error",
-            "frame_id": None,
-            "message": "YOLO model not loaded",
-        }))
+        await websocket.send_text(
+            json.dumps(websocket_error_payload("model_unavailable", None))
+        )
         await websocket.close(1011)
         return
 
@@ -376,6 +433,7 @@ async def vision_ws_endpoint(websocket: WebSocket):
 
                 if frame_meta is None:
                     logger.debug("[WS Vision] Binary received without frame_meta — skipped")
+                    _record_dropped_vision_frame(websocket.app)
                     continue
 
                 fid = frame_meta.get("frame_id", "unknown")
@@ -389,6 +447,8 @@ async def vision_ws_endpoint(websocket: WebSocket):
                 # in FIFO order, so multiple WS clients share the slot fairly.
                 async with limiter:
                     t0 = time.monotonic()
+                    metrics_started_at = _begin_vision_metrics(websocket.app)
+                    metrics_finished = False
 
                     with tracer.start_as_current_span("ws.vision.frame") as frame_span:
                         frame_span.set_attribute("frame.id", fid)
@@ -404,6 +464,10 @@ async def vision_ws_endpoint(websocket: WebSocket):
                             result = await anyio.to_thread.run_sync(
                                 vision_adapter, yolo, temp_path
                             )
+                            _finish_vision_metrics(
+                                websocket.app, metrics_started_at, successful=True
+                            )
+                            metrics_finished = True
                             image_width, image_height = _image_dimensions(result)
                             result["detections"] = tracker.update(
                                 result["detections"],
@@ -439,13 +503,15 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                 "server_timestamp_ms": int(time.time() * 1000),
                             }))
 
-                        except Exception as exc:
-                            logger.error(f"[WS Vision] Inference error (frame {fid}): {exc}")
-                            await websocket.send_text(json.dumps({
-                                "type": "error",
-                                "frame_id": fid,
-                                "message": str(exc),
-                            }))
+                        except Exception:
+                            if not metrics_finished:
+                                _finish_vision_metrics(
+                                    websocket.app, metrics_started_at, successful=False
+                                )
+                            logger.exception("[WS Vision] Inference error (frame %s)", fid)
+                            await websocket.send_text(
+                                json.dumps(websocket_error_payload("inference_failed", fid))
+                            )
 
                         finally:
                             if temp_path and os.path.exists(temp_path):
