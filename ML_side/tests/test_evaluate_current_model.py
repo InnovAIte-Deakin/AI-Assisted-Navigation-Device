@@ -53,12 +53,18 @@ class FakeModel:
 
     def __init__(self) -> None:
         self.predict_sources: list[str] = []
+        self.predict_arguments: list[dict[str, float | bool | str]] = []
         self.validation_arguments: dict[str, object] | None = None
 
-    def predict(self, *, source: str, save: bool, verbose: bool) -> list[FakeResult]:
+    def predict(
+        self, *, source: str, save: bool, verbose: bool, conf: float, iou: float
+    ) -> list[FakeResult]:
         assert save is False
         assert verbose is False
         self.predict_sources.append(source)
+        self.predict_arguments.append(
+            {"source": source, "save": save, "verbose": verbose, "conf": conf, "iou": iou}
+        )
         if Path(source).name == "broken.jpeg":
             raise RuntimeError("cannot decode image")
         return [FakeResult([FakeBox(1, 0.91, [1.0, 2.0, 3.0, 4.0])])]
@@ -146,11 +152,14 @@ def test_unlabelled_audit_serialises_predictions_and_preserves_source_images(
     output = tmp_path / "results"
     before = {path.name: path.read_bytes() for path in images.iterdir()}
 
+    fake_model = FakeModel()
     summary = evaluator.evaluate(
         model_path=model_path,
         images_path=images,
         output_path=output,
-        yolo_loader=lambda _: FakeModel(),
+        operating_confidence=0.4,
+        operating_iou=0.6,
+        yolo_loader=lambda _: fake_model,
     )
 
     predictions = json.loads((output / "predictions.json").read_text(encoding="utf-8"))
@@ -167,6 +176,18 @@ def test_unlabelled_audit_serialises_predictions_and_preserves_source_images(
         }
     ]
     assert "not precision, recall, or mAP" in predictions["result_label"]
+    assert predictions["schema_version"] == evaluator.EVALUATION_SCHEMA_VERSION
+    assert predictions["tool"] == {"name": evaluator.TOOL_NAME, "version": evaluator.TOOL_VERSION}
+    assert predictions["model"]["ordered_class_names"] == ["book", "monitor"]
+    assert predictions["evaluation_settings"]["operating_point_inference"] == {
+        "confidence": 0.4,
+        "iou": 0.6,
+        "save": False,
+        "verbose": False,
+    }
+    assert predictions["metric_semantics"] is None
+    assert fake_model.predict_arguments[1]["conf"] == 0.4
+    assert fake_model.predict_arguments[1]["iou"] == 0.6
     assert {path.name: path.read_bytes() for path in images.iterdir()} == before
     assert not list(output.glob("*.jpg"))
     assert (output / "model_metadata.json").is_file()
@@ -209,6 +230,7 @@ def test_output_write_failure_is_readable(
 
     with pytest.raises(evaluator.EvaluationError, match="Output write failed"):
         evaluator._write_json(tmp_path / "results.json", {"result": "baseline"})
+    assert not list(tmp_path.glob(".results.json.*.tmp"))
 
 
 def test_dataset_yaml_validation_rejects_missing_and_download_directives(tmp_path: Path) -> None:
@@ -235,7 +257,10 @@ def test_labelled_validation_extracts_available_metrics(tmp_path: Path) -> None:
         yolo_loader=lambda _: model,
     )
 
-    metrics = json.loads((output / "validation_metrics.json").read_text(encoding="utf-8"))
+    metrics_artifact = json.loads(
+        (output / "validation_metrics.json").read_text(encoding="utf-8")
+    )
+    metrics = metrics_artifact["validation_metrics"]
     assert summary["mode"] == "labelled_validation"
     assert metrics["precision"] == 0.625
     assert metrics["recall"] == 0.5
@@ -247,6 +272,12 @@ def test_labelled_validation_extracts_available_metrics(tmp_path: Path) -> None:
     assert model.validation_arguments["data"] == str(dataset_yaml.resolve())
     assert model.validation_arguments["plots"] is False
     assert model.validation_arguments["save_json"] is False
+    assert "conf" not in model.validation_arguments
+    assert "iou" not in model.validation_arguments
+    assert metrics_artifact["schema_version"] == evaluator.EVALUATION_SCHEMA_VERSION
+    assert metrics_artifact["evaluation_settings"]["operating_point_inference"] is None
+    assert metrics_artifact["evaluation_settings"]["validation_ap"]["confidence"] == "ultralytics_default_sweep"
+    assert metrics_artifact["metric_semantics"] == evaluator.LABELLED_VALIDATION_METRIC_SEMANTICS
 
 
 def test_main_reports_a_readable_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
