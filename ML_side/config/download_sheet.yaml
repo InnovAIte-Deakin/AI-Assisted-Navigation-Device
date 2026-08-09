@@ -1,0 +1,228 @@
+datasets:
+
+  obstacle_detection_roboflow:
+    source: roboflow
+    url: "https://universe.roboflow.com/visually-impaired-obstacle-detection-uxdze/obstacle-detection-yeuzf"
+    version: 11
+    status: approved
+
+    folder: obstacle_detection_roboflow
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  obstacle_detection_kaggle:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/abtinzandi/obstacle-detection-dataset"
+    version:
+    status: approved
+
+    folder: obstacle_detection_kaggle
+
+    ethics:
+      license: "MIT"
+
+
+  obstacle_detection_huggingface:
+    source: huggingface
+    url: "https://huggingface.co/datasets/Abtinzandi/Obstacle-Detection-Dataset-YOLO"
+    version:
+    status: rejected
+
+    folder: obstacle_detection_huggingface
+
+    ethics:
+      license: "MIT"
+
+
+  indoor_object_detection:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/thepbordin/indoor-object-detection"
+    version:
+    status: approved
+
+    folder: indoor_object_detection
+
+    ethics:
+      license: "GNU Lesser General Public License"
+
+
+  mapillary_vistas:
+    source: manual
+    url: "https://www.mapillary.com/dataset/vistas"
+    version:
+    status: approved
+
+    folder: mapillary_vistas
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  light_poles:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/samuelayman/light-poles"
+    version:
+    status: approved
+
+    folder: light_poles
+
+    ethics:
+      license: "Apache 2.0"
+
+
+  fpv_crosswalk_segmentation:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/zubayearkhaled/first-person-view-crosswalk-segmentation-dataset"
+    version:
+    status: approved
+
+    folder: fpv_crosswalk_segmentation
+
+    ethics:
+      license: "CC BY-SA 4.0"
+
+
+  pedestrian_detection:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/smeschke/pedestrian-dataset"
+    version:
+    status: approved
+
+    folder: pedestrian_detection
+
+    ethics:
+      license: "CC0 Public Domain"
+
+
+  road_sign_detection:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/andrewmvd/road-sign-detection"
+    version:
+    status: approved
+
+    folder: road_sign_detection
+
+    ethics:
+      license: "CC0 Public Domain"
+
+
+  antic_chairs:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/arminajdehnia/antic-chairs"
+    version:
+    status: approved
+
+    folder: antic_chairs
+
+    ethics:
+      license: "CC0 Public Domain"
+
+
+  doors_detection:
+    source: kaggle
+    url: "https://www.kaggle.com/datasets/dataclusterlabs/doors-doors"
+    version:
+    status: approved
+
+    folder: doors_detection
+
+    ethics:
+      license: "CC0 Public Domain"
+
+
+  indoor_objects_roboflow:
+    source: roboflow
+    url: "https://universe.roboflow.com/roman-sutter/indoor-objects"
+    version: 2
+    status: approved
+
+    folder: indoor_objects_roboflow
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  indoor_detection_vineeth:
+    source: roboflow
+    url: "https://universe.roboflow.com/vineeth-optimus/indoor-9xgfb"
+    version: 1
+    status: approved
+
+    folder: indoor_detection_vineeth
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  indoor_objects_5iwhq:
+    source: roboflow
+    url: "https://universe.roboflow.com/indoor-objects/indoor-5iwhq"
+    version: 2
+    status: approved
+
+    folder: indoor_objects_5iwhq
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  revised_pedestrian_obstacle_detection:
+    source: roboflow
+    url: "https://universe.roboflow.com/thesis-test-dataset/revised-pedestrian-obstacle"
+    version: 4
+    status: approved
+
+    folder: pedestrian_obstacle_detection
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  pedestrian_walk:
+    source: roboflow
+    url: "https://universe.roboflow.com/objection-detection/pedestrian-walk"
+    version: 1
+    status: approved
+
+    folder: pedestrian_walk
+
+    ethics:
+      license: "Public Domain"
+
+
+  outdoor_objects:
+    source: roboflow
+    url: "https://universe.roboflow.com/outdoor-od-fqdik/outdoor-109rx"
+    version: 1
+    status: approved
+
+    folder: outdoor_objects
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  footpath_detection:
+    source: roboflow
+    url: "https://universe.roboflow.com/manav-goel/footpath-detection-aeawp"
+    version: 8
+    status: approved
+
+    folder: footpath_detection
+
+    ethics:
+      license: "CC BY 4.0"
+
+
+  stairs_detection:
+    source: roboflow
+    url: "https://universe.roboflow.com/vincent-matthew-umali/stairs-au2hn"
+    version: 1
+    status: approved
+
+    folder: stairs_detection
+
+    ethics:
+      license: "CC BY 4.0"
