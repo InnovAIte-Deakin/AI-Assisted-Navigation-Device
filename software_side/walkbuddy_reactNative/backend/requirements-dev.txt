@@ -1,0 +1,8 @@
+# Test-only dependencies (not needed at runtime).
+# Install with:  pip install -r requirements-dev.txt
+#
+# Runtime deps (including httpx, which FastAPI's TestClient uses) live in
+# requirements.txt and are pulled in via the -r line below.
+-r requirements.txt
+
+pytest==9.1.1
