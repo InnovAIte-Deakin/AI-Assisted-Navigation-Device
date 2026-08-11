@@ -4,20 +4,25 @@ Production ML inference endpoint for the WalkBuddy navigation model.
 This router is a *pure addition* on top of the existing vision pipeline. It
 reuses the already-loaded YOLO model (`app.state.yolo`), the shared capacity
 limiter (`app.state.vision_limiter`), the `vision_adapter` detection logic, the
-`_event_from_detection` / `_guidance_payload` helpers, and `state.memory`. It
-introduces no new inference logic and does not touch `/vision`, `/ws/vision`,
-or any other route.
+`_event_from_detection` / `_guidance_payload` helpers, the shared ML-runtime
+metrics + error helpers, and `state.memory`. It introduces no new inference
+logic and does not touch `/vision`, `/ws/vision`, or any other route.
 
-The `model` and `classes` fields are read from `app.state.yolo.names` at request
-time, so the contract works unchanged for both the 7-class and 8-class weights
-without hardcoding the taxonomy. (See `ML_side/models/README.md` and
-`ML_side/docs/current_model_baseline.md` for the known best.pt vs. newdata.yaml
-class-lineage discrepancy — resolving that is separate follow-up work.)
+It exposes exactly one endpoint: `POST /ml/navigate`. The authoritative
+`GET /ml/model-info` (and `/ml/health`, `/ml/ready`, `/ml/metrics`) are owned by
+`ml_runtime.router`; this router deliberately does NOT define a second
+`/ml/model-info` handler.
 
-Mock mode: set `WALKBUDDY_ML_MOCK=1` (default off) to make both endpoints return
-a deterministic fake result in the exact same contract, with no weights and no
-inference. This lets the frontend / API be developed before a navigation model
-exists. The mock reports the approved eight-class taxonomy.
+Real path: `model`/`classes` are read from `app.state.yolo.names` at request
+time, so the contract works unchanged for whatever weights are loaded, without
+hardcoding a taxonomy.
+
+Mock mode: set `WALKBUDDY_ML_MOCK=1` (default off) to make `/ml/navigate` return
+a deterministic fake result in the same contract, with no weights and no
+inference. The mock taxonomy and per-class priority are DERIVED from
+`ml_contract.navigation_semantics` (the approved MVP navigation classes), not
+hardcoded here. This lets the frontend / API be developed before a real
+navigation model exists.
 """
 
 import os
@@ -26,38 +31,47 @@ import tempfile
 import logging
 
 import anyio
-from fastapi import APIRouter, UploadFile, File, Request, HTTPException
+from fastapi import APIRouter, UploadFile, File, Request
+from fastapi.responses import JSONResponse
 
 from adapters.vision_adapter import vision_adapter
 from internal import state
-from routers.ai_service import _event_from_detection, _guidance_payload
+from routers.ai_service import (
+    _event_from_detection,
+    _guidance_payload,
+    _begin_vision_metrics,
+    _finish_vision_metrics,
+)
+from ml_contract import NAVIGATION_CLASSES, get_base_severity
+from ml_runtime import inference_failed_error, model_unavailable_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ml", tags=["ml"])
 
 # ── Mock mode ───────────────────────────────────────────────────────────────
-# When WALKBUDDY_ML_MOCK is truthy the endpoints return a deterministic fake
+# When WALKBUDDY_ML_MOCK is truthy the endpoint returns a deterministic fake
 # result (no weights, no inference) so the API can be developed before a real
 # navigation model exists. Off by default.
 _TRUTHY = {"1", "true", "yes", "on"}
 
-# Approved eight-class navigation taxonomy (matches ML_side/config/newdata.yaml).
-MOCK_CLASSES = [
-    "book", "books", "monitor", "office-chair",
-    "whiteboard", "table", "tv", "couch",
-]
+# Approved navigation MVP taxonomy, derived from the shared contract so there is
+# a single source of truth (never a second hardcoded copy).
+MOCK_CLASSES = [nav_class.name for nav_class in NAVIGATION_CLASSES]
 MOCK_MODEL = "walkbuddy-yolo-mock"
 
-# A single deterministic detection in the exact shape vision_adapter produces.
+# One deterministic detection in the exact shape vision_adapter produces. Its
+# priority is read from the contract's base severity for that class (e.g. the
+# contract rates "table" as MEDIUM), not hardcoded.
+_MOCK_CATEGORY = "table"
 _MOCK_RESULT = {
     "image_id": "mock",
     "detections": [
         {
-            "category": "table",
+            "category": _MOCK_CATEGORY,
             "confidence": 0.87,
             "bbox": {"x_min": 220, "y_min": 180, "x_max": 420, "y_max": 400},
             "direction": "ahead",
-            "priority": "HIGH",
+            "priority": get_base_severity(_MOCK_CATEGORY).name,
         }
     ],
     "metadata": {"image_shape": [480, 640]},
@@ -72,9 +86,8 @@ def _model_classes(yolo) -> list[str]:
     """Return the model's class names in class-index order.
 
     Reads directly from the loaded model's `.names` so the contract reflects the
-    actual weights (7- or 8-class) rather than a hardcoded list. Ultralytics
-    exposes `.names` as a dict keyed by int class id; a plain list is also
-    handled defensively.
+    actual weights rather than a hardcoded list. Ultralytics exposes `.names` as
+    a dict keyed by int class id; a plain list is also handled defensively.
     """
     names = getattr(yolo, "names", None)
     if names is None:
@@ -86,29 +99,6 @@ def _model_classes(yolo) -> list[str]:
 
 def _model_descriptor(classes: list[str]) -> str:
     return f"walkbuddy-yolo-{len(classes)}class"
-
-
-@router.get("/model-info")
-async def model_info(request: Request):
-    """Expose the authoritative class list/order baked into the active weights."""
-    if _mock_enabled():
-        return {
-            "model": MOCK_MODEL,
-            "classes": list(MOCK_CLASSES),
-            "class_count": len(MOCK_CLASSES),
-            "mock": True,
-        }
-
-    yolo = request.app.state.yolo
-    if yolo is None:
-        raise HTTPException(503, "Vision model unavailable")
-
-    classes = _model_classes(yolo)
-    return {
-        "model": _model_descriptor(classes),
-        "classes": classes,
-        "class_count": len(classes),
-    }
 
 
 @router.post("/navigate")
@@ -125,6 +115,11 @@ async def navigate_endpoint(request: Request, file: UploadFile = File(...)):
           "inference_time_ms": int,
           "image_id": str | None,
         }
+
+    Errors use the stable ML error format from `ml_runtime.errors`:
+      503 -> model_unavailable_error(); 500 -> inference_failed_error().
+    Successful and failed inferences are recorded in the shared ML-runtime
+    metrics, exactly like `/vision`.
     """
     if _mock_enabled():
         result = _MOCK_RESULT
@@ -141,11 +136,10 @@ async def navigate_endpoint(request: Request, file: UploadFile = File(...)):
             "image_id": result["image_id"],
         }
 
-    yolo = request.app.state.yolo
-    if yolo is None:
-        raise HTTPException(503, "Vision model unavailable")
+    if not request.app.state.yolo:
+        return JSONResponse(status_code=503, content=model_unavailable_error())
 
-    classes = _model_classes(yolo)
+    classes = _model_classes(request.app.state.yolo)
 
     content = await file.read()
     if not content:
@@ -166,18 +160,26 @@ async def navigate_endpoint(request: Request, file: UploadFile = File(...)):
             f.write(content)
             temp_path = f.name
 
-        t0 = time.monotonic()
         try:
             async with request.app.state.vision_limiter:
-                result = await anyio.to_thread.run_sync(
-                    vision_adapter,
-                    yolo,
-                    temp_path,
-                )
-        except Exception as e:
-            logger.error(f"ML navigate adapter error: {e}")
-            raise HTTPException(500, "Vision processing failed")
-        inference_ms = int((time.monotonic() - t0) * 1000)
+                t0 = time.monotonic()
+                metrics_started_at = _begin_vision_metrics(request.app)
+                try:
+                    result = await anyio.to_thread.run_sync(
+                        vision_adapter,
+                        request.app.state.yolo,
+                        temp_path,
+                    )
+                except Exception:
+                    _finish_vision_metrics(
+                        request.app, metrics_started_at, successful=False
+                    )
+                    raise
+                _finish_vision_metrics(request.app, metrics_started_at, successful=True)
+                inference_ms = int((time.monotonic() - t0) * 1000)
+        except Exception:
+            logger.exception("ML navigate adapter error")
+            return JSONResponse(status_code=500, content=inference_failed_error())
 
         for d in result["detections"]:
             state.memory.add_event(**_event_from_detection(d))

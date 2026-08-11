@@ -1,10 +1,15 @@
 """
-Unit tests for the production ML inference endpoint (routers/ml_inference.py).
+Router-isolated unit tests for POST /ml/navigate (routers/ml_inference.py).
 
 These tests never load real model weights. They mount only the ml_inference
 router on a bare FastAPI app, set a fake `app.state.yolo` (with a `.names`
 mapping) plus a real capacity limiter, and stub out `vision_adapter` so the
 contract can be verified without inference.
+
+Note: `GET /ml/model-info` is intentionally NOT defined by this router anymore
+(the authoritative one lives in ml_runtime). Errors use the stable ML error
+format from ml_runtime.errors. Real-app wiring (single model-info, metrics,
+route registration) is covered in tests/test_ml_inference_integration.py.
 
 Run from the backend directory:
     pytest tests/test_ml_inference.py -v
@@ -30,6 +35,9 @@ SEVEN_CLASSES = {
 
 EIGHT_CLASSES = {**SEVEN_CLASSES, 7: "couch"}
 
+# The approved MVP navigation taxonomy, derived from the shared contract.
+APPROVED_NAV_CLASSES = ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"]
+
 
 class FakeYolo:
     """Minimal stand-in for an Ultralytics YOLO model.
@@ -50,7 +58,7 @@ def _fake_result():
                 "confidence": 0.91,
                 "bbox": {"x_min": 100, "y_min": 120, "x_max": 400, "y_max": 460},
                 "direction": "ahead",
-                "priority": "HIGH",
+                "priority": "MEDIUM",
             }
         ],
         "metadata": {"image_shape": [480, 640]},
@@ -72,7 +80,7 @@ def stub_adapter(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# /ml/navigate — contract
+# /ml/navigate — contract (classes read from the model, not hardcoded)
 # ---------------------------------------------------------------------------
 
 def test_navigate_contract_eight_class(stub_adapter):
@@ -111,7 +119,7 @@ def test_navigate_contract_eight_class(stub_adapter):
 
 
 def test_navigate_contract_seven_class(stub_adapter):
-    """Same endpoint must work unchanged for the 7-class weights."""
+    """Same endpoint must work unchanged for a different set of weights."""
     client = TestClient(_build_app(FakeYolo(SEVEN_CLASSES)))
     resp = client.post(
         "/ml/navigate",
@@ -142,24 +150,22 @@ def test_navigate_empty_file_short_circuits(stub_adapter):
 
 
 # ---------------------------------------------------------------------------
-# /ml/navigate — 503 when model unavailable
+# /ml/navigate — stable ML error format (not my own 503/500 shape)
 # ---------------------------------------------------------------------------
 
-def test_navigate_503_when_model_unavailable():
+def test_navigate_503_uses_stable_model_unavailable_error():
     client = TestClient(_build_app(yolo=None))
     resp = client.post(
         "/ml/navigate",
         files={"file": ("frame.jpg", b"not-a-real-jpeg", "image/jpeg")},
     )
     assert resp.status_code == 503
-    assert resp.json()["detail"] == "Vision model unavailable"
+    assert resp.json() == {
+        "error": {"code": "model_unavailable", "message": "Vision model is unavailable."}
+    }
 
 
-# ---------------------------------------------------------------------------
-# /ml/navigate — 500 on inference failure (temp file still cleaned up)
-# ---------------------------------------------------------------------------
-
-def test_navigate_500_on_adapter_error(monkeypatch):
+def test_navigate_500_uses_stable_inference_failed_error(monkeypatch):
     def _boom(model, path):
         raise RuntimeError("cuda exploded")
 
@@ -170,34 +176,16 @@ def test_navigate_500_on_adapter_error(monkeypatch):
         files={"file": ("frame.jpg", b"not-a-real-jpeg", "image/jpeg")},
     )
     assert resp.status_code == 500
-    assert resp.json()["detail"] == "Vision processing failed"
+    assert resp.json() == {
+        "error": {"code": "inference_failed", "message": "Vision inference failed."}
+    }
 
 
 # ---------------------------------------------------------------------------
-# /ml/model-info
+# Mock mode (WALKBUDDY_ML_MOCK) — approved navigation taxonomy, no weights
 # ---------------------------------------------------------------------------
 
-def test_model_info_reports_active_classes():
-    client = TestClient(_build_app(FakeYolo(EIGHT_CLASSES)))
-    resp = client.get("/ml/model-info")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["model"] == "walkbuddy-yolo-8class"
-    assert body["class_count"] == 8
-    assert body["classes"][-1] == "couch"
-
-
-def test_model_info_503_when_model_unavailable():
-    client = TestClient(_build_app(yolo=None))
-    resp = client.get("/ml/model-info")
-    assert resp.status_code == 503
-
-
-# ---------------------------------------------------------------------------
-# Mock mode (WALKBUDDY_ML_MOCK) — works with NO weights loaded
-# ---------------------------------------------------------------------------
-
-def test_navigate_mock_mode_no_weights(monkeypatch):
+def test_navigate_mock_mode_reports_approved_navigation_classes(monkeypatch):
     monkeypatch.setenv("WALKBUDDY_ML_MOCK", "1")
     # yolo is None on purpose: mock mode must not require weights.
     client = TestClient(_build_app(yolo=None))
@@ -219,33 +207,21 @@ def test_navigate_mock_mode_no_weights(monkeypatch):
         "image_id",
     }
 
-    # Deterministic mock payload, approved eight-class taxonomy.
+    # Approved MVP navigation taxonomy, in contract order.
     assert body["model"] == "walkbuddy-yolo-mock"
-    assert body["classes"] == [
-        "book", "books", "monitor", "office-chair",
-        "whiteboard", "table", "tv", "couch",
-    ]
+    assert body["classes"] == APPROVED_NAV_CLASSES
+
+    # Priority comes from the contract's base severity (table is MEDIUM there).
     assert body["detections"] == [
         {
             "category": "table",
             "confidence": 0.87,
             "bbox": {"x_min": 220, "y_min": 180, "x_max": 420, "y_max": 400},
             "direction": "ahead",
-            "priority": "HIGH",
+            "priority": "MEDIUM",
         }
     ]
     assert body["image_id"] == "mock"
     assert body["inference_time_ms"] == 0
     assert isinstance(body["guidance_message"], str) and body["guidance_message"]
     assert isinstance(body["risk_level"], str) and body["risk_level"]
-
-
-def test_model_info_mock_mode_no_weights(monkeypatch):
-    monkeypatch.setenv("WALKBUDDY_ML_MOCK", "1")
-    client = TestClient(_build_app(yolo=None))
-    resp = client.get("/ml/model-info")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["model"] == "walkbuddy-yolo-mock"
-    assert body["class_count"] == 8
-    assert body["mock"] is True
