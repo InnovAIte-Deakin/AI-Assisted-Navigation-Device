@@ -8,7 +8,6 @@ import { Accelerometer, Gyroscope, Magnetometer } from "expo-sensors";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { API_BASE } from "../../src/config";
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE || "http://192.168.1.106:8000";
 const COLLECT_INTERVAL = 1500;
 const PREDICT_INTERVAL = 1500;
 
