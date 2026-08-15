@@ -123,7 +123,7 @@ def test_path_predictor() -> int:
     errors = 0
  
     try:
-        from predictive_path import PathPredictor
+        from predictive_path.predictive_path import PathPredictor
         pp = PathPredictor(dt=0.5, steps=5)
         path = pp.predict_path(speed=1.2, heading=90.0, gyro=0.02)
  
@@ -155,7 +155,7 @@ def test_risk_evaluator() -> int:
     errors = 0
  
     try:
-        from predictive_path import PathPredictor, RiskEvaluator
+        from predictive_path.predictive_path import PathPredictor, RiskEvaluator
  
         pp = PathPredictor(dt=0.5, steps=1)
         re = RiskEvaluator()
@@ -190,7 +190,7 @@ def test_alert_logic() -> int:
     errors = 0
  
     try:
-        from predictive_path import PredictivePathSystem
+        from predictive_path.predictive_path import PredictivePathSystem
  
         system = PredictivePathSystem(dt=0.5, steps=5)
  
@@ -232,7 +232,7 @@ def test_alert_logic() -> int:
 def test_full_scenarios() -> int:
     section("TEST 7 — Full Scenario Walkthrough")
  
-    from predictive_path import PredictivePathSystem
+    from predictive_path.predictive_path import PredictivePathSystem
     system = PredictivePathSystem(dt=0.5, steps=5)
  
     scenarios = [
