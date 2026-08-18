@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "model_id": "WB-OD-NAV-001",
+  "model_version": "0.1.0",
+
+  "identity": {
+    "name": "WalkBuddy Navigation Object Detection Model",
+    "architecture": "YOLO",
+    "framework": "Ultralytics",
+    "task": "object_detection"
+  },
+
+  "taxonomy": {
+    "taxonomy_id": "walkbuddy-mvp-8-v1",
+    "classes": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ]
+  },
+
+  "dataset": {
+    "release_id": null,
+    "manifest_reference": null
+  },
+
+  "training": {
+    "training_date": null,
+    "configuration_reference": null
+  },
+
+  "artifact": {
+    "filename": null,
+    "location": null,
+    "sha256": null
+  },
+
+  "evaluation": {
+    "evidence_reference": null
+  },
+
+  "lifecycle": {
+    "status": "experimental"
+  },
+
+  "limitations": [
+    "Training lineage has not yet been completed.",
+    "Model artifact has not yet been registered.",
+    "Evaluation evidence has not yet been linked.",
+    "The model must not be promoted to production until required lineage and evaluation evidence are complete."
+  ]
+}
