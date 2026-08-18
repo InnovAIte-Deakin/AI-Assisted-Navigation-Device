@@ -367,7 +367,9 @@ class STTService {
       }
 
       // Check if text is empty or contains "No speech detected"
-      const transcribedText = data.transcript || "";
+      // The WalkBuddy backend returns { text: "..." }. Keep transcript as a
+      // fallback so the client remains compatible with either response shape.
+      const transcribedText = data.text || data.transcript || "";
       if (!transcribedText.trim()) {
         const helpfulMsg =
           "No speech detected. Speak louder, closer to the mic, and record 2–3 seconds.";

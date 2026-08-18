@@ -311,7 +311,8 @@ export default function CameraAssistScreen() {
           setDetections(data.detections || []);
 
           if (data.guidance_message && !isVoiceProcessingRef.current && !isListeningRef.current) {
-            tts.speakAsync(data.guidance_message, riskLevelFromString(data.risk_level));
+            const risk = riskLevelFromString(data.risk_level);
+            tts.speakAsync(data.guidance_message, risk);
           }
 
           // Pace next frame: 20% of inference time, floored at 150 ms
@@ -508,7 +509,6 @@ export default function CameraAssistScreen() {
       const data = await res.json();
       const text = data.guidance_message || "No text detected.";
       setOcrResult(text);
-      tts.speakAsync(text, RiskLevel.LOW);
 
       if (ocrDismissTimer.current) clearTimeout(ocrDismissTimer.current);
       ocrDismissTimer.current = setTimeout(() => setOcrResult(""), 8000);
@@ -859,6 +859,9 @@ export default function CameraAssistScreen() {
           onPressOut={micStop}
           disabled={isVoiceProcessing}
           style={[styles.floatingBtn, isListening && styles.floatingBtnActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Voice assistant"
+          accessibilityHint="Press and hold to speak a question"
         >
           <MaterialIcons
             name={isListening ? "mic" : "mic-none"}
@@ -871,6 +874,9 @@ export default function CameraAssistScreen() {
           onPress={captureOCR}
           disabled={isOcrCapturing}
           style={[styles.floatingBtn, isOcrCapturing && styles.floatingBtnActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Read text"
+          accessibilityHint="Captures an image and reads detected text aloud"
         >
           <MaterialIcons
             name="camera-alt"

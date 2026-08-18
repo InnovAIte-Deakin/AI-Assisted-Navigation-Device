@@ -41,6 +41,10 @@ class TTSService {
   private messageHistory: MessageContext[] = [];
   private maxHistory: number = 10;
   private config: TTSConfig;
+  private isSpeaking: boolean = false;
+  private activeMessageId: string | null = null;
+  private activeRiskLevel: RiskLevel = RiskLevel.CLEAR;
+  private speechToken: number = 0;
 
   constructor(config: Partial<TTSConfig> = {}) {
     this.cooldownSeconds = config.cooldownSeconds ?? 3.0;
@@ -122,6 +126,14 @@ class TTSService {
     const currentTime = Date.now() / 1000;
     const messageId = this.generateMessageId(message);
 
+    // Vision results can arrive faster than a sentence can be spoken. Do not
+    // continually restart the active sentence for duplicate or equal/lower
+    // priority guidance. A higher-risk warning may still interrupt it.
+    if (this.isSpeaking) {
+      if (messageId === this.activeMessageId) return false;
+      if (riskLevel <= this.activeRiskLevel) return false;
+    }
+
     const timeSinceLast = currentTime - this.lastSpokenTime;
     if (timeSinceLast < this.cooldownSeconds) {
       if (riskLevel <= this.lastRiskLevel) return false;
@@ -145,6 +157,12 @@ class TTSService {
     if (!message || !message.trim()) return false;
     if (!this.shouldSpeak(message, riskLevel, force)) return false;
 
+    const messageId = this.generateMessageId(message);
+    const token = ++this.speechToken;
+    this.isSpeaking = true;
+    this.activeMessageId = messageId;
+    this.activeRiskLevel = riskLevel;
+
     try {
       if (Platform.OS === "web") {
         await this.speakWeb(message);
@@ -162,6 +180,10 @@ class TTSService {
           });
         });
       }
+
+      // An urgent message may have interrupted this one while it was waiting
+      // for onStopped. Only the newest speech call may update service state.
+      if (token !== this.speechToken) return false;
 
       const currentTime = Date.now() / 1000;
       this.lastSpokenTime = currentTime;
@@ -185,6 +207,12 @@ class TTSService {
     } catch (error) {
       console.error(`[TTS Service] Failed to speak: '${message}'`, error);
       return false;
+    } finally {
+      if (token === this.speechToken) {
+        this.isSpeaking = false;
+        this.activeMessageId = null;
+        this.activeRiskLevel = RiskLevel.CLEAR;
+      }
     }
   }
 
@@ -199,6 +227,10 @@ class TTSService {
   }
 
   stop(): void {
+    this.speechToken += 1;
+    this.isSpeaking = false;
+    this.activeMessageId = null;
+    this.activeRiskLevel = RiskLevel.CLEAR;
     if (Platform.OS === "web") {
       const w = globalThis as any;
       w?.speechSynthesis?.cancel?.();
