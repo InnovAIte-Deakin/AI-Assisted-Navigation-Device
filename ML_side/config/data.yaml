@@ -1,4 +1,4 @@
-path: D:\SIT374\WalkBuddy-T2-2026\ML_side\datasets\dataset_v2
+path: datasets\dataset_v2
 train: images/train
 val: images/val
 test: images/test
