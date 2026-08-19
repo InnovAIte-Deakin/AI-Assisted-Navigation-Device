@@ -7,6 +7,7 @@ an explicit confirmation and an existing local architecture or checkpoint.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import math
@@ -30,12 +31,13 @@ import validate_dataset_manifest as manifest_validator
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-TOOL_VERSION = "1.0.0"
+TOOL_VERSION = "1.1.0"
 ELIGIBLE_STAGES = frozenset({"approved_for_internal_training", "released"})
 ALL_STAGES = frozenset(
     {"candidate", "in_review", "approved_for_internal_training", "rejected", "released"}
 )
 RESUME_BEHAVIOURS = frozenset({"never", "allow", "require"})
+EXTERNAL_MANIFEST_REFERENCE = "external-local/manifest.json"
 
 
 class TrainingPipelineError(Exception):
@@ -48,6 +50,7 @@ class TrainingPlan:
     repository_root: Path
     dataset_root: Path
     manifest_path: Path
+    manifest_reference: str
     dataset_yaml_path: Path
     model_path: Path
     model_kind: str
@@ -107,6 +110,29 @@ def _resolve_under(root: Path, raw_path: object, label: str) -> Path:
     if resolved is None:
         raise TrainingPipelineError(f"{label} resolves outside its controlled root.")
     return resolved
+
+
+def _resolve_external_manifest(raw_path: Path) -> Path:
+    """Resolve a caller-supplied local manifest without persisting its location."""
+    raw_value = str(raw_path).strip()
+    if not raw_value:
+        raise TrainingPipelineError("external manifest path must be a non-empty local JSON file path.")
+    if raw_value.startswith(("\\\\", "//")):
+        raise TrainingPipelineError("external manifest path must be a local filesystem path, not a UNC path.")
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", raw_value) and not re.match(r"^[A-Za-z]:[\\/]", raw_value):
+        raise TrainingPipelineError("external manifest path must be a local filesystem path, not a URL or URI.")
+    candidate_path = Path(raw_value)
+    if candidate_path.is_symlink():
+        raise TrainingPipelineError("external manifest path must identify an existing regular JSON file.")
+    try:
+        manifest_path = candidate_path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise TrainingPipelineError("external manifest path does not identify an existing local file.") from exc
+    if manifest_path.suffix.casefold() != ".json":
+        raise TrainingPipelineError("external manifest path must identify a JSON file.")
+    if not manifest_path.is_file():
+        raise TrainingPipelineError("external manifest path must identify an existing regular JSON file.")
+    return manifest_path
 
 
 def _mapping(config: Mapping[str, object], key: str) -> Mapping[str, object]:
@@ -295,6 +321,7 @@ def load_training_plan(
     config_path: Path,
     *,
     dataset_root_override: Path | None = None,
+    manifest_path_override: Path | None = None,
     output_root_override: str | None = None,
     overrides: Mapping[str, object] | None = None,
     allow_existing_run: bool = False,
@@ -313,18 +340,26 @@ def load_training_plan(
     experiment_name = _normalise_experiment_name(_required_string(config, "experiment_name"))
     dataset_config = _mapping(config, "dataset")
     model_config = _mapping(config, "model")
-    training_config = _mapping(config, "training")
+    training_config = dict(_mapping(config, "training"))
+    training_config.setdefault("fraction", 1.0)
+    training_config.setdefault("val", True)
+    config["training"] = training_config
     output_config = _mapping(config, "output")
     _only_fields(dataset_config, "dataset configuration", {"manifest_path", "yaml_path", "inspection_report_path", "stage"})
     _only_fields(model_config, "model configuration", {"architecture_path", "initial_weights_path"})
-    _only_fields(training_config, "training configuration", {"epochs", "image_size", "batch_size", "device", "workers", "seed", "optimizer", "learning_rate", "confidence", "iou", "deterministic", "resume_behavior"})
+    _only_fields(training_config, "training configuration", {"epochs", "image_size", "batch_size", "device", "workers", "seed", "optimizer", "learning_rate", "confidence", "iou", "deterministic", "resume_behavior", "fraction", "val"})
     _only_fields(output_config, "output configuration", {"root"})
     stage = _required_string(dataset_config, "stage")
     if stage not in ALL_STAGES:
         raise TrainingPipelineError(f"dataset stage must be one of {sorted(ALL_STAGES)!r}.")
-    manifest_path = _resolve_under(repository_root, dataset_config.get("manifest_path"), "manifest path")
-    if not manifest_path.is_file():
-        raise TrainingPipelineError("manifest path does not identify an existing local file.")
+    if manifest_path_override is None:
+        manifest_path = _resolve_under(repository_root, dataset_config.get("manifest_path"), "manifest path")
+        if not manifest_path.is_file():
+            raise TrainingPipelineError("manifest path does not identify an existing local file.")
+        manifest_reference = manifest_path.relative_to(repository_root).as_posix()
+    else:
+        manifest_path = _resolve_external_manifest(manifest_path_override)
+        manifest_reference = EXTERNAL_MANIFEST_REFERENCE
     if dataset_root_override is None:
         raise TrainingPipelineError("an existing local --dataset-root is required for training preflight.")
     dataset_root = dataset_root_override.resolve()
@@ -361,6 +396,11 @@ def load_training_plan(
     _require_number(training_config.get("learning_rate"), "training learning_rate", minimum=0.0)
     _require_number(training_config.get("confidence"), "training confidence", minimum=0.0)
     _require_number(training_config.get("iou"), "training iou", minimum=0.0)
+    fraction = training_config.get("fraction")
+    if not isinstance(fraction, float) or not math.isfinite(fraction) or fraction <= 0.0 or fraction > 1.0:
+        raise TrainingPipelineError("training fraction must be a finite float greater than 0 and less than or equal to 1.")
+    if not isinstance(training_config.get("val"), bool):
+        raise TrainingPipelineError("training val must be a boolean.")
     if not isinstance(training_config.get("deterministic"), bool):
         raise TrainingPipelineError("training deterministic must be a boolean.")
     resume_behaviour = _required_string(training_config, "resume_behavior")
@@ -408,6 +448,7 @@ def load_training_plan(
         repository_root=repository_root,
         dataset_root=dataset_root,
         manifest_path=manifest_path,
+        manifest_reference=manifest_reference,
         dataset_yaml_path=dataset_yaml_path,
         model_path=model_path,
         model_kind=model_kind,
@@ -426,15 +467,26 @@ def load_training_plan(
     )
 
 
+def _sanitised_config(plan: TrainingPlan) -> dict[str, object]:
+    """Return resolved configuration without an external manifest's local path."""
+    config = copy.deepcopy(plan.config)
+    if plan.manifest_reference == EXTERNAL_MANIFEST_REFERENCE:
+        dataset = dict(_mapping(config, "dataset"))
+        dataset["manifest_path"] = plan.manifest_reference
+        config["dataset"] = dataset
+    return config
+
+
 def _sanitised_plan(plan: TrainingPlan) -> dict[str, object]:
     data = asdict(plan)
-    for key in ("repository_root", "dataset_root", "manifest_path", "dataset_yaml_path", "model_path", "output_root", "run_directory"):
+    for key in ("repository_root", "dataset_root", "manifest_path", "manifest_reference", "dataset_yaml_path", "model_path", "output_root", "run_directory"):
         data.pop(key, None)
-    data["manifest_path"] = plan.manifest_path.relative_to(plan.repository_root).as_posix()
+    data["manifest_path"] = plan.manifest_reference
     data["model_path"] = plan.model_path.relative_to(plan.repository_root).as_posix()
     data["output_location"] = plan.run_directory.relative_to(plan.repository_root).as_posix()
     data["dataset_yaml_path"] = _safe_relative(plan.config["dataset"]["yaml_path"], "dataset YAML path")  # type: ignore[index]
     data["dataset_root"] = "externally supplied local root"
+    data["config"] = _sanitised_config(plan)
     return data
 
 
@@ -453,6 +505,8 @@ def trainer_arguments(plan: TrainingPlan) -> dict[str, object]:
         "conf": training["confidence"],
         "iou": training["iou"],
         "deterministic": training["deterministic"],
+        "fraction": training["fraction"],
+        "val": training["val"],
         "resume": _required_string(training, "resume_behavior") == "require",
         "project": str(plan.output_root),
         "name": plan.run_id,
@@ -485,6 +539,7 @@ def _run_metadata(plan: TrainingPlan, status: str, *, started_at: str, completed
         "git_dirty": plan.git_dirty,
         "configuration_checksum_sha256": plan.config_checksum,
         "manifest_checksum_sha256": plan.manifest_checksum,
+        "manifest_reference": plan.manifest_reference,
         "dataset_yaml_checksum_sha256": plan.dataset_yaml_checksum,
         "model_checksum_sha256": plan.model_checksum,
         "model_kind": plan.model_kind,
@@ -515,11 +570,14 @@ def _atomic_write(path: Path, content: str) -> None:
 def _write_run_files(plan: TrainingPlan, metadata: Mapping[str, object]) -> None:
     plan.run_directory.mkdir(parents=True, exist_ok=True)
     _atomic_write(plan.run_directory / "run_metadata.json", json.dumps(metadata, indent=2, sort_keys=True) + "\n")
-    _atomic_write(plan.run_directory / "resolved_training_config.json", json.dumps(plan.config, indent=2, sort_keys=True) + "\n")
+    _atomic_write(
+        plan.run_directory / "resolved_training_config.json",
+        json.dumps(_sanitised_config(plan), indent=2, sort_keys=True) + "\n",
+    )
     _atomic_write(plan.run_directory / "dataset_reference.json",
         json.dumps(
             {
-                "manifest_path": plan.manifest_path.relative_to(plan.repository_root).as_posix(),
+                "manifest_path": plan.manifest_reference,
                 "manifest_checksum_sha256": plan.manifest_checksum,
                 "dataset_id": plan.dataset_id,
                 "dataset_source_version": plan.dataset_source_version,
@@ -569,6 +627,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Controlled local-only WalkBuddy navigation-model training.")
     parser.add_argument("--config", required=True, type=Path, help="Versioned training configuration YAML.")
     parser.add_argument("--dataset-root", type=Path, help="Existing controlled local dataset root.")
+    parser.add_argument("--manifest-path", type=Path, help="Existing local external JSON manifest override.")
     parser.add_argument("--output-root", help="Safe repository-relative artifact root override.")
     parser.add_argument("--epochs", type=int, help="Harmless epoch-count override recorded in metadata.")
     parser.add_argument("--batch-size", type=int, help="Harmless batch-size override recorded in metadata.")
@@ -589,6 +648,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         plan = load_training_plan(
             args.config,
             dataset_root_override=args.dataset_root,
+            manifest_path_override=args.manifest_path,
             output_root_override=args.output_root,
             overrides=overrides,
             allow_existing_run=args.allow_existing_run,

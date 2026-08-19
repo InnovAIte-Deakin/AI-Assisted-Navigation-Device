@@ -74,6 +74,14 @@ def save_config(config_path: Path, config: dict[str, object]) -> None:
     config_path.write_text(json.dumps(config), encoding="utf-8")
 
 
+def write_external_manifest(tmp_path: Path, manifest: dict[str, object]) -> Path:
+    external_root = tmp_path / "external-release"
+    external_root.mkdir(parents=True)
+    manifest_path = external_root / "release_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    return manifest_path
+
+
 def test_valid_dry_run_succeeds_without_trainer_or_artifacts(tmp_path: Path) -> None:
     repository, dataset_root, config_path = create_fixture(tmp_path)
     plan = load_plan(repository, dataset_root, config_path)
@@ -81,6 +89,7 @@ def test_valid_dry_run_succeeds_without_trainer_or_artifacts(tmp_path: Path) -> 
     result = training.dry_run(plan)
 
     assert result["status"] == "dry_run_valid"
+    assert plan.manifest_reference == "manifest.json"
     assert not plan.run_directory.exists()
     assert result["plan"]["dataset_root"] == "externally supplied local root"  # type: ignore[index]
 
@@ -98,6 +107,92 @@ def test_dry_run_does_not_require_ultralytics(tmp_path: Path, monkeypatch: pytes
     monkeypatch.setitem(sys.modules, "ultralytics", None)
 
     assert training.dry_run(load_plan(repository, dataset_root, config_path))["status"] == "dry_run_valid"
+
+
+def test_external_approved_manifest_override_is_accepted_and_sanitised(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    manifest = json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
+    external_manifest = write_external_manifest(tmp_path, manifest)
+
+    plan = load_plan(repository, dataset_root, config_path, manifest_path_override=external_manifest)
+    dry_run = training.dry_run(plan)
+
+    assert plan.manifest_path == external_manifest.resolve()
+    assert plan.manifest_reference == training.EXTERNAL_MANIFEST_REFERENCE
+    assert dry_run["plan"]["manifest_path"] == training.EXTERNAL_MANIFEST_REFERENCE  # type: ignore[index]
+    assert str(external_manifest) not in json.dumps(dry_run)
+
+
+def test_external_manifest_location_is_not_persisted_in_run_metadata(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    manifest = json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
+    external_manifest = write_external_manifest(tmp_path, manifest)
+    config = config_data(config_path)
+    config["dataset"]["manifest_path"] = str(external_manifest)  # type: ignore[index]
+    save_config(config_path, config)
+    plan = load_plan(repository, dataset_root, config_path, manifest_path_override=external_manifest)
+
+    training.run_training(plan, lambda _: {"ok": True})
+
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            plan.run_directory / "run_metadata.json",
+            plan.run_directory / "resolved_training_config.json",
+            plan.run_directory / "dataset_reference.json",
+        )
+    )
+    assert training.EXTERNAL_MANIFEST_REFERENCE in persisted
+    assert str(external_manifest) not in persisted
+    assert str(external_manifest.parent) not in persisted
+    assert str(external_manifest) not in json.dumps(training.dry_run(plan))
+
+
+def test_missing_or_uri_external_manifest_is_rejected(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+
+    with pytest.raises(training.TrainingPipelineError, match="external manifest path"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=tmp_path / "missing.json")
+    non_json = tmp_path / "release_manifest.txt"
+    non_json.write_text("{}", encoding="utf-8")
+    with pytest.raises(training.TrainingPipelineError, match="JSON file"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=non_json)
+    directory = tmp_path / "release_manifest.json"
+    directory.mkdir()
+    with pytest.raises(training.TrainingPipelineError, match="regular JSON file"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=directory)
+    for value in ("https://example.invalid/release_manifest.json", "file:///release_manifest.json", "s3://example/release_manifest.json"):
+        with pytest.raises(training.TrainingPipelineError, match="URL or URI"):
+            load_plan(repository, dataset_root, config_path, manifest_path_override=Path(value))
+
+
+def test_external_manifest_preserves_validation_and_eligibility_gates(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    manifest = json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
+    invalid_manifest = write_external_manifest(tmp_path, {})
+    with pytest.raises(training.TrainingPipelineError, match="manifest validation failed"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=invalid_manifest)
+
+    manifest["licence"]["review_decision"] = "conditional"
+    external_manifest = write_external_manifest(tmp_path / "licence", manifest)
+    with pytest.raises(training.TrainingPipelineError, match="licence review"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=external_manifest)
+
+
+def test_external_manifest_preserves_taxonomy_and_split_gates(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    manifest = json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
+    external_manifest = write_external_manifest(tmp_path, manifest)
+    write_yaml(dataset_root / "dataset.yaml", ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "wrong"])
+    with pytest.raises(training.TrainingPipelineError, match="taxonomy"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=external_manifest)
+
+    write_yaml(dataset_root / "dataset.yaml")
+    (dataset_root / "validation" / "images" / "wrong-split.jpg").write_text("fixture", encoding="utf-8")
+    manifest["splits"]["train"]["samples"][0]["image_path"] = "validation/images/wrong-split.jpg"
+    external_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(training.TrainingPipelineError, match="outside the dataset YAML train"):
+        load_plan(repository, dataset_root, config_path, manifest_path_override=external_manifest)
 
 
 def test_cli_valid_fictional_dry_run_does_not_write_artifacts(
@@ -267,6 +362,51 @@ def test_stable_run_id_checksums_and_seed(tmp_path: Path) -> None:
     assert training.trainer_arguments(first)["seed"] == 17
 
 
+def test_smoke_controls_default_to_full_training_behaviour(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    plan = load_plan(repository, dataset_root, config_path)
+    arguments = training.trainer_arguments(plan)
+
+    assert plan.config["training"]["fraction"] == 1.0  # type: ignore[index]
+    assert plan.config["training"]["val"] is True  # type: ignore[index]
+    assert arguments["fraction"] == 1.0
+    assert arguments["val"] is True
+
+
+def test_smoke_controls_are_validated_and_forwarded(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["fraction"] = 0.002  # type: ignore[index]
+    config["training"]["val"] = False  # type: ignore[index]
+    save_config(config_path, config)
+
+    arguments = training.trainer_arguments(load_plan(repository, dataset_root, config_path))
+
+    assert arguments["fraction"] == 0.002
+    assert arguments["val"] is False
+
+
+@pytest.mark.parametrize("fraction", [0.0, -0.1, 1, 1.1, True, float("nan"), float("inf")])
+def test_invalid_smoke_fraction_is_rejected(tmp_path: Path, fraction: object) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["fraction"] = fraction  # type: ignore[index]
+    save_config(config_path, config)
+
+    with pytest.raises(training.TrainingPipelineError, match="fraction"):
+        load_plan(repository, dataset_root, config_path)
+
+
+def test_non_boolean_smoke_val_is_rejected(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["val"] = "false"  # type: ignore[index]
+    save_config(config_path, config)
+
+    with pytest.raises(training.TrainingPipelineError, match="training val"):
+        load_plan(repository, dataset_root, config_path)
+
+
 def test_changed_configuration_changes_the_run_identity(tmp_path: Path) -> None:
     repository, dataset_root, config_path = create_fixture(tmp_path)
     first = load_plan(repository, dataset_root, config_path)
@@ -332,9 +472,15 @@ def test_successful_mocked_training_writes_sanitised_metadata(tmp_path: Path) ->
     assert called == [plan.run_id]
     assert metadata["status"] == "succeeded"
     assert metadata["manifest_checksum_sha256"] == plan.manifest_checksum
+    assert metadata["manifest_reference"] == "manifest.json"
+    assert metadata["resolved_parameters"]["fraction"] == 1.0
+    assert metadata["resolved_parameters"]["val"] is True
     assert metadata["dataset_release"]["source_version"] == "fictional-source-v1.0"
     assert str(dataset_root) not in json.dumps(metadata)
     assert "environ" not in json.dumps(metadata).casefold()
+    resolved_config = json.loads((plan.run_directory / "resolved_training_config.json").read_text(encoding="utf-8"))
+    assert resolved_config["training"]["fraction"] == 1.0
+    assert resolved_config["training"]["val"] is True
 
 
 def test_failed_mocked_training_records_failure_and_preserves_partial_output(tmp_path: Path) -> None:

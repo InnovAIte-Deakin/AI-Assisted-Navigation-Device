@@ -8,6 +8,8 @@ Start from [`../config/training_navigation_mvp.yaml`](../config/training_navigat
 
 The manifest must pass the bundled validator with `--check-files` semantics, use the approved eight-class taxonomy, have `dataset.release_decision: approved_for_training`, and record an approved licence review that permits machine-learning use. Of the manifest decisions, only `approved_for_training` is accepted; `draft`, `under_review`, `rejected`, `retired`, and `example_only` are rejected. The configuration stage must be `approved_for_internal_training` or `released`; `candidate`, `in_review`, and `rejected` are deliberately ineligible. The YOLO YAML must use the exact same ordered taxonomy and physically contain each manifest sample beneath its declared split. If an inspection report is supplied, its verdict must not be `fail`.
 
+By default, `dataset.manifest_path` remains a repository-relative configuration field. An approved release kept in controlled external storage may instead be supplied at runtime with `--manifest-path`. The override accepts only an existing regular local `.json` file; URLs, URIs, UNC paths, missing files, and non-JSON files are rejected. The manifest is not copied, and preflight still performs full file validation against `--dataset-root`. Persisted run records keep its checksum and the sanitised `external-local/manifest.json` reference rather than the caller's absolute path.
+
 The versioned configuration records the experiment name; manifest/YAML references; explicit stage; exactly one local model source; epochs, image size, batch, device, workers, seed, optimiser, learning rate, confidence, IoU, deterministic preference, resume behaviour, output root, and notes. Unknown fields are rejected. Epochs, image size, batch, workers, and seed are positive non-boolean integers; learning rate, confidence, and IoU are finite non-negative numbers. Device values are deliberately limited to `cpu`, `auto`, `mps`, `cuda`, `cuda:<index>`, or a numeric GPU index. Dataset roots are intentionally supplied at execution with `--dataset-root` rather than committed.
 
 ## Dry run
@@ -35,6 +37,10 @@ python .\ML_side\training\train_navigation_model.py `
 ```
 
 The harmless `--epochs`, `--batch-size`, `--device`, `--workers`, and repository-relative `--output-root` overrides are recorded in the resolved plan. Existing run directories are protected unless `--allow-existing-run` and the configured resume policy permit reuse.
+
+## Smoke controls
+
+`training.fraction` is optional and defaults to `1.0`; it must be greater than zero and no greater than one, and is forwarded to Ultralytics unchanged. `training.val` is optional and defaults to `true`. The reviewable [`../config/training_navigation_smoke.yaml`](../config/training_navigation_smoke.yaml) keeps the MVP template untouched and uses one epoch, `fraction: 0.002` (about 49 of 24,480 training images), and `val: false` to prove the train path without turning a smoke run into a full validation pass. It requires a separately supplied, trusted local `ML_side/models/yolo26n.pt` checkpoint and an external `--manifest-path`; neither is downloaded by this tool.
 
 ## Artifacts and reproducibility
 
