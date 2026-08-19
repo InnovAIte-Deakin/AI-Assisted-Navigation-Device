@@ -386,6 +386,35 @@ def test_smoke_controls_are_validated_and_forwarded(tmp_path: Path) -> None:
     assert arguments["val"] is False
 
 
+def test_auto_device_is_preserved_in_config_and_translated_for_ultralytics(tmp_path: Path) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["device"] = "auto"  # type: ignore[index]
+    save_config(config_path, config)
+    plan = load_plan(repository, dataset_root, config_path)
+
+    assert plan.config["training"]["device"] == "auto"  # type: ignore[index]
+    assert training.trainer_arguments(plan)["device"] == ""
+    assert training._metadata_trainer_arguments(plan)["device"] == ""
+
+    training.run_training(plan, lambda _: {"ok": True})
+
+    resolved_config = json.loads((plan.run_directory / "resolved_training_config.json").read_text(encoding="utf-8"))
+    metadata = json.loads((plan.run_directory / "run_metadata.json").read_text(encoding="utf-8"))
+    assert resolved_config["training"]["device"] == "auto"
+    assert metadata["resolved_parameters"]["device"] == ""
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0", "0"])
+def test_explicit_device_is_forwarded_unchanged(tmp_path: Path, device: str) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["device"] = device  # type: ignore[index]
+    save_config(config_path, config)
+
+    assert training.trainer_arguments(load_plan(repository, dataset_root, config_path))["device"] == device
+
+
 @pytest.mark.parametrize("fraction", [0.0, -0.1, 1, 1.1, True, float("nan"), float("inf")])
 def test_invalid_smoke_fraction_is_rejected(tmp_path: Path, fraction: object) -> None:
     repository, dataset_root, config_path = create_fixture(tmp_path)

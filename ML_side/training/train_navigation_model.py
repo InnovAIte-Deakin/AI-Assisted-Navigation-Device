@@ -490,6 +490,11 @@ def _sanitised_plan(plan: TrainingPlan) -> dict[str, object]:
     return data
 
 
+def _ultralytics_device(value: str) -> str:
+    """Translate the WalkBuddy automatic-device choice for Ultralytics 8.4.7."""
+    return "" if value.casefold() == "auto" else value
+
+
 def trainer_arguments(plan: TrainingPlan) -> dict[str, object]:
     training = _mapping(plan.config, "training")
     return {
@@ -497,7 +502,7 @@ def trainer_arguments(plan: TrainingPlan) -> dict[str, object]:
         "epochs": training["epochs"],
         "imgsz": training["image_size"],
         "batch": training["batch_size"],
-        "device": training["device"],
+        "device": _ultralytics_device(_required_string(training, "device")),
         "workers": training["workers"],
         "seed": training["seed"],
         "optimizer": training["optimizer"],
