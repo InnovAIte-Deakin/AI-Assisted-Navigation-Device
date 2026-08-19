@@ -913,11 +913,32 @@ export default function AskAFriendWebScreen() {
     return "https://walkbuddy.com/helper";
   };
 
+  const buildHelperUrl = () => {
+    const normalizedCode = normalizeCode(sessionId || "");
+    const helperUrl = `${getHelperWebUrl()}?code=${normalizedCode}`;
+    return { normalizedCode, helperUrl };
+  };
+
+  // Helper Join Button
+  const openHelperPage = () => {
+    const { helperUrl } = buildHelperUrl();
+
+    if (typeof window !== "undefined") {
+      const opened = window.open(helperUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        navigator.clipboard?.writeText(helperUrl);
+        Alert.alert(
+          "Popup Blocked",
+          "Your browser blocked the helper page. The link has been copied to your clipboard instead.",
+        );
+      }
+    }
+  };
+
   const shareSession = async () => {
     if (!sessionId) return;
 
-    const normalizedCode = normalizeCode(sessionId || "");
-    const helperUrl = `${getHelperWebUrl()}?code=${normalizedCode}`;
+    const { normalizedCode, helperUrl } = buildHelperUrl();
 
     // Detect if we're on localhost and provide instructions
     let shareText = `I need help navigating!\n\nSession Code: ${normalizedCode}\n\nHelper can join via:\n🌐 Web: ${helperUrl}`;
@@ -1818,13 +1839,28 @@ export default function AskAFriendWebScreen() {
             Share this code with your helper so they can join
           </Text>
 
-          {/* Web Helper Link */}
-          <View style={styles.webHelperContainer}>
-            <Ionicons name="globe-outline" size={16} color="#F9A826" />
-            <Text style={styles.webHelperText}>
-              Helper can join via web: {getHelperWebUrl()}
-            </Text>
-          </View>
+          {/* Helper Join Button */}
+<Pressable
+  style={styles.helperJoinButton}
+  onPress={openHelperPage}
+>
+  <Ionicons
+    name="people-outline"
+    size={20}
+    color="#F9A826"
+  />
+
+  <Text style={styles.helperJoinButtonText}>
+    Open Helper Page
+  </Text>
+
+  <Ionicons
+    name="open-outline"
+    size={18}
+    color="#F9A826"
+  />
+</Pressable>
+
 
           <Pressable style={styles.shareButton} onPress={shareSession}>
             <Ionicons name="share-social" size={20} color="#1B263B" />
@@ -2243,21 +2279,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 12,
   },
-  webHelperContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#1B263B",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 8,
-  },
-  webHelperText: {
-    flex: 1,
-    color: "#F9A826",
-    fontSize: 11,
-    lineHeight: 16,
-  },
+  helperJoinButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundColor: "#1B263B",
+  borderWidth: 1,
+  borderColor: "#F9A826",
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  borderRadius: 8,
+  marginBottom: 12,
+  gap: 8,
+},
+
+helperJoinButtonText: {
+  flex: 1,
+  color: "#F9A826",
+  fontSize: 14,
+  fontWeight: "600",
+  textAlign: "center",
+},
   shareButton: {
     flexDirection: "row",
     alignItems: "center",
