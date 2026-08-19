@@ -24,7 +24,9 @@ DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "best.pt"
 SUPPORTED_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png"})
 EVALUATION_SCHEMA_VERSION = "1.0.0"
 TOOL_NAME = "evaluate_current_model"
-TOOL_VERSION = "2.0.0"
+TOOL_VERSION = "2.1.0"
+SUPPORTED_DATASET_SPLITS = ("val", "test")
+DEFAULT_DATASET_SPLIT = "val"
 DEFAULT_OPERATING_CONFIDENCE = 0.25
 DEFAULT_OPERATING_IOU = 0.45
 LABELLED_VALIDATION_METRIC_SEMANTICS = {
@@ -55,6 +57,14 @@ def _finite_float(value: object) -> float:
     if not math.isfinite(numeric):
         raise ValueError("Expected a finite numeric value.")
     return numeric
+
+
+def _validate_dataset_split(split: str) -> str:
+    """Accept only the held-out splits this evaluator is allowed to report on."""
+    if split not in SUPPORTED_DATASET_SPLITS:
+        supported = ", ".join(SUPPORTED_DATASET_SPLITS)
+        raise EvaluationError(f"Dataset split must be one of: {supported}.")
+    return split
 
 
 def _validate_operating_point(confidence: float, iou: float) -> None:
@@ -502,6 +512,7 @@ def evaluate(
     output_path: str | Path,
     images_path: str | Path | None = None,
     dataset_yaml: str | Path | None = None,
+    dataset_split: str | None = None,
     overwrite: bool = False,
     operating_confidence: float = DEFAULT_OPERATING_CONFIDENCE,
     operating_iou: float = DEFAULT_OPERATING_IOU,
@@ -510,6 +521,13 @@ def evaluate(
     """Evaluate a local model in exactly one safe, explicit mode."""
     if (images_path is None) == (dataset_yaml is None):
         raise EvaluationError("Provide exactly one of an image folder or a dataset YAML file.")
+    if dataset_split is not None:
+        _validate_dataset_split(dataset_split)
+        if images_path is not None:
+            raise EvaluationError(
+                "Dataset split selection applies only to labelled dataset evaluation."
+            )
+    selected_split = DEFAULT_DATASET_SPLIT if dataset_split is None else dataset_split
     _validate_operating_point(operating_confidence, operating_iou)
 
     model = validate_model_path(model_path)
@@ -567,6 +585,7 @@ def evaluate(
         try:
             validation_result = yolo_model.val(
                 data=str(dataset),
+                split=selected_split,
                 project=str(output),
                 name="ultralytics_validation",
                 exist_ok=True,
@@ -582,6 +601,7 @@ def evaluate(
             "operating_point_inference": None,
             "validation_ap": {
                 "engine": "ultralytics_model_val",
+                "dataset_split": selected_split,
                 "confidence": "ultralytics_default_sweep",
                 "iou": "ultralytics_default",
                 "plots": False,
@@ -600,6 +620,7 @@ def evaluate(
             ),
             "mode": "labelled_validation",
             "dataset_yaml_filename": dataset.name,
+            "dataset_split": selected_split,
             "validation_metrics": validation_metrics,
         }
         _write_json(output / "model_metadata.json", metadata_payload)
@@ -637,6 +658,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--images", help="Folder of local .jpg, .jpeg, or .png images.")
     mode.add_argument("--dataset-yaml", help="Local labelled YOLO dataset YAML for validation.")
+    parser.add_argument(
+        "--split",
+        choices=SUPPORTED_DATASET_SPLITS,
+        default=None,
+        help=(
+            "Labelled dataset split to evaluate; defaults to "
+            f"{DEFAULT_DATASET_SPLIT!r}. Not valid with --images."
+        ),
+    )
     parser.add_argument("--output", required=True, help="Directory for generated result files.")
     parser.add_argument(
         "--operating-confidence",
@@ -667,6 +697,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_path=args.output,
             images_path=args.images,
             dataset_yaml=args.dataset_yaml,
+            dataset_split=args.split,
             overwrite=args.overwrite,
             operating_confidence=args.operating_confidence,
             operating_iou=args.operating_iou,
