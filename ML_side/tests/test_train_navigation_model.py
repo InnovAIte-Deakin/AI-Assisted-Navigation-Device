@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 
 ML_SIDE_DIR = Path(__file__).resolve().parents[1]
@@ -17,6 +18,7 @@ import train_navigation_model as training
 
 
 SAMPLE_MANIFEST = ML_SIDE_DIR / "datasets" / "sample_manifest.json"
+SHIPPED_SMOKE_CONFIG = ML_SIDE_DIR / "config" / "training_navigation_smoke.yaml"
 
 
 def write_yaml(path: Path, names: list[str] | None = None) -> Path:
@@ -558,3 +560,67 @@ def test_missing_confirmation_blocks_trainer_invocation(
     assert training.main(["--config", str(config_path), "--dataset-root", str(dataset_root)]) == 1
     assert "requires --confirm-training" in capsys.readouterr().err
     assert not (repository / "artifacts").exists()
+
+
+@pytest.mark.parametrize("workers", [0, 1])
+def test_non_negative_worker_counts_are_accepted(tmp_path: Path, workers: int) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["workers"] = workers  # type: ignore[index]
+    save_config(config_path, config)
+
+    plan = load_plan(repository, dataset_root, config_path)
+
+    assert plan.config["training"]["workers"] == workers  # type: ignore[index]
+    assert training.trainer_arguments(plan)["workers"] == workers
+
+
+@pytest.mark.parametrize("workers", [-1, True, 0.0, "0", None])
+def test_invalid_worker_counts_are_rejected(tmp_path: Path, workers: object) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"]["workers"] = workers  # type: ignore[index]
+    save_config(config_path, config)
+
+    with pytest.raises(training.TrainingPipelineError, match="training workers"):
+        load_plan(repository, dataset_root, config_path)
+
+
+@pytest.mark.parametrize("key", ["epochs", "image_size", "batch_size", "seed"])
+def test_zero_is_still_rejected_for_strictly_positive_fields(tmp_path: Path, key: str) -> None:
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+    config = config_data(config_path)
+    config["training"][key] = 0  # type: ignore[index]
+    save_config(config_path, config)
+
+    with pytest.raises(training.TrainingPipelineError, match=f"training {key}"):
+        load_plan(repository, dataset_root, config_path)
+
+
+def test_shipped_smoke_configuration_passes_its_own_preflight(tmp_path: Path) -> None:
+    """Guard the shipped smoke configuration against validator drift.
+
+    The configuration file itself is loaded rather than a hand-copied set of
+    values, so a future contract change that invalidates the shipped file fails
+    here instead of during a real smoke run.
+    """
+    repository, dataset_root, _ = create_fixture(tmp_path)
+    shipped = yaml.safe_load(SHIPPED_SMOKE_CONFIG.read_text(encoding="utf-8"))
+    weights = repository / str(shipped["model"]["initial_weights_path"])
+    weights.parent.mkdir(parents=True, exist_ok=True)
+    weights.write_bytes(b"local placeholder; preflight never loads model weights")
+    external_manifest = write_external_manifest(
+        tmp_path, json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
+    )
+
+    plan = training.load_training_plan(
+        SHIPPED_SMOKE_CONFIG,
+        dataset_root_override=dataset_root,
+        manifest_path_override=external_manifest,
+        repository_root=repository,
+    )
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+    assert plan.config["training"]["workers"] == shipped["training"]["workers"]  # type: ignore[index]
+    assert training.trainer_arguments(plan)["workers"] == shipped["training"]["workers"]
+    assert not plan.run_directory.exists()

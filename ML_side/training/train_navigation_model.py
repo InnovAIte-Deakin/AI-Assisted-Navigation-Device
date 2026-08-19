@@ -161,6 +161,13 @@ def _require_positive_int(value: object, label: str) -> int:
     return value
 
 
+def _require_non_negative_int(value: object, label: str) -> int:
+    """Accept zero for counts where zero is a meaningful setting, such as workers."""
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise TrainingPipelineError(f"{label} must be a non-negative integer.")
+    return value
+
+
 def _require_number(value: object, label: str, *, minimum: float = 0.0) -> float:
     if (
         not isinstance(value, (int, float))
@@ -387,8 +394,11 @@ def load_training_plan(
     else:
         raise TrainingPipelineError("output root must not be inside the supplied dataset root.")
     _writable_output_root(output_root)
-    for key in ("epochs", "image_size", "batch_size", "workers", "seed"):
+    for key in ("epochs", "image_size", "batch_size", "seed"):
         _require_positive_int(training_config.get(key), f"training {key}")
+    # Zero workers is a supported Ultralytics setting that loads data in the main
+    # process, which the Windows smoke configuration deliberately relies on.
+    _require_non_negative_int(training_config.get("workers"), "training workers")
     device = _required_string(training_config, "device")
     if re.fullmatch(r"(?:cpu|auto|mps|cuda(?::[0-9]+)?|[0-9]+)", device.casefold()) is None:
         raise TrainingPipelineError("training device must be cpu, auto, mps, cuda, cuda:<index>, or a numeric GPU index.")
