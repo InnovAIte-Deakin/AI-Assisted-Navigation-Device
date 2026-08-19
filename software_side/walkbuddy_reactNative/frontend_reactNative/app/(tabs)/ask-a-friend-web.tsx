@@ -913,21 +913,32 @@ export default function AskAFriendWebScreen() {
     return "https://walkbuddy.com/helper";
   };
 
-{/* Helper Join Button */}
-  const openHelperPage = () => {
-  const normalizedCode = normalizeCode(sessionId || "");
-  const helperUrl = `${getHelperWebUrl()}?code=${normalizedCode}`;
+  const buildHelperUrl = () => {
+    const normalizedCode = normalizeCode(sessionId || "");
+    const helperUrl = `${getHelperWebUrl()}?code=${normalizedCode}`;
+    return { normalizedCode, helperUrl };
+  };
 
-  if (typeof window !== "undefined") {
-    window.open(helperUrl, "_blank");
-  }
-};
+  // Helper Join Button
+  const openHelperPage = () => {
+    const { helperUrl } = buildHelperUrl();
+
+    if (typeof window !== "undefined") {
+      const opened = window.open(helperUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        navigator.clipboard?.writeText(helperUrl);
+        Alert.alert(
+          "Popup Blocked",
+          "Your browser blocked the helper page. The link has been copied to your clipboard instead.",
+        );
+      }
+    }
+  };
 
   const shareSession = async () => {
     if (!sessionId) return;
 
-    const normalizedCode = normalizeCode(sessionId || "");
-    const helperUrl = `${getHelperWebUrl()}?code=${normalizedCode}`;
+    const { normalizedCode, helperUrl } = buildHelperUrl();
 
     // Detect if we're on localhost and provide instructions
     let shareText = `I need help navigating!\n\nSession Code: ${normalizedCode}\n\nHelper can join via:\n🌐 Web: ${helperUrl}`;
