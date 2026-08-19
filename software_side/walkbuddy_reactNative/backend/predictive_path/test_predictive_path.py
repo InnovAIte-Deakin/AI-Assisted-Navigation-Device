@@ -19,8 +19,9 @@ import sys
 import math
 import traceback
  
-# Make sure imports resolve to the project folder
-sys.path.insert(0, os.path.dirname(__file__))
+# Make sure imports resolve to the predictive_path package (backend/), not just this file's directory,
+# so `predictive_path.predictive_path` resolves the same way under pytest and direct execution.
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
  
 PASS = "  [PASS]"
 FAIL = "  [FAIL]"
