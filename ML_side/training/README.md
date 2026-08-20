@@ -9,6 +9,10 @@ Start from [`../config/training_navigation_mvp.yaml`](../config/training_navigat
 The manifest must pass the bundled validator with `--check-files` semantics, use the approved eight-class taxonomy, have `dataset.release_decision: approved_for_training`, and record an approved licence review that permits machine-learning use. Of the manifest decisions, only `approved_for_training` is accepted; `draft`, `under_review`, `rejected`, `retired`, and `example_only` are rejected. The configuration stage must be `approved_for_internal_training` or `released`; `candidate`, `in_review`, and `rejected` are deliberately ineligible. The YOLO YAML must use the exact same ordered taxonomy and physically contain each manifest sample beneath its declared split. If an inspection report is supplied, its verdict must not be `fail`.
 
 By default, `dataset.manifest_path` remains a repository-relative configuration field. An approved release kept in controlled external storage may instead be supplied at runtime with `--manifest-path`. The override accepts only an existing regular local `.json` file; URLs, URIs, UNC paths, missing files, and non-JSON files are rejected. The manifest is not copied, and preflight still performs full file validation against `--dataset-root`. Persisted run records keep its checksum and the sanitised `external-local/manifest.json` reference rather than the caller's absolute path.
+For released external datasets the checksum evidence is recorded the same way, as
+its own SHA-256 plus the sanitised `external-local/release_checksums.json`
+reference, so the evidence chain covers the release manifest, the release
+checksum manifest, the dataset YAML, and the base model.
 
 The versioned configuration records the experiment name; manifest/YAML references; explicit stage; exactly one local model source; epochs, image size, batch, device, workers, seed, optimiser, learning rate, confidence, IoU, deterministic preference, resume behaviour, output root, and notes. Unknown fields are rejected. Epochs, image size, batch, and seed are positive non-boolean integers, while workers is a non-negative non-boolean integer so that zero selects main-process data loading; learning rate, confidence, and IoU are finite non-negative numbers. Device values are deliberately limited to `cpu`, `auto`, `mps`, `cuda`, `cuda:<index>`, or a numeric GPU index. Dataset roots are intentionally supplied at execution with `--dataset-root` rather than committed.
 
@@ -32,13 +36,49 @@ copy as the dataset root while keeping the authoritative manifest:
 ```
 
 The wrapper does not create, copy, link, or mutate that workspace. Preparing it
-is a deliberate, explicit step performed outside the tool. Full
-`validate_manifest(..., check_files=True)` validation still runs against the
-workspace, so an incomplete or misplaced copy fails before training starts.
+is a deliberate, explicit step performed outside the tool.
 
-Note that the manifest contract verifies sample presence and structure rather
-than per-file content hashes, so workspace fidelity beyond file existence is not
-established by this check alone.
+### Workspace content verification
+
+Full `validate_manifest(..., check_files=True)` validation runs against the
+workspace, and the workspace is additionally verified byte-for-byte against the
+authoritative release.
+
+The release builder emits `release_checksums.json` beside the manifest, recording
+a SHA-256 for every released file. Preflight reads that evidence from the
+**authoritative release directory only**, never from the mutable workspace, and
+requires:
+
+- the evidence is a regular local JSON file, not a symlink
+- `algorithm` is exactly `sha256`
+- `release_identity` is a valid digest and matches the identity recorded in the
+  approved manifest, allowing only the documented `sha256:` prefix difference
+- every listed path is a safe release-relative path, with no traversal, absolute,
+  URL, URI, or UNC form, and no duplicates
+- every digest is a valid SHA-256 hex value
+
+Every listed file is then resolved beneath the workspace and hashed in chunks.
+One differing byte fails preflight. Because the gate lives in shared preflight,
+`--dry-run` and confirmed training reject the same corrupted workspace, and the
+failure occurs before Ultralytics is imported or invoked.
+
+The evidence file deliberately does not checksum itself or the build reports,
+which are written after the checksums are computed; preflight respects that
+contract.
+
+### Additional training files
+
+Trainers read whole split directories rather than the manifest sample list, so an
+unlisted image placed in a split directory would otherwise enter training.
+Preflight scans the directories that hold checksummed images and labels and
+rejects any additional training image or `.txt` label that the approved release
+does not contain.
+
+Ultralytics label caches such as `labels/train.cache` are expected in a mutable
+workspace and are permitted. The invariant is not that the workspace stays
+byte-identical after training, but that every authoritative training-substantive
+file remains present and hash-identical, and that no unexpected training image or
+text label is introduced.
 
 ## Working-directory independence
 
