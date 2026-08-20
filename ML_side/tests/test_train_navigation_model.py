@@ -624,3 +624,367 @@ def test_shipped_smoke_configuration_passes_its_own_preflight(tmp_path: Path) ->
     assert plan.config["training"]["workers"] == shipped["training"]["workers"]  # type: ignore[index]
     assert training.trainer_arguments(plan)["workers"] == shipped["training"]["workers"]
     assert not plan.run_directory.exists()
+
+
+def materialise_samples(manifest: dict[str, object], root: Path) -> None:
+    """Write placeholder bytes for every manifest sample beneath one root."""
+    for split in manifest["splits"].values():  # type: ignore[attr-defined]
+        for sample in split["samples"]:
+            for field in ("image_path", "label_path"):
+                value = sample.get(field)
+                if value:
+                    target = root / value
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("fixture", encoding="utf-8")
+
+
+def create_released_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
+    """Build an authoritative release plus a separate faithful training workspace.
+
+    The release hosts its own manifest, matching the approved controlled-release
+    layout. The workspace holds the same dataset bytes and no manifest.
+    """
+    repository = tmp_path / "repository"
+    release_root = tmp_path / "release"
+    workspace = tmp_path / "workspace"
+    for directory in (repository, release_root, workspace):
+        directory.mkdir()
+    manifest = json.loads(SAMPLE_MANIFEST.read_text(encoding="utf-8"))
+    manifest["dataset"]["release_decision"] = "approved_for_training"
+    manifest["licence"]["review_decision"] = "approved"
+    for root in (release_root, workspace):
+        materialise_samples(manifest, root)
+        write_yaml(root / "dataset.yaml")
+    release_manifest = release_root / "release_manifest.json"
+    release_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    (repository / "architecture.yaml").write_text("nc: 8\n", encoding="utf-8")
+    config = {
+        "schema_version": "1.0.0",
+        "experiment_name": "Navigation Released Test",
+        "dataset": {"yaml_path": "dataset.yaml", "inspection_report_path": None, "stage": "released"},
+        "model": {"architecture_path": "architecture.yaml", "initial_weights_path": None},
+        "training": {
+            "epochs": 1, "image_size": 640, "batch_size": 2, "device": "auto", "workers": 0,
+            "seed": 42, "optimizer": "AdamW", "learning_rate": 0.001, "confidence": 0.001,
+            "iou": 0.7, "deterministic": True, "fraction": 0.002, "val": False,
+            "resume_behavior": "never",
+        },
+        "output": {"root": "artifacts/navigation_mvp"},
+        "notes": "Fictional released test configuration.",
+    }
+    config_path = repository / "training.yaml"
+    save_config(config_path, config)
+    return repository, release_root, workspace, release_manifest, config_path
+
+
+def released_plan(tmp_path: Path) -> training.TrainingPlan:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    return training.load_training_plan(
+        config_path,
+        dataset_root_override=workspace,
+        manifest_path_override=release_manifest,
+        repository_root=repository,
+    )
+
+
+def runtime_dataset_root(plan: training.TrainingPlan, descriptor: Path) -> Path:
+    return Path(yaml.safe_load(descriptor.read_text(encoding="utf-8"))["path"])
+
+
+# --------------------------------------------------------- CWD independence
+
+
+def test_runtime_descriptor_resolves_absolute_root_from_relative_path(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+
+    assert yaml.safe_load(plan.dataset_yaml_path.read_text(encoding="utf-8"))["path"] == "."
+    with training.runtime_dataset_descriptor(plan) as descriptor:
+        resolved = runtime_dataset_root(plan, descriptor)
+
+    assert resolved.is_absolute()
+    assert resolved == plan.dataset_root.resolve()
+
+
+def test_runtime_descriptor_is_independent_of_process_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = released_plan(tmp_path)
+    unrelated = tmp_path / "unrelated-cwd"
+    unrelated.mkdir()
+    monkeypatch.chdir(unrelated)
+
+    with training.runtime_dataset_descriptor(plan) as descriptor:
+        resolved = runtime_dataset_root(plan, descriptor)
+
+    assert resolved == plan.dataset_root.resolve()
+    assert not str(resolved).startswith(str(unrelated))
+
+
+def test_runtime_descriptor_preserves_splits_and_taxonomy(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+    original = yaml.safe_load(plan.dataset_yaml_path.read_text(encoding="utf-8"))
+
+    with training.runtime_dataset_descriptor(plan) as descriptor:
+        runtime = yaml.safe_load(descriptor.read_text(encoding="utf-8"))
+
+    assert runtime["train"] == original["train"]
+    assert runtime["val"] == original["val"]
+    assert runtime["test"] == original["test"]
+    assert runtime["names"] == original["names"]
+    assert set(runtime) == set(original)
+
+
+def test_trainer_receives_the_resolved_runtime_descriptor(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+    received: dict[str, object] = {}
+
+    def trainer(active_plan: training.TrainingPlan) -> object:
+        with training.runtime_dataset_descriptor(active_plan) as descriptor:
+            arguments = training.runtime_trainer_arguments(active_plan, descriptor)
+            received["data"] = arguments["data"]
+            received["root"] = str(runtime_dataset_root(active_plan, descriptor))
+        return {"ok": True}
+
+    training.run_training(plan, trainer)
+
+    assert Path(str(received["data"])).name == "dataset.yaml"
+    assert received["root"] == str(plan.dataset_root.resolve())
+    assert training.trainer_arguments(plan)["data"] == str(plan.dataset_yaml_path)
+
+
+# ----------------------------------------------------- ephemeral descriptor
+
+
+def test_original_dataset_yaml_is_not_modified(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+    before = plan.dataset_yaml_path.read_bytes()
+
+    with training.runtime_dataset_descriptor(plan):
+        pass
+
+    assert plan.dataset_yaml_path.read_bytes() == before
+
+
+def test_runtime_descriptor_is_removed_after_success(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+
+    with training.runtime_dataset_descriptor(plan) as descriptor:
+        assert descriptor.is_file()
+        captured = descriptor
+
+    assert not captured.exists()
+    assert not captured.parent.exists()
+
+
+def test_runtime_descriptor_is_removed_after_trainer_failure(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+    captured: dict[str, Path] = {}
+
+    with pytest.raises(RuntimeError):
+        with training.runtime_dataset_descriptor(plan) as descriptor:
+            captured["path"] = descriptor
+            raise RuntimeError("simulated trainer failure")
+
+    assert not captured["path"].exists()
+    assert not captured["path"].parent.exists()
+
+
+def test_runtime_descriptor_is_not_written_inside_the_dataset(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+
+    with training.runtime_dataset_descriptor(plan) as descriptor:
+        with pytest.raises(ValueError):
+            descriptor.relative_to(plan.dataset_root)
+
+
+# ------------------------------------------------- released-root isolation
+
+
+def test_released_manifest_inside_supplied_dataset_root_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, _, release_manifest, config_path = create_released_fixture(tmp_path)
+
+    with pytest.raises(training.TrainingPipelineError, match="must not be used directly"):
+        training.load_training_plan(
+            config_path,
+            dataset_root_override=release_root,
+            manifest_path_override=release_manifest,
+            repository_root=repository,
+        )
+
+
+def test_separate_workspace_with_authoritative_manifest_is_accepted(tmp_path: Path) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+
+    plan = training.load_training_plan(
+        config_path,
+        dataset_root_override=workspace,
+        manifest_path_override=release_manifest,
+        repository_root=repository,
+    )
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+    assert plan.manifest_reference == training.EXTERNAL_MANIFEST_REFERENCE
+    assert plan.dataset_root == workspace.resolve()
+
+
+def test_incomplete_workspace_fails_manifest_validation(tmp_path: Path) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    manifest = json.loads(release_manifest.read_text(encoding="utf-8"))
+    missing = workspace / manifest["splits"]["train"]["samples"][0]["image_path"]
+    missing.unlink()
+
+    with pytest.raises(training.TrainingPipelineError, match="manifest validation failed"):
+        training.load_training_plan(
+            config_path,
+            dataset_root_override=workspace,
+            manifest_path_override=release_manifest,
+            repository_root=repository,
+        )
+
+
+def test_dry_run_enforces_the_same_isolation_requirement(tmp_path: Path) -> None:
+    """The isolation gate lives in preflight, so dry-run cannot diverge from training."""
+    repository, release_root, _, release_manifest, config_path = create_released_fixture(tmp_path)
+
+    # Dry-run and confirmed training share load_training_plan, so a rejected
+    # release root can never reach either path.
+    with pytest.raises(training.TrainingPipelineError, match="must not be used directly"):
+        training.load_training_plan(
+            config_path,
+            dataset_root_override=release_root,
+            manifest_path_override=release_manifest,
+            repository_root=repository,
+        )
+    assert not (repository / "artifacts").exists()
+
+
+def test_repository_relative_manifest_flow_is_unaffected(tmp_path: Path) -> None:
+    """A repository-relative manifest is never treated as an external release root."""
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+
+    plan = load_plan(repository, dataset_root, config_path)
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+    assert plan.manifest_reference == "manifest.json"
+
+
+# ------------------------------------------------------------ cache boundary
+
+
+def test_simulated_label_cache_lands_only_in_the_workspace(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    release_snapshot = {
+        path.relative_to(release_root).as_posix(): path.read_bytes()
+        for path in sorted(release_root.rglob("*"))
+        if path.is_file()
+    }
+    plan = training.load_training_plan(
+        config_path,
+        dataset_root_override=workspace,
+        manifest_path_override=release_manifest,
+        repository_root=repository,
+    )
+
+    def cache_writing_trainer(active_plan: training.TrainingPlan) -> object:
+        with training.runtime_dataset_descriptor(active_plan) as descriptor:
+            root = runtime_dataset_root(active_plan, descriptor)
+            # Emulate Ultralytics writing a label cache beside the label directory.
+            cache = root / "train" / "labels.cache"
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text("simulated cache", encoding="utf-8")
+            return {"cache": str(cache)}
+
+    training.run_training(plan, cache_writing_trainer)
+
+    assert (workspace / "train" / "labels.cache").is_file()
+    assert not (release_root / "train" / "labels.cache").exists()
+    assert not list(release_root.rglob("*.cache"))
+    after = {
+        path.relative_to(release_root).as_posix(): path.read_bytes()
+        for path in sorted(release_root.rglob("*"))
+        if path.is_file()
+    }
+    assert after == release_snapshot
+
+
+# ------------------------------------------------------ failure sanitisation
+
+
+def test_failure_summary_is_sanitised_of_local_paths(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+    leaked = (
+        f"Dataset '{plan.dataset_yaml_path}' images not found, missing path "
+        f"'{plan.dataset_root}\\images\\val'. Manifest {plan.manifest_path.as_posix()} "
+        f"and repository {plan.repository_root} and run {plan.run_directory}."
+    )
+
+    def failing_trainer(_: training.TrainingPlan) -> object:
+        raise RuntimeError(leaked)
+
+    with pytest.raises(training.TrainingPipelineError):
+        training.run_training(plan, failing_trainer)
+
+    metadata = json.loads((plan.run_directory / "run_metadata.json").read_text(encoding="utf-8"))
+    summary = metadata["failure_summary"]
+    assert metadata["status"] == "failed"
+    assert "RuntimeError" in summary
+    assert "images not found" in summary
+    for absolute in (
+        str(plan.dataset_root),
+        plan.dataset_root.as_posix(),
+        str(plan.manifest_path),
+        plan.manifest_path.as_posix(),
+        str(plan.repository_root),
+        plan.repository_root.as_posix(),
+        str(tmp_path),
+        tmp_path.as_posix(),
+    ):
+        assert absolute not in summary
+    assert "<dataset-root>" in summary or "<local-path>" in summary
+
+
+@pytest.mark.parametrize("template", [
+    "missing path '{native}\\images\\val'",
+    "missing path '{posix}/images/val'",
+    "Dataset '{doubled}/dataset.yaml' error",
+    "cache written to {native}\\labels\\train.cache",
+])
+def test_path_variants_are_all_sanitised(tmp_path: Path, template: str) -> None:
+    plan = released_plan(tmp_path)
+    root = plan.dataset_root
+    posix = root.as_posix()
+    text = template.format(
+        native=str(root), posix=posix, doubled=f"{posix[:2]}//{posix[3:]}"
+    )
+
+    sanitised = training._sanitise_local_paths(text, plan)
+
+    assert str(root) not in sanitised
+    assert posix not in sanitised
+    assert "C:" not in sanitised.replace("<", "").replace(">", "")
+
+
+def test_runtime_descriptor_path_is_sanitised_from_failure_text(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+    with training.runtime_dataset_descriptor(plan) as descriptor:
+        text = f"RuntimeError: Dataset '{descriptor}' error"
+        sanitised = training._sanitise_local_paths(text, plan, descriptor)
+
+    assert str(descriptor) not in sanitised
+    assert descriptor.as_posix() not in sanitised
+    assert "RuntimeError" in sanitised
+
+
+def test_successful_run_metadata_contains_no_absolute_paths(tmp_path: Path) -> None:
+    plan = released_plan(tmp_path)
+
+    training.run_training(plan, lambda _: {"ok": True})
+
+    metadata = (plan.run_directory / "run_metadata.json").read_text(encoding="utf-8")
+    resolved = (plan.run_directory / "resolved_training_config.json").read_text(encoding="utf-8")
+    reference = (plan.run_directory / "dataset_reference.json").read_text(encoding="utf-8")
+    for document in (metadata, resolved, reference):
+        assert str(plan.dataset_root) not in document
+        assert plan.dataset_root.as_posix() not in document
+        assert str(plan.manifest_path) not in document
+        assert plan.manifest_path.as_posix() not in document
