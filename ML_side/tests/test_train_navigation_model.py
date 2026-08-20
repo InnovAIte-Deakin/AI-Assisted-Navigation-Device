@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -82,6 +83,23 @@ def write_external_manifest(tmp_path: Path, manifest: dict[str, object]) -> Path
     manifest_path = external_root / "release_manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     return manifest_path
+
+
+def write_workspace_evidence(manifest_path: Path, workspace: Path, identity: str) -> Path:
+    """Emit authoritative checksum evidence describing a workspace's released bytes."""
+    import hashlib as _hashlib
+
+    files = {
+        path.relative_to(workspace).as_posix(): _hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(workspace.rglob("*"))
+        if path.is_file()
+    }
+    evidence = manifest_path.parent / training.CHECKSUM_EVIDENCE_FILENAME
+    evidence.write_text(
+        json.dumps({"algorithm": "sha256", "release_identity": identity, "files": files}),
+        encoding="utf-8",
+    )
+    return evidence
 
 
 def test_valid_dry_run_succeeds_without_trainer_or_artifacts(tmp_path: Path) -> None:
@@ -609,9 +627,11 @@ def test_shipped_smoke_configuration_passes_its_own_preflight(tmp_path: Path) ->
     weights = repository / str(shipped["model"]["initial_weights_path"])
     weights.parent.mkdir(parents=True, exist_ok=True)
     weights.write_bytes(b"local placeholder; preflight never loads model weights")
-    external_manifest = write_external_manifest(
-        tmp_path, json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
-    )
+    identity = "b" * 64
+    manifest = json.loads((repository / "manifest.json").read_text(encoding="utf-8"))
+    manifest["quality"]["checksums"] = {"release_identity": f"sha256:{identity}"}
+    external_manifest = write_external_manifest(tmp_path, manifest)
+    write_workspace_evidence(external_manifest, dataset_root, identity)
 
     plan = training.load_training_plan(
         SHIPPED_SMOKE_CONFIG,
@@ -638,25 +658,55 @@ def materialise_samples(manifest: dict[str, object], root: Path) -> None:
                     target.write_text("fixture", encoding="utf-8")
 
 
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def write_release_checksums(release_root: Path, identity: str) -> Path:
+    """Emit checksum evidence exactly as the release builder does.
+
+    The builder computes checksums before writing this file, so the evidence
+    deliberately does not checksum itself.
+    """
+    files = {
+        path.relative_to(release_root).as_posix(): sha256_file(path)
+        for path in sorted(release_root.rglob("*"))
+        if path.is_file() and path.name != training.CHECKSUM_EVIDENCE_FILENAME
+    }
+    evidence = release_root / training.CHECKSUM_EVIDENCE_FILENAME
+    evidence.write_text(
+        json.dumps({"algorithm": "sha256", "release_identity": identity, "files": files}),
+        encoding="utf-8",
+    )
+    return evidence
+
+
 def create_released_fixture(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
     """Build an authoritative release plus a separate faithful training workspace.
 
-    The release hosts its own manifest, matching the approved controlled-release
-    layout. The workspace holds the same dataset bytes and no manifest.
+    The release hosts its own manifest and checksum evidence, matching the
+    approved controlled-release layout. The workspace holds the same dataset
+    bytes, including the manifest copy the checksum evidence covers.
     """
     repository = tmp_path / "repository"
     release_root = tmp_path / "release"
     workspace = tmp_path / "workspace"
     for directory in (repository, release_root, workspace):
         directory.mkdir()
+    identity = "a" * 64
     manifest = json.loads(SAMPLE_MANIFEST.read_text(encoding="utf-8"))
     manifest["dataset"]["release_decision"] = "approved_for_training"
     manifest["licence"]["review_decision"] = "approved"
+    manifest["quality"]["checksums"] = {"release_identity": f"sha256:{identity}"}
+    manifest_text = json.dumps(manifest)
     for root in (release_root, workspace):
         materialise_samples(manifest, root)
         write_yaml(root / "dataset.yaml")
+        (root / "release_manifest.json").write_text(manifest_text, encoding="utf-8")
     release_manifest = release_root / "release_manifest.json"
-    release_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    write_release_checksums(release_root, identity)
     (repository / "architecture.yaml").write_text("nc: 8\n", encoding="utf-8")
     config = {
         "schema_version": "1.0.0",
@@ -988,3 +1038,287 @@ def test_successful_run_metadata_contains_no_absolute_paths(tmp_path: Path) -> N
         assert plan.dataset_root.as_posix() not in document
         assert str(plan.manifest_path) not in document
         assert plan.manifest_path.as_posix() not in document
+
+
+# ------------------------------------------------- workspace integrity
+
+
+def corrupt_file(path: Path) -> None:
+    """Change one file's bytes while keeping it structurally parseable.
+
+    A structurally valid mutation proves the checksum gate rejects the file
+    rather than an earlier syntax check firing first.
+    """
+    path.write_bytes(path.read_bytes() + b"\n# tampered\n")
+
+
+def load_evidence(release_root: Path) -> dict[str, object]:
+    return json.loads((release_root / training.CHECKSUM_EVIDENCE_FILENAME).read_text(encoding="utf-8"))
+
+
+def save_evidence(release_root: Path, payload: object) -> None:
+    (release_root / training.CHECKSUM_EVIDENCE_FILENAME).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+
+def load_released_plan(
+    repository: Path, workspace: Path, release_manifest: Path, config_path: Path
+) -> training.TrainingPlan:
+    return training.load_training_plan(
+        config_path,
+        dataset_root_override=workspace,
+        manifest_path_override=release_manifest,
+        repository_root=repository,
+    )
+
+
+def test_faithful_workspace_passes_checksum_verification(tmp_path: Path) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+
+    plan = load_released_plan(repository, workspace, release_manifest, config_path)
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+    assert plan.release_checksums_reference == training.EXTERNAL_CHECKSUM_REFERENCE
+    assert plan.release_checksums_checksum is not None
+    assert len(plan.release_checksums_checksum) == 64
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["dataset.yaml", "release_manifest.json", "train/images/person_001.jpg", "train/labels/person_001.txt"],
+)
+def test_modified_workspace_file_fails_verification(tmp_path: Path, relative: str) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    corrupt_file(workspace / relative)
+
+    with pytest.raises(training.TrainingPipelineError, match="does not match the approved release checksum"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_missing_checksummed_workspace_file_fails_verification(tmp_path: Path) -> None:
+    """Delete a file only the checksum gate covers, so this proves that gate."""
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    (workspace / "release_manifest.json").unlink()
+
+    with pytest.raises(training.TrainingPipelineError, match="missing a released file"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_missing_checksum_evidence_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    (release_root / training.CHECKSUM_EVIDENCE_FILENAME).unlink()
+
+    with pytest.raises(training.TrainingPipelineError, match="require release_checksums.json"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_malformed_checksum_evidence_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    (release_root / training.CHECKSUM_EVIDENCE_FILENAME).write_text("not json", encoding="utf-8")
+
+    with pytest.raises(training.TrainingPipelineError, match="not valid JSON"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_non_object_checksum_evidence_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    save_evidence(release_root, ["not", "an", "object"])
+
+    with pytest.raises(training.TrainingPipelineError, match="root must be an object"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_unsupported_checksum_algorithm_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    evidence = load_evidence(release_root)
+    evidence["algorithm"] = "md5"
+    save_evidence(release_root, evidence)
+
+    with pytest.raises(training.TrainingPipelineError, match="sha256 algorithm"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+@pytest.mark.parametrize("digest", ["", "abc", "z" * 64, "A" * 63, 12345, None])
+def test_invalid_checksum_digest_is_rejected(tmp_path: Path, digest: object) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    evidence = load_evidence(release_root)
+    evidence["files"]["dataset.yaml"] = digest  # type: ignore[index]
+    save_evidence(release_root, evidence)
+
+    with pytest.raises(training.TrainingPipelineError, match="invalid SHA-256 digest"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+@pytest.mark.parametrize("unsafe", ["../escape.txt", "C:/absolute/escape.txt", "/absolute/escape.txt", "\\\\server\\share\\x.txt", "https://example.invalid/x.png"])
+def test_unsafe_checksum_paths_are_rejected(tmp_path: Path, unsafe: str) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    evidence = load_evidence(release_root)
+    evidence["files"][unsafe] = "c" * 64  # type: ignore[index]
+    save_evidence(release_root, evidence)
+
+    with pytest.raises(training.TrainingPipelineError, match="release checksum path"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_empty_checksum_file_list_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    evidence = load_evidence(release_root)
+    evidence["files"] = {}
+    save_evidence(release_root, evidence)
+
+    with pytest.raises(training.TrainingPipelineError, match="at least one checksummed file"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+@pytest.mark.parametrize("identity", ["d" * 64, "not-a-digest", ""])
+def test_release_identity_mismatch_is_rejected(tmp_path: Path, identity: str) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    evidence = load_evidence(release_root)
+    evidence["release_identity"] = identity
+    save_evidence(release_root, evidence)
+
+    with pytest.raises(training.TrainingPipelineError):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_manifest_without_recorded_identity_is_rejected(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    manifest = json.loads(release_manifest.read_text(encoding="utf-8"))
+    manifest["quality"].pop("checksums")
+    text = json.dumps(manifest)
+    release_manifest.write_text(text, encoding="utf-8")
+    (workspace / "release_manifest.json").write_text(text, encoding="utf-8")
+    write_release_checksums(release_root, "a" * 64)
+
+    with pytest.raises(training.TrainingPipelineError, match="release identity to cross-check"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+# ------------------------------------------------------- extra-file policy
+
+
+@pytest.mark.parametrize(
+    "relative", ["train/images/unlisted.png", "train/images/unlisted.jpg", "train/labels/unlisted.txt"]
+)
+def test_unexpected_training_files_are_rejected(tmp_path: Path, relative: str) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    (workspace / relative).write_text("smuggled", encoding="utf-8")
+
+    with pytest.raises(training.TrainingPipelineError, match="approved release does not include"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+@pytest.mark.parametrize("relative", ["train/labels.cache", "train/images/train.cache", "train/labels/val.cache"])
+def test_ultralytics_cache_files_are_allowed(tmp_path: Path, relative: str) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    (workspace / relative).write_text("simulated cache", encoding="utf-8")
+
+    plan = load_released_plan(repository, workspace, release_manifest, config_path)
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+
+
+def test_unrelated_non_training_files_are_tolerated(tmp_path: Path) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    (workspace / "train" / "images" / "notes.md").write_text("operator note", encoding="utf-8")
+
+    plan = load_released_plan(repository, workspace, release_manifest, config_path)
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+
+
+# --------------------------------------------- release immutability / gating
+
+
+def test_verification_leaves_the_authoritative_release_unchanged(tmp_path: Path) -> None:
+    repository, release_root, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    before = {
+        path.relative_to(release_root).as_posix(): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in sorted(release_root.rglob("*"))
+        if path.is_file()
+    }
+
+    training.dry_run(load_released_plan(repository, workspace, release_manifest, config_path))
+
+    after = {
+        path.relative_to(release_root).as_posix(): (path.read_bytes(), path.stat().st_mtime_ns)
+        for path in sorted(release_root.rglob("*"))
+        if path.is_file()
+    }
+    assert after == before
+    assert not list(release_root.rglob("*.cache"))
+
+
+def test_dry_run_rejects_a_corrupted_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    corrupt_file(workspace / "train" / "images" / "person_001.jpg")
+    monkeypatch.setattr(training, "REPOSITORY_ROOT", repository)
+
+    exit_code = training.main([
+        "--config", str(config_path),
+        "--dataset-root", str(workspace),
+        "--manifest-path", str(release_manifest),
+        "--dry-run",
+    ])
+
+    assert exit_code == 1
+    assert "does not match the approved release checksum" in capsys.readouterr().err
+
+
+def test_confirmed_training_rejects_the_same_corrupted_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    corrupt_file(workspace / "train" / "images" / "person_001.jpg")
+    monkeypatch.setattr(training, "REPOSITORY_ROOT", repository)
+    monkeypatch.setattr(
+        training, "default_trainer", lambda _: pytest.fail("trainer must not be invoked")
+    )
+
+    exit_code = training.main([
+        "--config", str(config_path),
+        "--dataset-root", str(workspace),
+        "--manifest-path", str(release_manifest),
+        "--confirm-training",
+    ])
+
+    assert exit_code == 1
+    assert "does not match the approved release checksum" in capsys.readouterr().err
+    assert not (repository / "artifacts").exists()
+
+
+def test_integrity_failure_happens_before_any_trainer_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    corrupt_file(workspace / "train" / "labels" / "person_001.txt")
+    monkeypatch.setitem(sys.modules, "ultralytics", None)
+
+    with pytest.raises(training.TrainingPipelineError, match="does not match the approved release checksum"):
+        load_released_plan(repository, workspace, release_manifest, config_path)
+
+
+def test_release_checksum_evidence_is_recorded_in_run_metadata(tmp_path: Path) -> None:
+    repository, _, workspace, release_manifest, config_path = create_released_fixture(tmp_path)
+    plan = load_released_plan(repository, workspace, release_manifest, config_path)
+
+    training.run_training(plan, lambda _: {"ok": True})
+
+    metadata = json.loads((plan.run_directory / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["release_checksums_reference"] == training.EXTERNAL_CHECKSUM_REFERENCE
+    assert metadata["release_checksums_checksum_sha256"] == plan.release_checksums_checksum
+    assert str(release_manifest.parent) not in json.dumps(metadata)
+
+
+def test_local_manifest_flow_does_not_require_checksum_evidence(tmp_path: Path) -> None:
+    """The repository-relative, non-released flow is unchanged by this gate."""
+    repository, dataset_root, config_path = create_fixture(tmp_path)
+
+    plan = load_plan(repository, dataset_root, config_path)
+
+    assert training.dry_run(plan)["status"] == "dry_run_valid"
+    assert plan.release_checksums_reference is None
+    assert plan.release_checksums_checksum is None

@@ -37,6 +37,20 @@ TOOL_VERSION = "1.2.0"
 _RESIDUAL_ABSOLUTE_PATH = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\)[^\s'\"<>|]*")
 ELIGIBLE_STAGES = frozenset({"approved_for_internal_training", "released"})
 RELEASED_STAGE = "released"
+CHECKSUM_EVIDENCE_FILENAME = "release_checksums.json"
+CHECKSUM_ALGORITHM = "sha256"
+EXTERNAL_CHECKSUM_REFERENCE = "external-local/release_checksums.json"
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+# Mirrors Ultralytics 8.4.7 IMG_FORMATS so any image the trainer would ingest is
+# treated as training-substantive. Kept local so preflight never imports it.
+TRAINING_IMAGE_SUFFIXES = frozenset(
+    {
+        ".avif", ".bmp", ".dng", ".heic", ".jp2", ".jpeg", ".jpeg2000",
+        ".jpg", ".mpo", ".png", ".tif", ".tiff", ".webp",
+    }
+)
+TRAINING_LABEL_SUFFIX = ".txt"
+WORKSPACE_CACHE_SUFFIX = ".cache"
 ALL_STAGES = frozenset(
     {"candidate", "in_review", "approved_for_internal_training", "rejected", "released"}
 )
@@ -70,6 +84,8 @@ class TrainingPlan:
     manifest_release_decision: str
     git_commit: str | None
     git_dirty: bool | None
+    release_checksums_reference: str | None = None
+    release_checksums_checksum: str | None = None
 
 
 def _load_yaml(path: Path, label: str) -> dict[str, object]:
@@ -284,6 +300,133 @@ def _validate_manifest_matches_yaml_splits(
             ) from exc
 
 
+def _is_training_substantive(relative_path: str) -> bool:
+    """Report whether a released file would be consumed as training data."""
+    suffix = Path(relative_path).suffix.casefold()
+    return suffix in TRAINING_IMAGE_SUFFIXES or suffix == TRAINING_LABEL_SUFFIX
+
+
+def _load_release_checksums(manifest_path: Path) -> tuple[Path, str, dict[str, str]]:
+    """Load the authoritative checksum evidence stored beside the approved manifest.
+
+    The authoritative release is the trust source, so the evidence is always read
+    from the manifest's own directory and never from the mutable workspace.
+    """
+    evidence_path = manifest_path.parent / CHECKSUM_EVIDENCE_FILENAME
+    if evidence_path.is_symlink():
+        raise TrainingPipelineError(
+            "release checksum evidence must be a regular local JSON file, not a symlink."
+        )
+    if not evidence_path.is_file():
+        raise TrainingPipelineError(
+            "released external datasets require release_checksums.json beside the approved manifest."
+        )
+    try:
+        payload = json.loads(evidence_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TrainingPipelineError(
+            "release checksum evidence is unreadable or is not valid JSON."
+        ) from exc
+    if not isinstance(payload, Mapping):
+        raise TrainingPipelineError("release checksum evidence root must be an object.")
+    if payload.get("algorithm") != CHECKSUM_ALGORITHM:
+        raise TrainingPipelineError(
+            "release checksum evidence must declare the sha256 algorithm."
+        )
+    identity = payload.get("release_identity")
+    if not isinstance(identity, str) or _SHA256_HEX.match(identity.strip().casefold()) is None:
+        raise TrainingPipelineError(
+            "release checksum evidence release_identity must be a SHA-256 digest."
+        )
+    files = payload.get("files")
+    if not isinstance(files, Mapping) or not files:
+        raise TrainingPipelineError(
+            "release checksum evidence must list at least one checksummed file."
+        )
+    checksums: dict[str, str] = {}
+    seen: set[str] = set()
+    for raw_path, raw_checksum in files.items():
+        relative = _safe_relative(raw_path, "release checksum path").replace("\\", "/")
+        if relative.casefold() in seen:
+            raise TrainingPipelineError(
+                "release checksum evidence contains duplicate or ambiguous file paths."
+            )
+        if not isinstance(raw_checksum, str) or _SHA256_HEX.match(raw_checksum.strip().casefold()) is None:
+            raise TrainingPipelineError(
+                "release checksum evidence contains an invalid SHA-256 digest."
+            )
+        seen.add(relative.casefold())
+        checksums[relative] = raw_checksum.strip().casefold()
+    return evidence_path, identity.strip().casefold(), checksums
+
+
+def _cross_check_release_identity(manifest: Mapping[str, object], checksum_identity: str) -> None:
+    """Require the checksum evidence and approved manifest to describe one release."""
+    quality = manifest.get("quality")
+    recorded: object = None
+    if isinstance(quality, Mapping):
+        manifest_checksums = quality.get("checksums")
+        if isinstance(manifest_checksums, Mapping):
+            recorded = manifest_checksums.get("release_identity")
+    if not isinstance(recorded, str) or not recorded.strip():
+        raise TrainingPipelineError(
+            "approved manifest does not record a release identity to cross-check."
+        )
+    value = recorded.strip()
+    prefix = f"{CHECKSUM_ALGORITHM}:"
+    if value.casefold().startswith(prefix):
+        value = value[len(prefix):]
+    if value.strip().casefold() != checksum_identity:
+        raise TrainingPipelineError(
+            "release checksum evidence identity does not match the approved manifest release identity."
+        )
+
+
+def _verify_workspace_checksums(dataset_root: Path, checksums: Mapping[str, str]) -> None:
+    """Require every authoritative released file to be byte-identical in the workspace."""
+    for relative, expected in checksums.items():
+        candidate = _resolve_under(dataset_root, relative, "release checksum path")
+        if candidate.is_symlink() or not candidate.is_file():
+            raise TrainingPipelineError(
+                "training workspace is missing a released file required by the approved checksum evidence."
+            )
+        if _sha256(candidate) != expected:
+            raise TrainingPipelineError(
+                "training workspace content does not match the approved release checksum evidence."
+            )
+
+
+def _reject_unexpected_training_files(dataset_root: Path, checksums: Mapping[str, str]) -> None:
+    """Reject training images or labels the approved release does not contain.
+
+    Trainers read whole split directories rather than the manifest sample list, so
+    an unlisted image would otherwise enter training. Ultralytics label caches are
+    expected in a mutable workspace and are allowed.
+    """
+    expected = {relative.casefold() for relative in checksums}
+    directories = {
+        relative.rsplit("/", 1)[0]
+        for relative in checksums
+        if "/" in relative and _is_training_substantive(relative)
+    }
+    for relative_directory in sorted(directories):
+        directory = _resolve_under(dataset_root, relative_directory, "release checksum path")
+        if not directory.is_dir():
+            continue
+        for entry in sorted(directory.iterdir()):
+            if not entry.is_file():
+                continue
+            suffix = entry.suffix.casefold()
+            if suffix == WORKSPACE_CACHE_SUFFIX:
+                continue
+            if suffix not in TRAINING_IMAGE_SUFFIXES and suffix != TRAINING_LABEL_SUFFIX:
+                continue
+            if f"{relative_directory}/{entry.name}".casefold() not in expected:
+                raise TrainingPipelineError(
+                    "training workspace contains a training image or label that the approved release does not include."
+                )
+
+
 def _released_release_root_supplied(manifest_path: Path, dataset_root: Path) -> bool:
     """Report whether an external manifest sits inside the supplied dataset root.
 
@@ -467,6 +610,15 @@ def load_training_plan(
         raise TrainingPipelineError("dataset YAML taxonomy must exactly match the approved WalkBuddy IDs, names, and order.")
     _validate_manifest_matches_yaml_splits(manifest, dataset_root, dataset_yaml)
     _inspection_evidence(dataset_root, dataset_config.get("inspection_report_path"))
+    release_checksums_reference: str | None = None
+    release_checksums_checksum: str | None = None
+    if manifest_path_override is not None and stage == RELEASED_STAGE:
+        evidence_path, checksum_identity, release_checksums = _load_release_checksums(manifest_path)
+        _cross_check_release_identity(manifest, checksum_identity)
+        _verify_workspace_checksums(dataset_root, release_checksums)
+        _reject_unexpected_training_files(dataset_root, release_checksums)
+        release_checksums_reference = EXTERNAL_CHECKSUM_REFERENCE
+        release_checksums_checksum = _sha256(evidence_path)
     config_checksum = _sha256(config_path)
     manifest_checksum = _sha256(manifest_path)
     yaml_checksum = _sha256(dataset_yaml_path)
@@ -504,6 +656,8 @@ def load_training_plan(
         manifest_release_decision=str(manifest_dataset["release_decision"]),
         git_commit=commit,
         git_dirty=dirty,
+        release_checksums_reference=release_checksums_reference,
+        release_checksums_checksum=release_checksums_checksum,
     )
 
 
@@ -585,6 +739,8 @@ def _run_metadata(plan: TrainingPlan, status: str, *, started_at: str, completed
         "configuration_checksum_sha256": plan.config_checksum,
         "manifest_checksum_sha256": plan.manifest_checksum,
         "manifest_reference": plan.manifest_reference,
+        "release_checksums_reference": plan.release_checksums_reference,
+        "release_checksums_checksum_sha256": plan.release_checksums_checksum,
         "dataset_yaml_checksum_sha256": plan.dataset_yaml_checksum,
         "model_checksum_sha256": plan.model_checksum,
         "model_kind": plan.model_kind,
