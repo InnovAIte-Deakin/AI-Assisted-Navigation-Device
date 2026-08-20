@@ -17,7 +17,8 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -31,8 +32,11 @@ import validate_dataset_manifest as manifest_validator
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-TOOL_VERSION = "1.1.0"
+TOOL_VERSION = "1.2.0"
+# Drive-letter or UNC absolute paths that survive known-location replacement.
+_RESIDUAL_ABSOLUTE_PATH = re.compile(r"(?:[A-Za-z]:[\\/]|\\\\)[^\s'\"<>|]*")
 ELIGIBLE_STAGES = frozenset({"approved_for_internal_training", "released"})
+RELEASED_STAGE = "released"
 ALL_STAGES = frozenset(
     {"candidate", "in_review", "approved_for_internal_training", "rejected", "released"}
 )
@@ -280,6 +284,21 @@ def _validate_manifest_matches_yaml_splits(
             ) from exc
 
 
+def _released_release_root_supplied(manifest_path: Path, dataset_root: Path) -> bool:
+    """Report whether an external manifest sits inside the supplied dataset root.
+
+    An approved release directory that also hosts its own manifest is the
+    authoritative evidence source. Third-party trainers write label caches beside
+    the label directories, so that directory must never be the trainer's dataset
+    root.
+    """
+    try:
+        manifest_path.relative_to(dataset_root)
+    except ValueError:
+        return False
+    return True
+
+
 def _manifest_eligibility(manifest: Mapping[str, object], stage: str) -> None:
     dataset = manifest.get("dataset")
     if not isinstance(dataset, Mapping):
@@ -429,6 +448,17 @@ def load_training_plan(
         first = manifest_issues[0]
         raise TrainingPipelineError(f"manifest validation failed: {first.location}: {first.message}")
     _manifest_eligibility(manifest, stage)
+    if (
+        manifest_path_override is not None
+        and stage == RELEASED_STAGE
+        and _released_release_root_supplied(manifest_path, dataset_root)
+    ):
+        raise TrainingPipelineError(
+            "The approved released dataset must not be used directly for trainer "
+            "execution because third-party tooling may create cache files. Supply a "
+            "verified mutable training workspace as --dataset-root while retaining "
+            "the approved external manifest through --manifest-path."
+        )
     manifest_dataset = manifest.get("dataset")
     assert isinstance(manifest_dataset, Mapping)
     dataset_yaml = _load_yaml(dataset_yaml_path, "Dataset YAML")
@@ -608,6 +638,71 @@ def _write_run_files(plan: TrainingPlan, metadata: Mapping[str, object]) -> None
     )
 
 
+def _effective_dataset_root(plan: TrainingPlan) -> Path:
+    """Resolve the dataset YAML's effective root using the preflight resolution."""
+    dataset_yaml = _load_yaml(plan.dataset_yaml_path, "Dataset YAML")
+    return _resolve_under(plan.dataset_root, dataset_yaml.get("path", "."), "dataset YAML path")
+
+
+@contextmanager
+def runtime_dataset_descriptor(plan: TrainingPlan) -> Iterator[Path]:
+    """Yield a temporary trainer-only dataset YAML with an absolute resolved root.
+
+    The approved descriptor may use a relative ``path``, which third-party
+    trainers resolve against the process working directory rather than against the
+    descriptor's own location. Writing an ephemeral copy with an absolute root
+    makes trainer execution independent of the caller's working directory without
+    modifying the approved dataset YAML. The temporary file never persists.
+    """
+    import yaml
+
+    dataset_yaml = _load_yaml(plan.dataset_yaml_path, "Dataset YAML")
+    runtime_yaml = dict(dataset_yaml)
+    runtime_yaml["path"] = str(_effective_dataset_root(plan))
+    with tempfile.TemporaryDirectory(prefix="walkbuddy-training-dataset-") as directory:
+        descriptor = Path(directory) / plan.dataset_yaml_path.name
+        descriptor.write_text(yaml.safe_dump(runtime_yaml, sort_keys=True), encoding="utf-8")
+        yield descriptor
+
+
+def runtime_trainer_arguments(plan: TrainingPlan, dataset_yaml_path: Path) -> dict[str, object]:
+    """Return trainer arguments pointing at a resolved runtime dataset descriptor."""
+    arguments = trainer_arguments(plan)
+    arguments["data"] = str(dataset_yaml_path)
+    return arguments
+
+
+def _path_variants(path: Path) -> tuple[str, ...]:
+    """Return the spellings a third-party message may use for one local path."""
+    native = str(path)
+    posix = path.as_posix()
+    variants = {native, posix, native.replace("\\", "/"), posix.replace("/", "\\")}
+    if len(posix) > 2 and posix[1] == ":":
+        # Some third-party messages emit a doubled separator after the drive.
+        variants.add(f"{posix[:2]}//{posix[3:]}")
+    return tuple(sorted(variants, key=len, reverse=True))
+
+
+def _sanitise_local_paths(text: str, plan: TrainingPlan, *extra: Path) -> str:
+    """Replace known and residual absolute local paths with stable placeholders."""
+    replacements: list[tuple[Path, str]] = [
+        (plan.run_directory, "<run-directory>"),
+        (plan.dataset_root, "<dataset-root>"),
+        (plan.manifest_path, "<external-manifest>"),
+        (plan.repository_root, "<repository-root>"),
+    ]
+    replacements.extend((path, "<runtime-dataset>") for path in extra)
+    # Longest locations first so nested paths are not partially replaced.
+    replacements.sort(key=lambda item: len(str(item[0])), reverse=True)
+    sanitised = text
+    for path, placeholder in replacements:
+        for variant in _path_variants(path):
+            sanitised = sanitised.replace(variant, placeholder)
+    # Residual sweep for any absolute local path the known locations did not
+    # cover, including temporary directories created by third-party tooling.
+    return _RESIDUAL_ABSOLUTE_PATH.sub("<local-path>", sanitised)
+
+
 def default_trainer(plan: TrainingPlan) -> object:
     """Invoke Ultralytics only for explicitly confirmed real training."""
     os.environ.setdefault("YOLO_OFFLINE", "true")
@@ -617,7 +712,8 @@ def default_trainer(plan: TrainingPlan) -> object:
     except ImportError as exc:
         raise TrainingPipelineError("Ultralytics is unavailable; real training cannot start.") from exc
     model = YOLO(str(plan.model_path))
-    return model.train(**trainer_arguments(plan))
+    with runtime_dataset_descriptor(plan) as runtime_dataset:
+        return model.train(**runtime_trainer_arguments(plan, runtime_dataset))
 
 
 def run_training(plan: TrainingPlan, trainer: Callable[[TrainingPlan], object] | None = None) -> object:
@@ -629,7 +725,8 @@ def run_training(plan: TrainingPlan, trainer: Callable[[TrainingPlan], object] |
         result = (trainer or default_trainer)(plan)
     except Exception as exc:
         completed = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        failed = _run_metadata(plan, "failed", started_at=started, completed_at=completed, failure=f"{type(exc).__name__}: {exc}")
+        failure = _sanitise_local_paths(f"{type(exc).__name__}: {exc}", plan)
+        failed = _run_metadata(plan, "failed", started_at=started, completed_at=completed, failure=failure)
         _write_run_files(plan, failed)
         raise TrainingPipelineError(f"training failed: {type(exc).__name__}: {exc}") from exc
     completed = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
