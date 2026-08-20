@@ -12,6 +12,58 @@ By default, `dataset.manifest_path` remains a repository-relative configuration 
 
 The versioned configuration records the experiment name; manifest/YAML references; explicit stage; exactly one local model source; epochs, image size, batch, device, workers, seed, optimiser, learning rate, confidence, IoU, deterministic preference, resume behaviour, output root, and notes. Unknown fields are rejected. Epochs, image size, batch, and seed are positive non-boolean integers, while workers is a non-negative non-boolean integer so that zero selects main-process data loading; learning rate, confidence, and IoU are finite non-negative numbers. Device values are deliberately limited to `cpu`, `auto`, `mps`, `cuda`, `cuda:<index>`, or a numeric GPU index. Dataset roots are intentionally supplied at execution with `--dataset-root` rather than committed.
 
+## Immutable release and mutable training workspace
+
+An approved released dataset is read-only evidence. Ultralytics writes label
+cache files such as `labels/train.cache` beside each label directory whenever it
+loads a dataset, and the `cache` training argument does not disable that
+behaviour, so pointing a trainer at the authoritative release would modify it.
+
+Preflight therefore rejects an external `--manifest-path` whose manifest sits
+inside the supplied `--dataset-root` when the configured stage is `released`.
+Both `--dry-run` and confirmed training share this gate, so a run that passes
+preflight cannot fail the isolation contract later.
+
+Before real training, create a mutable local copy of the release and pass the
+copy as the dataset root while keeping the authoritative manifest:
+
+```powershell
+& "C:\path\to\python.exe" ".\ML_side\training\train_navigation_model.py" --config ".\ML_side\config\training_navigation_smoke.yaml" --dataset-root "C:\path\to\mutable-training-workspace" --manifest-path "C:\path\to\WalkBuddy-Controlled-Releases\...\release_manifest.json" --dry-run
+```
+
+The wrapper does not create, copy, link, or mutate that workspace. Preparing it
+is a deliberate, explicit step performed outside the tool. Full
+`validate_manifest(..., check_files=True)` validation still runs against the
+workspace, so an incomplete or misplaced copy fails before training starts.
+
+Note that the manifest contract verifies sample presence and structure rather
+than per-file content hashes, so workspace fidelity beyond file existence is not
+established by this check alone.
+
+## Working-directory independence
+
+The approved dataset YAML may declare a relative `path` such as `.`. Ultralytics
+resolves that against the process working directory rather than against the YAML
+file, so a relative root would otherwise make training depend on where the tool
+was invoked.
+
+For confirmed training the tool writes an ephemeral trainer-only dataset
+descriptor into a temporary directory, identical to the approved YAML except
+that `path` is the absolute root already resolved by preflight. The approved YAML
+is never modified, the temporary file is never written inside the dataset, and it
+is removed after the trainer succeeds or fails. Persisted metadata continues to
+record the sanitised original dataset reference, not the temporary descriptor.
+
+## Failure metadata sanitisation
+
+Third-party trainer exceptions can embed absolute local paths. Before a failure
+is persisted, known locations are replaced with `<dataset-root>`,
+`<external-manifest>`, `<repository-root>`, `<run-directory>`, and
+`<runtime-dataset>`, in both backslash and forward-slash spellings, and any
+residual absolute path is replaced with `<local-path>`. Enough of the message
+survives to identify the failure. Console output is unchanged for the local
+operator.
+
 ## Dry run
 
 Use an existing controlled local dataset root. The root is not recorded in output metadata.
