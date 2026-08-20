@@ -54,6 +54,7 @@ class MLRuntimeState:
                     "size_bytes": None,
                     "num_classes": None,
                     "classes": [],
+                    "taxonomy_compatible": None,
                     "load_duration_ms": None,
                     "loaded_at": None,
                     "runtime": {},

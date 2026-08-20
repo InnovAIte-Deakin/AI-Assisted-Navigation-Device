@@ -125,6 +125,34 @@ reports whatever `app.state.yolo.names` contains. Mock mode reports the approved
 contract taxonomy. Reconciling the weights vs. config vs. contract lineage is
 separate follow-up work. See `ML_side/docs/current_model_baseline.md`.
 
+### `taxonomy_compatible` in `GET /ml/model-info`
+
+`ml_runtime` records whether the loaded artifact implements the approved
+navigation taxonomy and exposes the result as `taxonomy_compatible`. The
+expected ordered names are derived from `ml_contract.navigation_semantics`, so
+there is no second taxonomy definition.
+
+- `true` — the loaded model's `names` exactly match the approved ordered
+  eight-class taxonomy in class count, identifier order, and canonical spelling.
+- `false` — the model loaded and its `names` are structurally valid, but the
+  taxonomy differs. A reordered, renamed, extended, reduced, or case-changed
+  taxonomy is incompatible. The legacy `office-chair` alias remains valid when
+  interpreting individual detections, but does not satisfy the production model
+  contract.
+- `null` — compatibility could not be determined, because the model failed to
+  load, its metadata was unavailable, or the runtime is not yet initialised.
+
+`false` and `null` are deliberately distinct: a taxonomy mismatch is not a
+deserialisation failure, and is reported with `loaded: true` and no
+`failure_category`.
+
+**This field is currently observational.** A `false` value does **not** alter
+`GET /ml/ready`, `GET /ml/health`, `POST /ml/navigate`, or the container health
+check in this change. The active `best.pt` is the inherited historical model, so
+enforcing the contract before the approved eight-class model is trained and
+promoted would deliberately make the development backend unhealthy. Enforcement
+is intentionally deferred to a separate change once that model exists.
+
 ## Tests
 
 - `tests/test_ml_inference.py` — router-isolated tests: mounts only this router

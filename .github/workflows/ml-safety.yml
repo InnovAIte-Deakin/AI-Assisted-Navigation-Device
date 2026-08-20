@@ -38,3 +38,4 @@ jobs:
           ML_side/tests/test_detection_stabilizer.py
           ML_side/tests/test_navigation_scenario_regression.py
           software_side/walkbuddy_reactNative/backend/tests/test_navigation_semantics.py
+          software_side/walkbuddy_reactNative/backend/tests/test_model_taxonomy_compatibility.py
