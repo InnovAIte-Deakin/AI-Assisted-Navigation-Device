@@ -1,5 +1,7 @@
+
+
 // app/(tabs)/index.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import {
   Alert,
@@ -19,8 +21,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/FontAwesome";
 
 import HomeHeader from "../HomeHeader";
-import ModelWebView from "../../src/components/ModelWebView";
-import { API_BASE } from "../../src/config";
 import { useSession } from "../../src/context/SessionContext";
 
 type DestinationType = "I" | "E";
@@ -40,9 +40,6 @@ export default function HomePage() {
   const greeting = `Hi ${displayName}`;
 
   const [visionEnabled, setVisionEnabled] = useState(true);
-  const [visionPreviewOn, setVisionPreviewOn] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [rev, setRev] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [destinationType, setDestinationType] = useState<DestinationType | null>(null);
@@ -60,9 +57,12 @@ export default function HomePage() {
   const goToProfile = () => router.push("/profile");
   const goToEmergency = () => router.push("/emergency" as any);
 
+  const goToCameraVision = () =>
+    router.push({ pathname: "/camera", params: { mode: "vision" } } as any);
+  
   const goToCameraVoice = () =>
     router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
-
+  
   const goToCameraOCR = () =>
     router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
 
@@ -72,31 +72,6 @@ export default function HomePage() {
     Platform.OS === "web"
       ? (globalThis as any).alert?.(`${title}\n\n${msg}`)
       : Alert.alert(title, msg);
-  };
-
-  useEffect(() => {
-    if (!visionEnabled) {
-      setVisionPreviewOn(false);
-      setLoading(false);
-    }
-  }, [visionEnabled]);
-
-  useEffect(() => {
-    if (!visionPreviewOn) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setRev((x) => x + 1);
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
-  }, [visionPreviewOn]);
-
-  const visionUrl = `${API_BASE}/vision/?v=${rev}`;
-
-  const toggleVisionPreview = () => {
-    if (!visionEnabled) return;
-    setVisionPreviewOn((prev) => !prev);
   };
 
   const openSearch = () => {
@@ -183,12 +158,7 @@ export default function HomePage() {
           </View>
 
           {/* VISION */}
-          <View
-            style={[
-              styles.visionWrapper,
-              visionPreviewOn && styles.visionActive,
-            ]}
-          >
+          <View style={styles.visionWrapper}>
             <View style={styles.visionRow}>
               <Text style={styles.visionTitle}>VISION ASSIST</Text>
 
@@ -207,26 +177,27 @@ export default function HomePage() {
             </View>
 
             <Pressable
-              onPress={toggleVisionPreview}
+              onPress={() => {
+                if (visionEnabled) {
+                  goToCameraVision();
+                }
+              }}
+              disabled={!visionEnabled}
               style={({ pressed }) => [
                 styles.visionCard,
-                pressed && styles.pressed,
+                pressed && visionEnabled && styles.pressed,
               ]}
             >
               <View style={styles.visionInner}>
-                {visionEnabled && visionPreviewOn ? (
-                  <ModelWebView url={visionUrl} loading={loading} />
-                ) : (
-                  <View style={styles.previewPlaceholder}>
-                    <Icon name="eye" size={28} color={tokens.muted} />
-                    <Text style={styles.previewText}>
-                      {visionEnabled ? "Tap to start camera" : "Vision disabled"}
-                    </Text>
-                    <Text style={styles.previewSubtext}>
-                      Starting camera gives live surroundings
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.previewPlaceholder}>
+                  <Icon name="eye" size={28} color={tokens.muted} />
+                  <Text style={styles.previewText}>
+                    {visionEnabled ? "Tap to start camera" : "Vision disabled"}
+                  </Text>
+                  <Text style={styles.previewSubtext}>
+                    Starting camera gives live surroundings
+                  </Text>
+                </View>
               </View>
             </Pressable>
           </View>
