@@ -824,6 +824,7 @@ export default function ExteriorNavigationScreen() {
             routeGeometry={route?.geometry}
             destination={destination || undefined}
             showMap={settings.showMapVisuals}
+            routeColor={GOLD}
           />
         </View>
       </View>
@@ -1136,10 +1137,9 @@ const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: "#1B263B" },
 
   header: {
-    position: "relative",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 8,
@@ -1147,9 +1147,6 @@ const styles = StyleSheet.create({
     borderBottomColor: GOLD,
   },
   backBtnFloating: {
-    position: "absolute",
-    top: 4,
-    left: 8,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -1158,17 +1155,14 @@ const styles = StyleSheet.create({
     borderColor: GOLD,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 20,
   },
   headerTitle: {
     color: GOLD,
     fontSize: 20,
     fontWeight: "800",
     flex: 1,
-    paddingLeft: 52,
   },
   headerEditBtn: {
-    position: "absolute", right: 14, top: 14,
     width: 40, height: 40, borderRadius: 12,
     alignItems: "center", justifyContent: "center",
     backgroundColor: "#10233d", borderWidth: 1.5,
