@@ -9,6 +9,7 @@ interface MapPanelProps {
   routeGeometry?: number[][]; // Full route polyline [[lat, lng], ...]
   destination?: { lat: number; lng: number; name?: string };
   showMap: boolean;
+  routeColor?: string; // Color for the route polyline + destination marker
 }
 
 export default function MapPanel({
@@ -17,6 +18,7 @@ export default function MapPanel({
   routeGeometry,
   destination,
   showMap,
+  routeColor,
 }: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -28,7 +30,7 @@ export default function MapPanel({
       return;
     }
 
-    const html = generateMapHTML(currentLocation, routeGeometry, destination);
+    const html = generateMapHTML(currentLocation, routeGeometry, destination, routeColor);
     
     if (containerRef.current) {
       containerRef.current.innerHTML = '';
@@ -41,7 +43,7 @@ export default function MapPanel({
       iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
       containerRef.current.appendChild(iframe);
     }
-  }, [currentLocation, routeGeometry, destination, showMap]);
+  }, [currentLocation, routeGeometry, destination, showMap, routeColor]);
 
   if (!showMap) {
     return <MinimalVisualPanel />;
@@ -67,10 +69,12 @@ function MinimalVisualPanel() {
 function generateMapHTML(
   currentLocation?: Location,
   routeGeometry?: number[][],
-  destination?: { lat: number; lng: number; name?: string }
+  destination?: { lat: number; lng: number; name?: string },
+  routeColor?: string
 ): string {
   const lat = currentLocation?.latitude ?? (destination?.lat ?? 0);
   const lng = currentLocation?.longitude ?? (destination?.lng ?? 0);
+  const color = routeColor ?? '#f9b233';
 
   // Use route geometry if available, otherwise fall back to destination
   const hasRoute = routeGeometry && routeGeometry.length > 0;
@@ -86,6 +90,7 @@ function generateMapHTML(
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     #map { width: 100%; height: 100vh; }
+    .leaflet-top.leaflet-left { top: 18px; left: 18px; }
   </style>
 </head>
 <body>
@@ -112,7 +117,7 @@ function generateMapHTML(
     const destMarker = L.marker([${destination.lat}, ${destination.lng}], {
       icon: L.divIcon({
         className: 'destination-marker',
-        html: '<div style="background-color: #f9b233; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+        html: '<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
         iconSize: [20, 20],
         iconAnchor: [10, 10]
       })
@@ -122,8 +127,8 @@ function generateMapHTML(
 
     ${hasRoute ? `
     const routeCoords = ${JSON.stringify(routeGeometry)};
-    const polyline = L.polyline(routeCoords, { 
-      color: '#f9b233', 
+    const polyline = L.polyline(routeCoords, {
+      color: '${color}',
       weight: 5,
       opacity: 0.8,
       lineJoin: 'round',
