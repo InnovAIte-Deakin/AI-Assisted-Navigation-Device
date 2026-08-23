@@ -137,7 +137,7 @@ Entry point. Four action tiles in a 2×2 grid:
 | Volume | SCREEN READER | Shows "not implemented" alert |
 | File text | TEXT READER | Pushes to `/camera` with `{ mode: "ocr" }` |
 
-Vision Assist section below the grid: toggle switch enables/disables the feature; tapping the preview card loads a `ModelWebView` pointing at `${API_BASE}/vision/?v=${rev}`.
+Vision Assist section below the grid: the toggle switch enables/disables the feature; tapping the preview card opens the primary Camera screen. The Camera screen sends frames through the `/ws/vision` WebSocket. The REST `/vision` endpoint is a `POST` image-upload endpoint and must not be loaded directly in a WebView or iframe.
 
 **Known gap:** Greeting is hardcoded to `"Hi Daniel"` — `SessionContext` profile is not read.
 
@@ -435,7 +435,7 @@ frontend_reactNative/
 │   │   └── client.ts                   Typed backend functions (broken — see Known Gaps)
 │   ├── config.ts                       API_BASE: env override → LAN IP → 172.20.10.2:8000
 │   ├── components/
-│   │   ├── ModelWebView.tsx            WebView embedding vision preview iframe
+│   │   ├── ModelWebView.tsx            Legacy vision preview component (not used by Vision Assist)
 │   │   ├── MapPanel.tsx                Map component used by exterior navigation
 │   │   ├── FilterBar.tsx               Audiobook filter controls
 │   │   ├── FilterModal.tsx             Audiobook filter modal
