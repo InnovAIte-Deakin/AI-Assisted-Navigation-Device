@@ -64,13 +64,15 @@ import {
   snapToRoute,
   calculateRemainingDistance,
 } from "../../src/utils/navigationHelpers";
+import { Radius, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
-const GOLD = "#f9b233";
 const { height: SCREEN_H } = Dimensions.get("window");
 
 const MILESTONES = [200, 100, 50];
 
 export default function ExteriorNavigationScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ presetDestination?: string }>();
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -799,24 +801,24 @@ export default function ExteriorNavigationScreen() {
   };
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.header}>
+    <View style={[styles.wrap, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: colors.accent }]}>
         <Pressable
           onPress={handleBack}
-          style={styles.backBtnFloating}
+          style={[styles.backBtnFloating, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
           accessibilityLabel="Go back"
         >
-          <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+          <MaterialIcons name="arrow-back" size={24} color={colors.accent} />
         </Pressable>
-        <Text style={styles.headerTitle}>EXTERIOR NAVIGATION</Text>
+        <Text style={[styles.headerTitle, { color: colors.accent }]}>EXTERIOR NAVIGATION</Text>
         {destination && (
-          <Pressable onPress={() => setShowDestinationModal(true)} style={styles.headerEditBtn}>
-            <MaterialIcons name="edit-location" size={20} color={GOLD} />
+          <Pressable onPress={() => setShowDestinationModal(true)} style={[styles.headerEditBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "73" }]}>
+            <MaterialIcons name="edit-location" size={20} color={colors.accent} />
           </Pressable>
         )}
       </View>
 
-      <View style={styles.previewBox}>
+      <View style={[styles.previewBox, { backgroundColor: colors.background }]}>
         <View style={styles.mapInner}>
           <MapPanel
             currentLocation={currentLocation || undefined}
@@ -839,15 +841,15 @@ export default function ExteriorNavigationScreen() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "80", shadowColor: colors.accent }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>
-              <MaterialIcons name="map" size={22} color={GOLD} />
-              <Text style={styles.modalTitle}>Plan Route</Text>
+              <MaterialIcons name="map" size={22} color={colors.accent} />
+              <Text style={[styles.modalTitle, { color: colors.accent }]}>Plan Route</Text>
             </View>
 
-            <View style={styles.modalDivider} />
+            <View style={[styles.modalDivider, { backgroundColor: colors.accent + "33" }]} />
 
             <ScrollView
               style={styles.modalScrollView}
@@ -860,13 +862,13 @@ export default function ExteriorNavigationScreen() {
                 styles.inputGroup,
                 showFromSuggestions && fromAutocompleteSuggestions.length > 0 && styles.inputGroupWithSuggestions
               ]}>
-                <Text style={styles.inputLabel}>From</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>From</Text>
                 <View style={styles.inputWithMic}>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={[styles.input, styles.inputFlex]}
+                      style={[styles.input, styles.inputFlex, { backgroundColor: colors.surface, borderColor: colors.accent + "59", color: colors.text }]}
                       placeholder="Current Location"
-                      placeholderTextColor="#6b7f99"
+                      placeholderTextColor={colors.textMuted}
                       value={fromInput}
                       onChangeText={handleFromInputChange}
                       onFocus={() => {
@@ -878,18 +880,18 @@ export default function ExteriorNavigationScreen() {
                       autoCapitalize="words"
                     />
                     {showFromSuggestions && fromAutocompleteSuggestions.length > 0 && (
-                      <View style={styles.suggestionsContainer}>
+                      <View style={[styles.suggestionsContainer, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" }]}>
                         <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={styles.suggestionsScrollView}>
                           {fromAutocompleteSuggestions.map((suggestion, index) => (
                             <Pressable
                               key={`from-${suggestion.lat}-${suggestion.lng}-${index}`}
-                              style={styles.suggestionItem}
+                              style={[styles.suggestionItem, { borderBottomColor: colors.border }]}
                               onPress={() => handleSelectFromSuggestion(suggestion)}
                             >
-                              <MaterialIcons name="place" size={18} color={GOLD} />
+                              <MaterialIcons name="place" size={18} color={colors.accent} />
                               <View style={styles.suggestionTextContainer}>
-                                <Text style={styles.suggestionName}>{formatSuggestion(suggestion)}</Text>
-                                <Text style={styles.suggestionAddress} numberOfLines={1}>{suggestion.displayName}</Text>
+                                <Text style={[styles.suggestionName, { color: colors.text }]}>{formatSuggestion(suggestion)}</Text>
+                                <Text style={[styles.suggestionAddress, { color: colors.textMuted }]} numberOfLines={1}>{suggestion.displayName}</Text>
                               </View>
                             </Pressable>
                           ))}
@@ -898,7 +900,7 @@ export default function ExteriorNavigationScreen() {
                     )}
                   </View>
                   <Pressable
-                    style={styles.iconButton}
+                    style={[styles.iconButton, { borderColor: colors.accent + "73", backgroundColor: colors.surface }]}
                     onPress={() => {
                       setFromInput("Current Location");
                       setUseCurrentLocation(true);
@@ -906,17 +908,17 @@ export default function ExteriorNavigationScreen() {
                       setFromAutocompleteSuggestions([]);
                     }}
                   >
-                    <MaterialIcons name="my-location" size={20} color={GOLD} />
+                    <MaterialIcons name="my-location" size={20} color={colors.accent} />
                   </Pressable>
                 </View>
-                <Text style={styles.hintText}>Tap 📍 to use Current Location</Text>
+                <Text style={[styles.hintText, { color: colors.textMuted }]}>Tap 📍 to use Current Location</Text>
               </View>
 
               {/* Connector Line */}
               <View style={styles.routeConnector}>
-                <View style={styles.connectorLine} />
-                <MaterialIcons name="arrow-downward" size={16} color={GOLD} />
-                <View style={styles.connectorLine} />
+                <View style={[styles.connectorLine, { backgroundColor: colors.accent + "33" }]} />
+                <MaterialIcons name="arrow-downward" size={16} color={colors.accent} />
+                <View style={[styles.connectorLine, { backgroundColor: colors.accent + "33" }]} />
               </View>
 
               {/* TO Field */}
@@ -924,13 +926,13 @@ export default function ExteriorNavigationScreen() {
                 styles.inputGroup,
                 showSuggestions && autocompleteSuggestions.length > 0 && styles.inputGroupWithSuggestions
               ]}>
-                <Text style={styles.inputLabel}>To</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>To</Text>
                 <View style={styles.inputWithMic}>
                   <View style={styles.inputContainer}>
                     <TextInput
-                      style={[styles.input, styles.inputFlex]}
+                      style={[styles.input, styles.inputFlex, { backgroundColor: colors.surface, borderColor: colors.accent + "59", color: colors.text }]}
                       placeholder="e.g., Monash University"
-                      placeholderTextColor="#6b7f99"
+                      placeholderTextColor={colors.textMuted}
                       value={toInput}
                       onChangeText={handleToInputChange}
                       onFocus={() => {
@@ -940,18 +942,18 @@ export default function ExteriorNavigationScreen() {
                       autoCapitalize="words"
                     />
                     {showSuggestions && autocompleteSuggestions.length > 0 && (
-                      <View style={styles.suggestionsContainer}>
+                      <View style={[styles.suggestionsContainer, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" }]}>
                         <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={styles.suggestionsScrollView}>
                           {autocompleteSuggestions.map((suggestion, index) => (
                             <Pressable
                               key={`${suggestion.lat}-${suggestion.lng}-${index}`}
-                              style={styles.suggestionItem}
+                              style={[styles.suggestionItem, { borderBottomColor: colors.border }]}
                               onPress={() => handleSelectSuggestion(suggestion)}
                             >
-                              <MaterialIcons name="place" size={18} color={GOLD} />
+                              <MaterialIcons name="place" size={18} color={colors.accent} />
                               <View style={styles.suggestionTextContainer}>
-                                <Text style={styles.suggestionName}>{formatSuggestion(suggestion)}</Text>
-                                <Text style={styles.suggestionAddress} numberOfLines={1}>{suggestion.displayName}</Text>
+                                <Text style={[styles.suggestionName, { color: colors.text }]}>{formatSuggestion(suggestion)}</Text>
+                                <Text style={[styles.suggestionAddress, { color: colors.textMuted }]} numberOfLines={1}>{suggestion.displayName}</Text>
                               </View>
                             </Pressable>
                           ))}
@@ -960,38 +962,38 @@ export default function ExteriorNavigationScreen() {
                     )}
                   </View>
                   <Pressable
-                    style={[styles.iconButton, isListeningDestination && styles.iconButtonActive]}
+                    style={[styles.iconButton, { borderColor: colors.accent + "73", backgroundColor: colors.surface }, isListeningDestination && { backgroundColor: colors.accent }]}
                     onPress={handleVoiceInput}
                   >
                     <MaterialIcons
                       name={isListeningDestination ? "mic" : "mic-none"}
                       size={20}
-                      color={isListeningDestination ? "#1B263B" : GOLD}
+                      color={isListeningDestination ? colors.accentText : colors.accent}
                     />
                   </Pressable>
                 </View>
                 {isListeningDestination && (
-                  <Text style={styles.listeningHint}>🎙 Listening… speak your destination</Text>
+                  <Text style={[styles.listeningHint, { color: colors.accent }]}>🎙 Listening… speak your destination</Text>
                 )}
-                <Text style={styles.hintText}>Tap 🎤 to speak destination (optional)</Text>
+                <Text style={[styles.hintText, { color: colors.textMuted }]}>Tap 🎤 to speak destination (optional)</Text>
               </View>
 
               {/* Route Preview */}
               {(origin || destination) && (
-                <View style={styles.previewContainer}>
+                <View style={[styles.previewContainer, { backgroundColor: colors.surface, borderColor: colors.accent + "40" }]}>
                   {origin && (
                     <View style={styles.previewRow}>
-                      <MaterialIcons name="radio-button-checked" size={16} color={GOLD} />
-                      <Text style={styles.previewText}>
+                      <MaterialIcons name="radio-button-checked" size={16} color={colors.accent} />
+                      <Text style={[styles.previewText, { color: colors.text }]}>
                         {origin.name || `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}
-                        {originMode === "custom" && <Text style={styles.previewModeText}> (custom)</Text>}
+                        {originMode === "custom" && <Text style={[styles.previewModeText, { color: colors.textMuted }]}> (custom)</Text>}
                       </Text>
                     </View>
                   )}
                   {destination && (
                     <View style={styles.previewRow}>
-                      <MaterialIcons name="place" size={16} color={GOLD} />
-                      <Text style={styles.previewText}>
+                      <MaterialIcons name="place" size={16} color={colors.accent} />
+                      <Text style={[styles.previewText, { color: colors.text }]}>
                         {destination.name || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}
                       </Text>
                     </View>
@@ -1000,30 +1002,30 @@ export default function ExteriorNavigationScreen() {
               )}
 
               {!toInput.trim() && (
-                <Text style={styles.errorText}>⚠ Destination is required.</Text>
+                <Text style={[styles.errorText, { color: colors.danger }]}>⚠ Destination is required.</Text>
               )}
             </ScrollView>
 
-            <View style={styles.modalDivider} />
+            <View style={[styles.modalDivider, { backgroundColor: colors.accent + "33" }]} />
 
             {/* Buttons */}
             <View style={styles.modalButtons}>
               <Pressable
-                style={styles.cancelButton}
+                style={[styles.cancelButton, { backgroundColor: colors.surface, borderColor: colors.accent + "4D" }]}
                 onPress={() => {
                   setShowDestinationModal(false);
                   setIsListeningDestination(false);
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.textMuted }]}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.confirmButton, (!toInput.trim() || isGeocoding) && styles.confirmButtonDisabled]}
+                style={[styles.confirmButton, { backgroundColor: colors.accent, shadowColor: colors.accent }, (!toInput.trim() || isGeocoding) && styles.confirmButtonDisabled]}
                 onPress={handleSearchRoute}
                 disabled={isGeocoding || !toInput.trim()}
               >
-                <MaterialIcons name="search" size={18} color="#1B263B" />
-                <Text style={styles.confirmButtonText}>
+                <MaterialIcons name="search" size={18} color={colors.accentText} />
+                <Text style={[styles.confirmButtonText, { color: colors.accentText }]}>
                   {isGeocoding ? "Searching..." : "Search Route"}
                 </Text>
               </Pressable>
@@ -1034,11 +1036,11 @@ export default function ExteriorNavigationScreen() {
 
       {/* Instruction Card */}
       {isNavigating && currentStep ? (
-        <View style={styles.instructionCard}>
-          <Text style={styles.instructionText}>{currentStep.instructionText}</Text>
-          {currentStep.roadName && <Text style={styles.roadNameText}>{currentStep.roadName}</Text>}
+        <View style={[styles.instructionCard, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
+          <Text style={[styles.instructionText, { color: colors.accent }]}>{currentStep.instructionText}</Text>
+          {currentStep.roadName && <Text style={[styles.roadNameText, { color: colors.text }]}>{currentStep.roadName}</Text>}
           <View style={styles.statsRow}>
-            <Text style={styles.distanceText}>
+            <Text style={[styles.distanceText, { color: colors.text }]}>
               {(() => {
                 if (currentStep.maneuverType === 'arrive' && destination && currentLocation) {
                   const distanceToDest = metersBetween(currentLocation.latitude, currentLocation.longitude, destination.lat, destination.lng);
@@ -1048,13 +1050,13 @@ export default function ExteriorNavigationScreen() {
                 return "Calculating distance...";
               })()}
             </Text>
-            {eta !== null && eta > 0 && <Text style={styles.etaText}>ETA: {formatETA(eta)}</Text>}
+            {eta !== null && eta > 0 && <Text style={[styles.etaText, { color: colors.accent }]}>ETA: {formatETA(eta)}</Text>}
           </View>
-          {route && <Text style={styles.progressText}>{progress}% completed</Text>}
+          {route && <Text style={[styles.progressText, { color: colors.accent }]}>{progress}% completed</Text>}
         </View>
       ) : (
-        <View style={styles.instructionCard}>
-          <Text style={styles.instructionText}>
+        <View style={[styles.instructionCard, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
+          <Text style={[styles.instructionText, { color: colors.accent }]}>
             {destination
               ? `Ready to navigate${origin && origin.name !== "Current Location" ? ` from ${origin.name}` : ""} to ${destination.name || "destination"}. Tap Start to begin.`
               : "Set a destination to begin navigation."}
@@ -1062,15 +1064,15 @@ export default function ExteriorNavigationScreen() {
           {destination && (
             <>
               <View style={styles.navOriginIndicator}>
-                <MaterialIcons name={originMode === "custom" ? "place" : "my-location"} size={14} color={GOLD} />
-                <Text style={styles.navOriginText}>
+                <MaterialIcons name={originMode === "custom" ? "place" : "my-location"} size={14} color={colors.accent} />
+                <Text style={[styles.navOriginText, { color: colors.accent }]}>
                   Nav Origin: {originMode === "custom" && originCoords ? `Planned (${origin?.name || "Custom"})` : "Live GPS"}
                 </Text>
               </View>
               {origin && origin.name !== "Current Location" && (
-                <Text style={styles.destinationInfo}>From: {origin.name || `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}</Text>
+                <Text style={[styles.destinationInfo, { color: colors.textMuted }]}>From: {origin.name || `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}</Text>
               )}
-              <Text style={styles.destinationInfo}>To: {destination.name || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}</Text>
+              <Text style={[styles.destinationInfo, { color: colors.textMuted }]}>To: {destination.name || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}</Text>
             </>
           )}
         </View>
@@ -1081,17 +1083,17 @@ export default function ExteriorNavigationScreen() {
         {!isNavigating ? (
           <>
             <Pressable
-              style={[styles.controlBtn, styles.destinationBtn]}
+              style={[styles.controlBtn, styles.destinationBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "80" }]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setShowDestinationModal(true);
               }}
             >
-              <MaterialIcons name="place" size={24} color={GOLD} />
-              <Text style={styles.destinationBtnText}>DESTINATION</Text>
+              <MaterialIcons name="place" size={24} color={colors.accent} />
+              <Text style={[styles.destinationBtnText, { color: colors.accent }]}>DESTINATION</Text>
             </Pressable>
             <Pressable
-              style={[styles.controlBtn, styles.startBtn]}
+              style={[styles.controlBtn, styles.startBtn, { backgroundColor: colors.accent, shadowColor: colors.accent }]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 startNavigation();
@@ -1099,18 +1101,18 @@ export default function ExteriorNavigationScreen() {
               disabled={isLoadingRoute || !destination}
             >
               {isLoadingRoute ? (
-                <Text style={styles.startBtnText}>Loading...</Text>
+                <Text style={[styles.startBtnText, { color: colors.accentText }]}>Loading...</Text>
               ) : (
                 <>
-                  <MaterialIcons name="play-arrow" size={32} color="#1B263B" />
-                  <Text style={styles.startBtnText}>START</Text>
+                  <MaterialIcons name="play-arrow" size={32} color={colors.accentText} />
+                  <Text style={[styles.startBtnText, { color: colors.accentText }]}>START</Text>
                 </>
               )}
             </Pressable>
           </>
         ) : (
           <Pressable
-            style={[styles.controlBtn, styles.stopBtn]}
+            style={[styles.controlBtn, styles.stopBtn, { borderColor: colors.accent, shadowColor: colors.accent }]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               Alert.alert(
@@ -1123,8 +1125,8 @@ export default function ExteriorNavigationScreen() {
               );
             }}
           >
-            <MaterialIcons name="stop" size={32} color={GOLD} />
-            <Text style={styles.stopBtnText}>STOP</Text>
+            <MaterialIcons name="stop" size={32} color={colors.accent} />
+            <Text style={[styles.stopBtnText, { color: colors.accent }]}>STOP</Text>
           </Pressable>
         )}
       </View>
@@ -1132,8 +1134,11 @@ export default function ExteriorNavigationScreen() {
   );
 }
 
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
+
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: "#1B263B" },
+  wrap: { flex: 1 },
 
   header: {
     position: "relative",
@@ -1144,7 +1149,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 8,
     borderBottomWidth: 2,
-    borderBottomColor: GOLD,
   },
   backBtnFloating: {
     position: "absolute",
@@ -1153,26 +1157,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(27,38,59,0.65)",
     borderWidth: 1.5,
-    borderColor: GOLD,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
   },
   headerTitle: {
-    color: GOLD,
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "800",
     flex: 1,
     paddingLeft: 52,
   },
   headerEditBtn: {
     position: "absolute", right: 14, top: 14,
-    width: 40, height: 40, borderRadius: 12,
+    width: 40, height: 40, borderRadius: Radius.md,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#10233d", borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.45)",
+    borderWidth: 1.5,
   },
   headerDestinationBtn: { padding: 8 },
 
@@ -1182,27 +1182,24 @@ const styles = StyleSheet.create({
     margin: 12,
     borderRadius: 10,
     overflow: "hidden",
-    backgroundColor: "#1B263B",
   },
 
   instructionCard: {
-    backgroundColor: "#242424",
     marginHorizontal: 16,
     marginVertical: 12,
     padding: 16,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: GOLD,
   },
-  instructionText: { color: GOLD, fontSize: 18, fontWeight: "700", marginBottom: 8 },
+  instructionText: { fontSize: Typography.size.md, fontWeight: "700", marginBottom: 8 },
   statsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  distanceText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  etaText: { color: GOLD, fontSize: 16, fontWeight: "600" },
-  progressText: { color: GOLD, fontSize: 14, fontWeight: "600", marginTop: 8 },
-  roadNameText: { color: "#fff", fontSize: 14, fontWeight: "500", marginTop: 4, fontStyle: "italic" },
-  destinationInfo: { color: "#aaa", fontSize: 12, marginTop: 4 },
+  distanceText: { fontSize: Typography.size.base, fontWeight: "600" },
+  etaText: { fontSize: Typography.size.base, fontWeight: "600" },
+  progressText: { fontSize: Typography.size.sm, fontWeight: "600", marginTop: 8 },
+  roadNameText: { fontSize: Typography.size.sm, fontWeight: "500", marginTop: 4, fontStyle: "italic" },
+  destinationInfo: { fontSize: Typography.size.xs, marginTop: 4 },
   navOriginIndicator: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginBottom: 4 },
-  navOriginText: { color: GOLD, fontSize: 12, fontWeight: "600", fontStyle: "italic" },
+  navOriginText: { fontSize: Typography.size.xs, fontWeight: "600", fontStyle: "italic" },
 
   controlBar: {
     paddingHorizontal: 16,
@@ -1216,15 +1213,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 18,
-    borderRadius: 50,
+    borderRadius: Radius.pill,
     gap: 8,
     flex: 1
   },
 
   startBtn: {
-    backgroundColor: GOLD,
     flex: 2,
-    shadowColor: GOLD,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 16,
@@ -1232,16 +1227,13 @@ const styles = StyleSheet.create({
   },
 
   startBtnText: {
-    color: "#1B263B",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900"
   },
 
   stopBtn: {
     backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: GOLD,
-    shadowColor: GOLD,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -1249,20 +1241,16 @@ const styles = StyleSheet.create({
   },
 
   stopBtnText: {
-    color: GOLD,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900"
   },
 
   destinationBtn: {
-    backgroundColor: "#0f1e2e",
     borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.5)",
   },
 
   destinationBtnText: {
-    color: GOLD,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "800"
   },
 
@@ -1274,15 +1262,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: "#0f1e2e",
     borderRadius: 28,
     width: "88%",
     maxWidth: 420,
     maxHeight: "90%",
     borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.5)",
     overflow: "hidden",
-    shadowColor: GOLD,
     shadowOpacity: 0.2,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
@@ -1298,14 +1283,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   modalTitle: {
-    color: GOLD,
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "900",
     letterSpacing: 0.5,
   },
   modalDivider: {
     height: 1,
-    backgroundColor: "rgba(249,178,51,0.2)",
     marginHorizontal: 0,
   },
   modalScrollView: { maxHeight: 460 },
@@ -1315,8 +1298,7 @@ const styles = StyleSheet.create({
   inputGroupWithSuggestions: { marginBottom: 160 },
 
   inputLabel: {
-    color: "#9bb0cc",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "700",
     letterSpacing: 0.8,
     textTransform: "uppercase",
@@ -1325,13 +1307,10 @@ const styles = StyleSheet.create({
   inputWithMic: { flexDirection: "row", alignItems: "center", gap: 10 },
   inputContainer: { position: "relative", flex: 1 },
   input: {
-    backgroundColor: "#162233",
     borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.35)",
     borderRadius: 14,
     paddingVertical: 13,
     paddingHorizontal: 16,
-    color: "#e8eef6",
     fontSize: 15,
     fontWeight: "600",
   },
@@ -1342,16 +1321,13 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.45)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#162233",
   },
-  iconButtonActive: { backgroundColor: GOLD },
 
-  hintText: { color: "#5a7a99", fontSize: 11, marginTop: 6, fontWeight: "500" },
+  hintText: { fontSize: 11, marginTop: 6, fontWeight: "500" },
   listeningHint: {
-    color: GOLD, fontSize: 12, marginTop: 6,
+    fontSize: Typography.size.xs, marginTop: 6,
     fontStyle: "italic", fontWeight: "600",
   },
 
@@ -1365,14 +1341,11 @@ const styles = StyleSheet.create({
   connectorLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(249,178,51,0.2)",
   },
 
   suggestionsContainer: {
     position: "absolute", top: "100%", left: 0, right: 0,
-    backgroundColor: "#0f1e2e",
     borderRadius: 14, borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.4)",
     marginTop: 6, maxHeight: 150,
     zIndex: 9999, elevation: 10,
     shadowColor: "#000",
@@ -1384,24 +1357,23 @@ const styles = StyleSheet.create({
   suggestionItem: {
     flexDirection: "row", alignItems: "center",
     padding: 12, borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)", gap: 12,
+    gap: 12,
   },
   suggestionTextContainer: { flex: 1 },
-  suggestionName: { color: "#e8eef6", fontSize: 14, fontWeight: "600", marginBottom: 2 },
-  suggestionAddress: { color: "#6b7f99", fontSize: 12 },
+  suggestionName: { fontSize: Typography.size.sm, fontWeight: "600", marginBottom: 2 },
+  suggestionAddress: { fontSize: Typography.size.xs },
 
   previewContainer: {
-    backgroundColor: "#162233",
     padding: 14, borderRadius: 14,
     marginTop: 4, marginBottom: 8,
-    borderWidth: 1, borderColor: "rgba(249,178,51,0.25)",
+    borderWidth: 1,
     gap: 8,
   },
   previewRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  previewText: { color: "#e8eef6", fontSize: 13, fontWeight: "600", flex: 1 },
-  previewModeText: { color: "#6b7f99", fontSize: 12, fontStyle: "italic" },
+  previewText: { fontSize: 13, fontWeight: "600", flex: 1 },
+  previewModeText: { fontSize: Typography.size.xs, fontStyle: "italic" },
 
-  errorText: { color: "#ff6b6b", fontSize: 12, marginTop: 4, fontWeight: "600" },
+  errorText: { fontSize: Typography.size.xs, marginTop: 4, fontWeight: "600" },
 
   modalButtons: {
     flexDirection: "row",
@@ -1415,11 +1387,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#162233",
     borderWidth: 1.5,
-    borderColor: "rgba(249,178,51,0.3)",
   },
-  cancelButtonText: { color: "#9bb0cc", fontSize: 15, fontWeight: "700" },
+  cancelButtonText: { fontSize: 15, fontWeight: "700" },
   confirmButton: {
     flex: 2,
     flexDirection: "row",
@@ -1427,22 +1397,20 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: GOLD,
     gap: 8,
-    shadowColor: GOLD,
     shadowOpacity: 0.4,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
   confirmButtonDisabled: { opacity: 0.5 },
-  confirmButtonText: { color: "#1B263B", fontSize: 15, fontWeight: "900" },
+  confirmButtonText: { fontSize: 15, fontWeight: "900" },
 
   micButton: {
     width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2, borderColor: GOLD,
+    borderWidth: 2,
     alignItems: "center", justifyContent: "center",
     backgroundColor: "transparent",
   },
-  micButtonActive: { backgroundColor: GOLD },
+  micButtonActive: {},
 });

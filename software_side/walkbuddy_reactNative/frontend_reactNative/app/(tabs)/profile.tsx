@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
@@ -24,6 +24,8 @@ import Constants from "expo-constants";
 import HomeHeader from "../HomeHeader";
 import { useSession } from "../../src/context/SessionContext";
 import { API_BASE } from "@/src/config";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -40,19 +42,9 @@ const EXPO_REDIRECT_URI = "walkbuddy://auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-const tokens = {
-  bg: "#0D1B2A",
-  card: "#0d1f32",
-  text: "#e8eef6",
-  muted: "#6b7f99",
-  gold: "#FCA311",
-  divider: "rgba(252,163,17,0.35)",
-  inputBg: "#0a121a",
-  error: "#FF6B6B",
-};
-
 function CardTitle({ children }: { children: string }) {
-  return <Text style={styles.sectionTitle}>{children}</Text>;
+  const colors = useThemeColors();
+  return <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>{children}</Text>;
 }
 
 function PrimaryButton({
@@ -64,18 +56,24 @@ function PrimaryButton({
   onPress: () => void;
   loading?: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
       disabled={loading}
-      style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed, loading && styles.disabledBtn]}
+      style={({ pressed }) => [
+        styles.primaryBtn,
+        { backgroundColor: colors.accent, shadowColor: colors.accent },
+        pressed && styles.pressed,
+        loading && styles.disabledBtn,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
       {loading ? (
-        <ActivityIndicator size="small" color="#111" />
+        <ActivityIndicator size="small" color={colors.accentText} />
       ) : (
-        <Text style={styles.primaryBtnText}>{label}</Text>
+        <Text style={[styles.primaryBtnText, { color: colors.accentText }]}>{label}</Text>
       )}
     </Pressable>
   );
@@ -88,14 +86,19 @@ function SecondaryButton({
   label: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.secondaryBtn,
+        { borderColor: colors.accent + "66" },
+        pressed && styles.pressed,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Text style={styles.secondaryBtnText}>{label}</Text>
+      <Text style={[styles.secondaryBtnText, { color: colors.textMuted }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -107,12 +110,13 @@ function RowLink({
   onPress,
   destructive,
 }: {
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   sublabel?: string;
   onPress: () => void;
   destructive?: boolean;
 }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -121,15 +125,15 @@ function RowLink({
       accessibilityLabel={label}
     >
       <View style={styles.rowLeft}>
-        <View style={styles.rowIconWrap}>
-          <Icon name={icon} size={18} color={destructive ? tokens.error : tokens.gold} />
+        <View style={[styles.rowIconWrap, { backgroundColor: colors.accent + "1F", borderColor: colors.accent + "40" }]}>
+          <Ionicons name={icon} size={18} color={destructive ? colors.danger : colors.accent} />
         </View>
         <View style={styles.rowTextWrap}>
-          <Text style={[styles.rowLabel, destructive && { color: tokens.error }]}>{label}</Text>
-          {!!sublabel && <Text style={styles.rowSublabel}>{sublabel}</Text>}
+          <Text style={[styles.rowLabel, { color: colors.text }, destructive && { color: colors.danger }]}>{label}</Text>
+          {!!sublabel && <Text style={[styles.rowSublabel, { color: colors.textMuted }]}>{sublabel}</Text>}
         </View>
       </View>
-      <Icon name="chevron-right" size={14} color={tokens.muted} />
+      <Ionicons name="chevron-forward-outline" size={14} color={colors.textMuted} />
     </Pressable>
   );
 }
@@ -140,6 +144,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { auth, setAuth } = useSession();
+  const colors = useThemeColors();
 
   const contentWidth = useMemo(() => {
     const padding = 24;
@@ -392,16 +397,16 @@ export default function ProfilePage() {
   const renderAuth = () => (
     <>
       {/* Hero */}
-      <View style={styles.heroCard}>
+      <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.accent + "4D", shadowColor: colors.accent }]}>
         <View style={styles.heroAvatarWrap}>
-          <View style={styles.heroAvatar}>
-            <Icon name="user" size={32} color="#0D1B2A" />
+          <View style={[styles.heroAvatar, { backgroundColor: colors.accent }]}>
+            <Ionicons name="person-outline" size={32} color={colors.accentText} />
           </View>
-          <View style={styles.heroAvatarRing} />
+          <View style={[styles.heroAvatarRing, { borderColor: colors.accent + "4D" }]} />
         </View>
         <View style={styles.heroText}>
-          <Text style={styles.heroTitle}>Profile</Text>
-          <Text style={styles.heroSubtitle}>
+          <Text style={[styles.heroTitle, { color: colors.text }]}>Profile</Text>
+          <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
             {mode === "login"
               ? "Log in to your WalkBuddy helper account."
               : "Create a new WalkBuddy helper account."}
@@ -410,60 +415,60 @@ export default function ProfilePage() {
       </View>
 
       {/* Tab switcher */}
-      <View style={styles.tabRow}>
+      <View style={[styles.tabRow, { borderColor: colors.accent }]}>
         <Pressable
           onPress={() => { setMode("login"); setFieldError(""); }}
-          style={[styles.tab, mode === "login" && styles.tabActive]}
+          style={[styles.tab, mode === "login" && { backgroundColor: colors.accent }]}
         >
-          <Text style={[styles.tabText, mode === "login" && styles.tabTextActive]}>Log In</Text>
+          <Text style={[styles.tabText, { color: colors.textMuted }, mode === "login" && { color: colors.accentText }]}>Log In</Text>
         </Pressable>
         <Pressable
           onPress={() => { setMode("signup"); setFieldError(""); }}
-          style={[styles.tab, mode === "signup" && styles.tabActive]}
+          style={[styles.tab, mode === "signup" && { backgroundColor: colors.accent }]}
         >
-          <Text style={[styles.tabText, mode === "signup" && styles.tabTextActive]}>Sign Up</Text>
+          <Text style={[styles.tabText, { color: colors.textMuted }, mode === "signup" && { color: colors.accentText }]}>Sign Up</Text>
         </Pressable>
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.accent + "33" }]}>
         {mode === "signup" && (
           <>
-            <Text style={styles.inputLabel}>Full Name</Text>
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Full Name</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Your name"
-              placeholderTextColor="rgba(184,198,212,0.55)"
-              style={styles.input}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.accent + "4D" }]}
             />
             <View style={{ height: 12 }} />
           </>
         )}
 
-        <Text style={styles.inputLabel}>Email</Text>
+        <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Email</Text>
         <TextInput
           value={email}
           onChangeText={setEmail}
           placeholder="name@example.com"
-          placeholderTextColor="rgba(184,198,212,0.55)"
+          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           keyboardType="email-address"
-          style={styles.input}
+          style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.accent + "4D" }]}
         />
 
         <View style={{ height: 12 }} />
-        <Text style={styles.inputLabel}>Password</Text>
+        <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Password</Text>
         <TextInput
           value={password}
           onChangeText={setPassword}
           placeholder={mode === "signup" ? "At least 6 characters" : "Password"}
-          placeholderTextColor="rgba(184,198,212,0.55)"
+          placeholderTextColor={colors.textMuted}
           secureTextEntry
-          style={styles.input}
+          style={[styles.input, { color: colors.text, backgroundColor: colors.background, borderColor: colors.accent + "4D" }]}
         />
 
         {!!fieldError && (
-          <Text style={styles.errorText}>{fieldError}</Text>
+          <Text style={[styles.errorText, { color: colors.danger }]}>{fieldError}</Text>
         )}
 
         <View style={styles.btnRow}>
@@ -479,11 +484,11 @@ export default function ProfilePage() {
           onPress={() => { setMode(mode === "login" ? "signup" : "login"); setFieldError(""); }}
           style={styles.toggleLinkWrap}
         >
-          <Text style={styles.toggleLink}>
+          <Text style={[styles.toggleLink, { color: colors.textMuted }]}>
             {mode === "login"
               ? "Don't have an account? "
               : "Already have an account? "}
-            <Text style={styles.toggleLinkBold}>
+            <Text style={[styles.toggleLinkBold, { color: colors.accent }]}>
               {mode === "login" ? "Sign up here" : "Log in here"}
             </Text>
           </Text>
@@ -492,38 +497,40 @@ export default function ProfilePage() {
 
       {/* Social login */}
       <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>or continue with</Text>
-        <View style={styles.dividerLine} />
+        <View style={[styles.dividerLine, { backgroundColor: colors.accent + "4D" }]} />
+        <Text style={[styles.dividerText, { color: colors.textMuted }]}>or continue with</Text>
+        <View style={[styles.dividerLine, { backgroundColor: colors.accent + "4D" }]} />
       </View>
 
       {Constants.executionEnvironment === "storeClient" ? (
-        <View style={styles.socialNotice}>
-          <Icon name="info-circle" size={14} color={tokens.muted} />
-          <Text style={styles.socialNoticeText}>
+        <View style={[styles.socialNotice, { backgroundColor: colors.surface, borderColor: colors.accent + "4D" }]}>
+          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+          <Text style={[styles.socialNoticeText, { color: colors.textMuted }]}>
             Google & Microsoft sign-in require the full app build. Use email & password above in Expo Go.
           </Text>
         </View>
       ) : (
         <View style={styles.socialRow}>
           <Pressable
-            style={({ pressed }) => [styles.socialBtn, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.socialBtn, { borderColor: colors.accent, backgroundColor: colors.surface }, pressed && styles.pressed]}
             onPress={() => googlePromptAsync?.()}
             disabled={Platform.OS === "web" || !googleRequest || loading}
             accessibilityLabel="Continue with Google"
           >
-            <Icon name="google" size={18} color="#EA4335" />
-            <Text style={styles.socialBtnText}>Google</Text>
+            {/* Google's brand red is kept as-is — it's a third-party logo color, not part of the app palette */}
+            <Ionicons name="logo-google" size={18} color="#EA4335" />
+            <Text style={[styles.socialBtnText, { color: colors.text }]}>Google</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [styles.socialBtn, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.socialBtn, { borderColor: colors.accent, backgroundColor: colors.surface }, pressed && styles.pressed]}
             onPress={() => msPromptAsync()}
             disabled={!msRequest || loading}
             accessibilityLabel="Continue with Microsoft"
           >
-            <Icon name="windows" size={18} color="#00A4EF" />
-            <Text style={styles.socialBtnText}>Microsoft</Text>
+            {/* Microsoft's brand blue is kept as-is — it's a third-party logo color, not part of the app palette */}
+            <Ionicons name="logo-windows" size={18} color="#00A4EF" />
+            <Text style={[styles.socialBtnText, { color: colors.text }]}>Microsoft</Text>
           </Pressable>
         </View>
       )}
@@ -536,26 +543,26 @@ export default function ProfilePage() {
     return (
       <>
         {/* Profile hero */}
-        <View style={styles.profileHeroCard}>
-          <View style={styles.profileAvatarWrap}>
-            <Icon name="user" size={32} color="#0D1B2A" />
+        <View style={[styles.profileHeroCard, { backgroundColor: colors.surface, borderColor: colors.accent + "4D", shadowColor: colors.accent }]}>
+          <View style={[styles.profileAvatarWrap, { backgroundColor: colors.accent, borderColor: colors.accent, shadowColor: colors.accent }]}>
+            <Ionicons name="person-outline" size={32} color={colors.accentText} />
           </View>
-          <Text style={styles.profileName} numberOfLines={1}>
+          <Text style={[styles.profileName, { color: colors.text }]} numberOfLines={1}>
             {profile.displayName}
           </Text>
-          <Text style={styles.profileEmail} numberOfLines={1}>
+          <Text style={[styles.profileEmail, { color: colors.textMuted }]} numberOfLines={1}>
             {profile.email}
           </Text>
-          <View style={styles.profileBadge}>
-            <Icon name="check-circle" size={12} color="#0D1B2A" />
-            <Text style={styles.profileBadgeText}>Logged in</Text>
+          <View style={[styles.profileBadge, { backgroundColor: colors.accent }]}>
+            <Ionicons name="checkmark-circle" size={12} color={colors.accentText} />
+            <Text style={[styles.profileBadgeText, { color: colors.accentText }]}>Logged in</Text>
           </View>
         </View>
 
         <CardTitle>Navigation</CardTitle>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.accent + "33" }]}>
           <RowLink
-            icon="cog"
+            icon="settings-outline"
             label="Settings"
             sublabel="App preferences and voice settings"
             onPress={() => router.push("/settings" as any)}
@@ -563,16 +570,16 @@ export default function ProfilePage() {
         </View>
 
         <CardTitle>Account</CardTitle>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.accent + "33" }]}>
           <RowLink
-            icon="sign-out"
+            icon="log-out-outline"
             label="Log Out"
             sublabel="Clears your local session"
             onPress={handleLogout}
           />
-          <View style={styles.rowDivider} />
+          <View style={[styles.rowDivider, { backgroundColor: colors.accent + "59" }]} />
           <RowLink
-            icon="trash"
+            icon="trash-outline"
             label="Delete Account"
             sublabel="Permanently removes your account"
             onPress={handleDeleteAccount}
@@ -584,13 +591,13 @@ export default function ProfilePage() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
       <Pressable
         onPress={handleBack}
-        style={styles.backBtnFloating}
+        style={[styles.backBtnFloating, { backgroundColor: "rgba(27,38,59,0.65)", borderColor: colors.accent }]}
         accessibilityLabel="Go back"
       >
-        <Icon name="arrow-left" size={20} color={tokens.gold} />
+        <Ionicons name="arrow-back-outline" size={20} color={colors.accent} />
       </Pressable>
       <KeyboardAvoidingView
         style={styles.kb}
@@ -614,7 +621,6 @@ export default function ProfilePage() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
     position: "relative",
   },
@@ -625,20 +631,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingTop: 14,
   },
 
   backBtnFloating: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: Spacing.md,
+    left: Spacing.md,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(27,38,59,0.65)",
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
@@ -650,14 +654,11 @@ const styles = StyleSheet.create({
 
   // ─── Hero (logged out) ───
   heroCard: {
-    backgroundColor: tokens.card,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: "rgba(252,163,17,0.3)",
     padding: 28,
     alignItems: "center",
-    gap: 12,
-    shadowColor: tokens.gold,
+    gap: Spacing.md,
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 4 },
@@ -677,7 +678,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
@@ -689,21 +689,18 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     borderWidth: 2,
-    borderColor: "rgba(252,163,17,0.3)",
   },
 
   heroText: {
     flex: 1,
   },
   heroTitle: {
-    color: tokens.text,
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "900",
     textAlign: "center",
     letterSpacing: 0.3,
   },
   heroSubtitle: {
-    color: tokens.muted,
     fontSize: 13,
     textAlign: "center",
     lineHeight: 20,
@@ -713,8 +710,7 @@ const styles = StyleSheet.create({
   tabRow: {
     flexDirection: "row",
     borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     overflow: "hidden",
   },
   tab: {
@@ -723,28 +719,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "transparent",
   },
-  tabActive: {
-    backgroundColor: tokens.gold,
-  },
   tabText: {
-    color: tokens.muted,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "800",
-  },
-  tabTextActive: {
-    color: "#111",
   },
 
   // ─── Profile hero (logged in) ───
   profileHeroCard: {
-    backgroundColor: tokens.card,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: "rgba(252,163,17,0.3)",
     padding: 28,
     alignItems: "center",
-    gap: 8,
-    shadowColor: tokens.gold,
+    gap: Spacing.sm,
     shadowOpacity: 0.12,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 4 },
@@ -755,14 +741,11 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: tokens.gold,
     borderWidth: 3,
-    borderColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
     marginBottom: 4,
-    shadowColor: tokens.gold,
     shadowOpacity: 0.4,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 0 },
@@ -770,14 +753,12 @@ const styles = StyleSheet.create({
   },
 
   profileName: {
-    color: tokens.text,
     fontSize: 22,
     fontWeight: "900",
     textAlign: "center",
   },
 
   profileEmail: {
-    color: tokens.muted,
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
@@ -787,22 +768,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: tokens.gold,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     marginTop: 4,
   },
 
   profileBadgeText: {
-    color: "#0D1B2A",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "800",
   },
 
   // ─── Section title ───
   sectionTitle: {
-    color: tokens.muted,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.2,
@@ -811,54 +789,32 @@ const styles = StyleSheet.create({
 
   // ─── Card ───
   card: {
-    backgroundColor: tokens.card,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: "rgba(252,163,17,0.2)",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     gap: 4,
   },
 
   // ─── Input ───
   inputLabel: {
-    color: tokens.muted,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
     textTransform: "uppercase",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: tokens.inputBg,
-    borderWidth: 1.5,
-    borderColor: "rgba(252,163,17,0.3)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    gap: 10,
-  },
-
-  inputIcon: {
-    width: 18,
-  },
   input: {
     flex: 1,
-    color: tokens.text,
     fontSize: 15,
     fontWeight: "600",
-    backgroundColor: tokens.inputBg,
     borderWidth: 1.5,
-    borderColor: "rgba(252,163,17,0.3)",
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
   errorText: {
-    color: tokens.error,
     fontSize: 13,
     marginTop: 10,
     fontWeight: "600",
@@ -866,27 +822,24 @@ const styles = StyleSheet.create({
 
   // ─── Buttons ───
   btnRow: {
-    marginTop: 20,
+    marginTop: Spacing.xl,
     flexDirection: "row",
     gap: 10,
     alignItems: "center",
   },
   primaryBtn: {
     flex: 1,
-    backgroundColor: tokens.gold,
     borderRadius: 50,
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 46,
-    shadowColor: tokens.gold,
     shadowOpacity: 0.5,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 0 },
     elevation: 6,
   },
   primaryBtnText: {
-    color: "#0D1B2A",
     fontSize: 15,
     fontWeight: "900",
     letterSpacing: 0.4,
@@ -896,40 +849,18 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     borderWidth: 1.5,
-    borderColor: "rgba(252,163,17,0.4)",
     backgroundColor: "transparent",
     borderRadius: 50,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   secondaryBtnText: {
-    color: tokens.muted,
     fontSize: 15,
     fontWeight: "800",
   },
 
-  logoutBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: tokens.gold,
-    borderRadius: 50,
-    paddingVertical: 16,
-    shadowColor: tokens.gold,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-
-  logoutBtnText: {
-    color: "#0D1B2A",
-    fontSize: 15,
-    fontWeight: "900",
-  },
   pressed: {
     opacity: 0.85,
   },
@@ -938,109 +869,94 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   toggleLink: {
-    color: tokens.muted,
     fontSize: 13,
     textAlign: "center",
   },
   toggleLinkBold: {
-    color: tokens.gold,
     fontWeight: "800",
   },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
     paddingVertical: 4,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(252,163,17,0.3)",
   },
   dividerText: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "700",
     letterSpacing: 0.3,
   },
   socialRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: Spacing.md,
   },
   socialBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: Spacing.sm,
     borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 12,
-    paddingVertical: 12,
-    backgroundColor: tokens.card,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
   },
   socialBtnText: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "800",
   },
   socialNotice: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: tokens.card,
+    gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(252,163,17,0.3)",
     borderRadius: 10,
-    padding: 12,
+    padding: Spacing.md,
   },
   socialNoticeText: {
     flex: 1,
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     lineHeight: 18,
   },
 
   // ─── Row links ───
   row: {
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   rowDivider: {
     height: 1,
-    backgroundColor: tokens.divider,
     marginVertical: 4,
   },
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    paddingRight: 12,
+    paddingRight: Spacing.md,
   },
   rowIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 12,
-    backgroundColor: "rgba(252,163,17,0.12)",
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: "rgba(252,163,17,0.25)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: Spacing.md,
   },
   rowTextWrap: {
     flex: 1,
   },
   rowLabel: {
-    color: tokens.text,
     fontSize: 15,
     fontWeight: "800",
   },
   rowSublabel: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     marginTop: 2,
     lineHeight: 16,
   },

@@ -5,16 +5,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import HomeHeader from "./HomeHeader";
 import Footer from "./Footer";
-
-const tokens = {
-  bg: "#0D1B2A",
-  tile: "#111",
-  text: "#E0E1DD",
-  muted: "#b8c6d4",
-  gold: "#FCA311",
-};
+import { Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 export default function SettingsPage() {
+  const colors = useThemeColors();
   const { width } = useWindowDimensions();
 
   const contentWidth = useMemo(() => {
@@ -24,7 +19,7 @@ export default function SettingsPage() {
   }, [width]);
 
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
           title="Settings"
@@ -32,12 +27,12 @@ export default function SettingsPage() {
           showLocation={true}
         />
 
-        <View style={styles.card}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>
+        <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
+          <Text style={[styles.subtitle, { color: colors.text }]}>
             This screen is intentionally minimal.
           </Text>
-          <Text style={styles.note}>
+          <Text style={[styles.note, { color: colors.textMuted }]}>
             It exists to keep navigation stable while the real settings
             functionality is implemented.
           </Text>
@@ -49,46 +44,43 @@ export default function SettingsPage() {
   );
 }
 
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
   },
 
   content: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
   },
 
   card: {
-    marginTop: 12,
+    marginTop: Spacing.md,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
 
   title: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900",
     marginBottom: 6,
   },
 
   subtitle: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 
   note: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     lineHeight: 16,
   },
 });

@@ -5,15 +5,18 @@ import React, { useState } from "react";
 import {SafeAreaView,StyleSheet,Text,View,Pressable,ScrollView,Switch,} from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import HomeHeader from "./HomeHeader";
+import { Radius, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 export default function InteriorMapPage() {
+  const colors = useThemeColors();
   const [cameraViewEnabled, setCameraViewEnabled] = useState(false);
   const { targetedDestination } = useLocalSearchParams<{ targetedDestination?: string }>();
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -22,40 +25,40 @@ export default function InteriorMapPage() {
 
           <View style={styles.main}>
             <View style={styles.directionArrowContainer}>
-              <Text style={styles.directionArrow}>↑</Text>
+              <Text style={[styles.directionArrow, { color: colors.accent }]}>↑</Text>
             </View>
 
-            <Text style={styles.navigationInstructions}>
+            <Text style={[styles.navigationInstructions, { color: colors.text }]}>
               HAPTICS & VOICE{"\n"}INSTRUCTIONS
             </Text>
 
             {/* CAMERA CARD */}
-            <View style={styles.cameraCard}>
+            <View style={[styles.cameraCard, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
               <View style={styles.cameraHeader}>
-                <Text style={styles.cameraTitle}>CAMERA VIEW</Text>
+                <Text style={[styles.cameraTitle, { color: colors.textMuted }]}>CAMERA VIEW</Text>
 
                 <View style={styles.cameraToggleContainer}>
-                  <Text style={styles.toggleText}>
+                  <Text style={[styles.toggleText, { color: colors.textMuted }]}>
                     {cameraViewEnabled ? "On" : "Off"}
                   </Text>
                   <Switch
                     value={cameraViewEnabled}
                     onValueChange={setCameraViewEnabled}
-                    thumbColor={cameraViewEnabled ? GOLD : "#9aa3ad"}
-                    trackColor={{ false: "#233044", true: "#7a5600" }}
+                    thumbColor={cameraViewEnabled ? colors.accent : colors.textMuted}
+                    trackColor={{ false: colors.border, true: colors.surfaceElevated }}
                   />
                 </View>
               </View>
 
               {/* Camera View Area */}
               {cameraViewEnabled ? (
-                <View style={styles.cameraViewBox}/>
+                <View style={[styles.cameraViewBox, { borderColor: colors.accent + "66", backgroundColor: colors.surfaceElevated }]}/>
               ) : (
                 <Pressable
-                  style={styles.enableCameraViewButton}
+                  style={[styles.enableCameraViewButton, { borderColor: colors.accent + "66", backgroundColor: colors.surfaceElevated }]}
                   onPress={() => setCameraViewEnabled(true)}
                 >
-                  <Text style={styles.enableCameraViewButtonTitle}>
+                  <Text style={[styles.enableCameraViewButtonTitle, { color: colors.text }]}>
                     TURN CAMERA VIEW{"\n"}ON
                   </Text>
                 </Pressable>
@@ -68,26 +71,21 @@ export default function InteriorMapPage() {
   );
 }
 
-const BG = "#0D1B2A";
-const GOLD = "#FCA311";
-const CARD = "#0B1522";
-const TEXT = "#FFFFFF";
-const MUTED = "#BFC7D5";
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
 
 const styles = StyleSheet.create({
   safe:{
     flex: 1,
-    backgroundColor: BG
   },
 
   scroll:
   { flex: 1,
-    backgroundColor: BG
   },
 
-  scrollContent:{ 
-    paddingVertical: 10, 
-    alignItems: "center" 
+  scrollContent:{
+    paddingVertical: 10,
+    alignItems: "center"
   },
 
   centerColumn:{
@@ -102,14 +100,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  directionArrowContainer:{ 
-    marginTop: 25, 
-    alignItems: "center" 
+  directionArrowContainer:{
+    marginTop: 25,
+    alignItems: "center"
   },
 
   directionArrow:{
     fontSize: 120,
-    color: GOLD,
     fontWeight: "900",
     lineHeight: 125,
   },
@@ -117,8 +114,7 @@ const styles = StyleSheet.create({
   navigationInstructions:{
     marginTop: 10,
     textAlign: "center",
-    color: TEXT,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "800",
     letterSpacing: 0.6,
   },
@@ -126,9 +122,7 @@ const styles = StyleSheet.create({
   cameraCard:{
     marginTop: 22,
     width: "100%",
-    backgroundColor: CARD,
     borderWidth: 2,
-    borderColor: GOLD,
     borderRadius: 18,
     padding: 14,
   },
@@ -141,8 +135,7 @@ const styles = StyleSheet.create({
   },
 
   cameraTitle:{
-    color: MUTED,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "800",
     letterSpacing: 1,
   },
@@ -154,8 +147,7 @@ const styles = StyleSheet.create({
   },
 
   toggleText:{
-    color: MUTED,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "800",
   },
 
@@ -163,23 +155,18 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: "rgba(252,163,17,0.4)",
-    backgroundColor: "#070B12",
   },
 
   enableCameraViewButton:{
     height: 260,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: "rgba(252,163,17,0.4)",
-    backgroundColor: "#070B12",
     alignItems: "center",
     justifyContent: "center",
   },
 
   enableCameraViewButtonTitle:{
-    color: TEXT,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "800",
     textAlign: "center",
     letterSpacing: 0.8,

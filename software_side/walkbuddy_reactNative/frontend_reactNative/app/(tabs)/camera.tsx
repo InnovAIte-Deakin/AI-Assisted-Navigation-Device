@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -26,8 +26,9 @@ import {
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
 import { API_BASE, API_KEY } from "../../src/config";
+import { Radius, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
-const GOLD = "#f9b233";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const AUTO_SCAN_INTERVAL_MS = 5000;
@@ -77,10 +78,17 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 }
 
 export default function CameraAssistScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
+  // Home screen's "TEXT READER" / "VOICE ASSIST" tiles navigate here with
+  // ?mode=ocr / ?mode=voice. Both affordances (mic button, OCR button) are
+  // always visible on this screen; `mode` just decides whether to jump
+  // straight into an OCR capture on arrival instead of making the user tap.
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const tts = useMemo(() => getTTSService({ cooldownSeconds: 1.2 }), []);
   const [perm, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const autoOcrFiredRef = useRef(false);
 
   // ── STT ─────────────────────────────────────────────────────────────────
   const sttService = useMemo(() => getSTTService({ language: "en-US" }), []);
@@ -577,6 +585,18 @@ export default function CameraAssistScreen() {
     }
   }, [isOcrCapturing, tts, scheduleNextFrame, maybeSpeak]);
 
+  // Arrived via the home screen's "TEXT READER" tile (?mode=ocr) — fire a
+  // single OCR capture once the camera has had a moment to warm up, instead
+  // of requiring the user to tap the OCR button themselves.
+  useEffect(() => {
+    if (modeParam !== "ocr" || autoOcrFiredRef.current || !perm?.granted) return;
+    autoOcrFiredRef.current = true;
+    const id = setTimeout(() => {
+      captureOCR();
+    }, 900);
+    return () => clearTimeout(id);
+  }, [modeParam, perm?.granted, captureOCR]);
+
   // ── Voice / chat ────────────────────────────────────────────────────────
   const processQuery = useCallback(async (queryText: string) => {
     const q = queryText.trim();
@@ -754,26 +774,26 @@ export default function CameraAssistScreen() {
   }, [stopScanLoop, stopListeningHard]);
 
   // ── Permission gates ────────────────────────────────────────────────────
-  if (!perm) return <View style={{ flex: 1, backgroundColor: "#000" }} />;
+  if (!perm) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
   if (!perm.granted) {
     return (
-      <View style={styles.centerDark}>
+      <View style={[styles.centerDark, { backgroundColor: colors.background }]}>
         <Pressable
           onPress={() => {
             const canGoBack = (router as any)?.canGoBack?.() ?? false;
             if (canGoBack) router.back();
             else router.replace("/" as any);
           }}
-          style={styles.backBtn}
+          style={[styles.backBtn, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
           accessibilityLabel="Go back"
         >
-          <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+          <MaterialIcons name="arrow-back" size={24} color={colors.accent} />
         </Pressable>
-        <Text style={{ color: "#fff", marginBottom: 12 }}>
+        <Text style={{ color: colors.text, marginBottom: 12 }}>
           Camera access is required.
         </Text>
-        <Pressable style={styles.primaryBtn} onPress={requestPermission}>
-          <Text style={styles.primaryBtnText}>Grant Permission</Text>
+        <Pressable style={[styles.primaryBtn, { backgroundColor: colors.accent }]} onPress={requestPermission}>
+          <Text style={[styles.primaryBtnText, { color: colors.accentText }]}>Grant Permission</Text>
         </Pressable>
       </View>
     );
@@ -794,10 +814,10 @@ export default function CameraAssistScreen() {
           if (canGoBack) router.back();
           else router.replace("/" as any);
         }}
-        style={styles.backBtn}
+        style={[styles.backBtn, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
         accessibilityLabel="Go back"
       >
-        <MaterialIcons name="arrow-back" size={24} color={GOLD} />
+        <MaterialIcons name="arrow-back" size={24} color={colors.accent} />
       </Pressable>
 
       {/* Full-screen camera */}
@@ -821,10 +841,10 @@ export default function CameraAssistScreen() {
           return (
             <View
               key={`${idx}-${d.category}`}
-              style={[styles.box, { left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
+              style={[styles.box, { borderColor: colors.accent, left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
             >
               <Text
-                style={[styles.boxLabel, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
+                style={[styles.boxLabel, { color: colors.accentText, backgroundColor: colors.accent }, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
                 numberOfLines={1}
               >
                 {d.category} {Math.round(d.confidence * 100)}%
@@ -835,20 +855,20 @@ export default function CameraAssistScreen() {
       </View>
 
       {/* WS connection status dot (top-left) */}
-      <View style={[styles.statusDot, { backgroundColor: wsConnected ? "#4CAF50" : "#ff4444" }]} />
+      <View style={[styles.statusDot, { backgroundColor: wsConnected ? colors.success : colors.danger }]} />
 
       {/* OCR result overlay — tap to dismiss */}
       {!!ocrResult && (
-        <Pressable style={styles.ocrOverlay} onPress={() => setOcrResult("")}>
-          <Text style={styles.ocrText}>{ocrResult}</Text>
-          <Text style={styles.ocrDismiss}>Tap to dismiss</Text>
+        <Pressable style={[styles.ocrOverlay, { backgroundColor: colors.background + "ED", borderColor: colors.accent }]} onPress={() => setOcrResult("")}>
+          <Text style={[styles.ocrText, { color: colors.text }]}>{ocrResult}</Text>
+          <Text style={[styles.ocrDismiss, { color: colors.accent }]}>Tap to dismiss</Text>
         </Pressable>
       )}
 
       {/* Processing indicator */}
       {isVoiceProcessing && (
-        <View style={styles.processingBadge}>
-          <Text style={styles.processingText}>Processing…</Text>
+        <View style={[styles.processingBadge, { backgroundColor: colors.background + "D9" }]}>
+          <Text style={[styles.processingText, { color: colors.accent }]}>Processing…</Text>
         </View>
       )}
 
@@ -858,24 +878,32 @@ export default function CameraAssistScreen() {
           onPressIn={micStart}
           onPressOut={micStop}
           disabled={isVoiceProcessing}
-          style={[styles.floatingBtn, isListening && styles.floatingBtnActive]}
+          style={[
+            styles.floatingBtn,
+            { backgroundColor: colors.background + "D9", borderColor: colors.accent },
+            isListening && { backgroundColor: colors.accent },
+          ]}
         >
           <MaterialIcons
             name={isListening ? "mic" : "mic-none"}
             size={32}
-            color={isListening ? "#1B263B" : GOLD}
+            color={isListening ? colors.accentText : colors.accent}
           />
         </Pressable>
 
         <Pressable
           onPress={captureOCR}
           disabled={isOcrCapturing}
-          style={[styles.floatingBtn, isOcrCapturing && styles.floatingBtnActive]}
+          style={[
+            styles.floatingBtn,
+            { backgroundColor: colors.background + "D9", borderColor: colors.accent },
+            isOcrCapturing && { backgroundColor: colors.accent },
+          ]}
         >
           <MaterialIcons
             name="camera-alt"
             size={32}
-            color={isOcrCapturing ? "#1B263B" : GOLD}
+            color={isOcrCapturing ? colors.accentText : colors.accent}
           />
         </Pressable>
       </View>
@@ -883,10 +911,12 @@ export default function CameraAssistScreen() {
   );
 }
 
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#000",
   },
   backBtn: {
     position: "absolute",
@@ -894,10 +924,8 @@ const styles = StyleSheet.create({
     left: 12,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(27,38,59,0.65)",
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: GOLD,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
@@ -915,22 +943,18 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     top: "28%",
-    backgroundColor: "rgba(27,38,59,0.93)",
     borderWidth: 1.5,
-    borderColor: GOLD,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     padding: 20,
     alignItems: "center",
     marginBottom: 12,
   },
   ocrText: {
-    color: "#fff",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     lineHeight: 26,
     textAlign: "center",
   },
   ocrDismiss: {
-    color: GOLD,
     fontSize: 11,
     marginTop: 10,
     opacity: 0.8,
@@ -939,13 +963,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 52,
     alignSelf: "center",
-    backgroundColor: "rgba(27,38,59,0.85)",
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
   processingText: {
-    color: GOLD,
     fontWeight: "700",
     fontSize: 13,
   },
@@ -962,36 +984,30 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(27,38,59,0.85)",
     borderWidth: 2,
-    borderColor: GOLD,
     alignItems: "center",
     justifyContent: "center",
   },
-  floatingBtnActive: {
-    backgroundColor: GOLD,
-  },
+  floatingBtnActive: {},
   centerDark: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1B263B",
   },
 
   primaryBtn: {
-    backgroundColor: GOLD,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: Radius.md,
   },
 
   primaryBtnText: {
-    color: "#1B263B",
     fontWeight: "800",
   },
 
   box: {
-    position: "absolute", borderWidth: 2,
-    borderColor: GOLD, borderRadius: 8,
+    position: "absolute",
+    borderWidth: 2,
+    borderRadius: Radius.sm,
     backgroundColor: "rgba(0,0,0,0.15)",
   },
 
@@ -1000,8 +1016,6 @@ const styles = StyleSheet.create({
     left: 0,
     top: -18,
     fontSize: 11,
-    color: "#1B263B",
-    backgroundColor: GOLD,
     fontWeight: "800",
     paddingHorizontal: 2,
   },

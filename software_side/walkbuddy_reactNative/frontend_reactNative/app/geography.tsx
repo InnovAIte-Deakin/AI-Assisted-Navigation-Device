@@ -13,13 +13,12 @@ import {
   View,
 } from "react-native";
 import { addFavourite } from "../src/utils/favourites";
-
-const GOLD = "#f9b233";
-const DARK = "#1B263B";
-const CARD = "#242424";
+import { Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 export default function SectionScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{
     title?: string;
     distance?: string;
@@ -67,19 +66,19 @@ export default function SectionScreen() {
   }, [title, distance, clock, showToast]);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.accent }]}>
         <Pressable onPress={onBack} hitSlop={12}>
-          <MaterialIcons name="arrow-back" size={26} color={GOLD} />
+          <MaterialIcons name="arrow-back" size={26} color={colors.accent} />
         </Pressable>
-        <Text style={styles.headerTitle}>{title.toUpperCase()}</Text>
+        <Text style={[styles.headerTitle, { color: colors.accent }]}>{title.toUpperCase()}</Text>
       </View>
 
       {/* Hero */}
-      <View style={styles.hero}>
-        <Text style={styles.sectionTitle}>{title} Section</Text>
-        <Text style={styles.distance}>
+      <View style={[styles.hero, { borderBottomColor: colors.accent }]}>
+        <Text style={[styles.sectionTitle, { color: colors.accent }]}>{title} Section</Text>
+        <Text style={[styles.distance, { color: colors.accent }]}>
           {distance}, {clock}
         </Text>
       </View>
@@ -87,45 +86,45 @@ export default function SectionScreen() {
       {/* Actions list */}
       <View style={styles.list}>
         <Row
-          icon={<FontAwesome5 name="location-arrow" size={20} color={GOLD} />}
+          icon={<FontAwesome5 name="location-arrow" size={20} color={colors.accent} />}
           label="Go there"
           onPress={onGoThere}
         />
         <Row
-          icon={<MaterialIcons name="add-circle-outline" size={24} color={GOLD} />}
+          icon={<MaterialIcons name="add-circle-outline" size={24} color={colors.accent} />}
           label="Save Location"
           onPress={onSave}
         />
         <Row
-          icon={<MaterialIcons name="share" size={22} color={GOLD} />}
+          icon={<MaterialIcons name="share" size={22} color={colors.accent} />}
           label="Share Location"
           onPress={onShare}
         />
         <Row
-          icon={<MaterialIcons name="photo-camera" size={22} color={GOLD} />}
+          icon={<MaterialIcons name="photo-camera" size={22} color={colors.accent} />}
           label="Switch to Camera"
           onPress={onCamera}
         />
         <Row
-          icon={<MaterialIcons name="star-border" size={24} color={GOLD} />}
+          icon={<MaterialIcons name="star-border" size={24} color={colors.accent} />}
           label="Add to Fav"
           onPress={onFav}
         />
       </View>
 
       {/* Bottom bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { borderTopColor: colors.accent }]}>
         <Pressable style={styles.bottomCell} onPress={() => router.push("/(tabs)")}>
-          <MaterialIcons name="home-filled" size={28} color={GOLD} />
+          <MaterialIcons name="home-filled" size={28} color={colors.accent} />
         </Pressable>
         <Pressable
-          style={[styles.bottomCell, styles.bottomDivider]}
+          style={[styles.bottomCell, styles.bottomDivider, { borderColor: colors.accent }]}
           onPress={onCamera}
         >
-          <MaterialIcons name="photo-camera" size={28} color={GOLD} />
+          <MaterialIcons name="photo-camera" size={28} color={colors.accent} />
         </Pressable>
         <Pressable style={styles.bottomCell} onPress={() => router.push("/account")}>
-          <MaterialIcons name="account-circle" size={28} color={GOLD} />
+          <MaterialIcons name="account-circle" size={28} color={colors.accent} />
         </Pressable>
       </View>
 
@@ -145,11 +144,15 @@ function Row({
   label: string;
   onPress: () => void;
 }) {
+  const colors = useThemeColors();
   return (
     <View style={styles.row}>
       <View style={styles.rowIcon}>{icon}</View>
-      <Pressable style={styles.rowBtn} onPress={onPress}>
-        <Text style={styles.rowBtnText}>{label}</Text>
+      <Pressable
+        style={[styles.rowBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={onPress}
+      >
+        <Text style={[styles.rowBtnText, { color: colors.accent }]}>{label}</Text>
       </Pressable>
     </View>
   );
@@ -157,6 +160,7 @@ function Row({
 
 /** Toast */
 function InfoToast({ header, message }: { header: string; message: string }) {
+  const colors = useThemeColors();
   const opacity = useRef(new Animated.Value(0)).current;
   const translate = useRef(new Animated.Value(10)).current;
 
@@ -201,15 +205,15 @@ function InfoToast({ header, message }: { header: string; message: string }) {
       pointerEvents="none"
       style={[styles.toastWrap, { opacity, transform: [{ translateY: translate }] }]}
     >
-      <Text style={styles.toastTitle}>{header}</Text>
+      <Text style={[styles.toastTitle, { color: colors.textMuted }]}>{header}</Text>
 
-      <View style={styles.toastCard}>
-        <MaterialIcons name="notifications-none" size={20} color={GOLD} />
+      <View style={[styles.toastCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent }]}>
+        <MaterialIcons name="notifications-none" size={20} color={colors.accent} />
         <View style={{ flex: 1 }} />
-        <MaterialIcons name="check" size={20} color={GOLD} />
+        <MaterialIcons name="check" size={20} color={colors.accent} />
 
         <View style={{ position: "absolute", left: 14, bottom: 10 }}>
-          <Text style={styles.toastText}>{message}</Text>
+          <Text style={[styles.toastText, { color: colors.accent }]}>{message}</Text>
         </View>
       </View>
     </Animated.View>
@@ -217,7 +221,7 @@ function InfoToast({ header, message }: { header: string; message: string }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: DARK },
+  wrap: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -226,10 +230,8 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 10,
     borderBottomWidth: 2,
-    borderBottomColor: GOLD,
   },
   headerTitle: {
-    color: GOLD,
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: 1,
@@ -238,46 +240,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 2,
-    borderBottomColor: GOLD,
   },
-  sectionTitle: { color: GOLD, fontSize: 26, fontWeight: "900", marginBottom: 8 },
-  distance: { color: GOLD, fontSize: 22, fontWeight: "800" },
+  sectionTitle: { fontSize: 26, fontWeight: "900", marginBottom: 8 },
+  distance: { fontSize: 22, fontWeight: "800" },
   list: { padding: 16, gap: 14 },
   row: { flexDirection: "row", alignItems: "center", gap: 14 },
   rowIcon: { width: 42, alignItems: "center" },
   rowBtn: {
     flex: 1,
-    backgroundColor: CARD,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#383838",
   },
-  rowBtnText: { color: GOLD, fontWeight: "800", fontSize: 16 },
+  rowBtnText: { fontWeight: "800", fontSize: Typography.size.base },
   bottomBar: {
     flexDirection: "row",
     borderTopWidth: 2,
-    borderTopColor: GOLD,
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 24,
     justifyContent: "space-between",
   },
   bottomCell: { flex: 1, alignItems: "center" },
-  bottomDivider: { borderLeftWidth: 2, borderRightWidth: 2, borderColor: GOLD },
+  bottomDivider: { borderLeftWidth: 2, borderRightWidth: 2 },
   toastWrap: { position: "absolute", right: 16, bottom: 24 },
-  toastTitle: { color: "#bdbdbd", fontSize: 12, marginLeft: 6, marginBottom: 6 },
+  toastTitle: { fontSize: Typography.size.xs, marginLeft: 6, marginBottom: 6 },
   toastCard: {
     width: 210,
     minHeight: 110,
-    backgroundColor: "#0a0a0a",
     borderWidth: 1,
-    borderColor: GOLD,
     borderRadius: 6,
     padding: 12,
     flexDirection: "row",
     alignItems: "flex-start",
   },
-  toastText: { color: GOLD, fontWeight: "700", lineHeight: 16 },
+  toastText: { fontWeight: "700", lineHeight: 16 },
 });

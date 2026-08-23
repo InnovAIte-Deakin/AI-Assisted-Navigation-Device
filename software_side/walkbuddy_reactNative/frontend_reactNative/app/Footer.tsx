@@ -1,21 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, Animated, Easing } from "react-native";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useSegments } from "expo-router";
 
-const TABS = [
-  { icon: "home", route: "index" },
-  { icon: "camera", route: "camera" },
-  { icon: "building", route: "indoor" },
-  { icon: "road", route: "exterior" },
-  { icon: "book", route: "audiobooks" },
-  { icon: "question-circle", route: "ask-a-friend-web" },
-  { icon: "map", route: "places" },
+import { Radius, Spacing } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+
+// Trimmed from 7 to 5 icons — the core "get guided somewhere" + "see/hear
+// my surroundings" actions. Ask a Friend, Places, and Favourites moved to
+// the home screen's quick-actions grid instead of living in the tab bar.
+const TABS: { icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
+  { icon: "home-outline", route: "index" },
+  { icon: "camera-outline", route: "camera" },
+  { icon: "business-outline", route: "indoor" },
+  { icon: "walk-outline", route: "exterior" },
+  { icon: "book-outline", route: "audiobooks" },
 ];
 
 const BAR_SIDE_PADDING = 8;
 
 export default function Footer({ navigation }: any) {
+  const colors = useThemeColors();
   const segments = useSegments();
   const [barWidth, setBarWidth] = useState(0);
 
@@ -65,9 +70,9 @@ export default function Footer({ navigation }: any) {
   const isActive = (routeName: string) => currentRoute === routeName;
 
   return (
-    <View style={styles.footWrap}>
+    <View style={[styles.footWrap, { backgroundColor: colors.background }]}>
       <View
-        style={styles.bottomBar}
+        style={[styles.bottomBar, { backgroundColor: colors.background, borderColor: colors.accent }]}
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       >
         {barWidth > 0 && (
@@ -78,6 +83,9 @@ export default function Footer({ navigation }: any) {
               {
                 width: pillWidth,
                 transform: [{ translateX }],
+                backgroundColor: "rgba(45, 212, 191, 0.18)",
+                borderColor: "rgba(45, 212, 191, 0.55)",
+                shadowColor: colors.accent,
               },
             ]}
           />
@@ -92,10 +100,10 @@ export default function Footer({ navigation }: any) {
             ]}
             onPress={() => navigation.navigate(tab.route)}
           >
-            <Icon
+            <Ionicons
               name={tab.icon}
               size={26}
-              color={isActive(tab.route) ? "#FFFFFF" : "#FCA311"}
+              color={isActive(tab.route) ? colors.text : colors.accent}
             />
           </Pressable>
         ))}
@@ -107,8 +115,7 @@ export default function Footer({ navigation }: any) {
 const styles = StyleSheet.create({
   footWrap: {
     width: "100%",
-    paddingHorizontal: 14,
-    backgroundColor: "#0D1B2A",
+    paddingHorizontal: Spacing.lg,
   },
 
   bottomBar: {
@@ -116,13 +123,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: "#0D1B2A",
-    borderColor: "#FCA311",
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     borderWidth: 2,
-    paddingVertical: 14,
+    paddingVertical: Spacing.lg,
     paddingHorizontal: BAR_SIDE_PADDING,
-    marginVertical: 20,
+    marginVertical: Spacing.xxl,
     overflow: "hidden",
   },
 
@@ -131,7 +136,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
   },
 
   activePill: {
@@ -139,13 +144,10 @@ const styles = StyleSheet.create({
     left: 0,
     top: 3,
     bottom: 3,
-    borderRadius: 999,
-    backgroundColor: "rgba(252, 163, 17, 0.18)",
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: "rgba(252, 163, 17, 0.55)",
 
     // stronger soft glow
-    shadowColor: "#FCA311",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.65,
     shadowRadius: 12,

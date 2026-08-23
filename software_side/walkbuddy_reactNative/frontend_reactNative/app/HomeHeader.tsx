@@ -1,8 +1,10 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Switch } from "react-native";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
 import { useCurrentLocation } from "../src/utils/locationSaver";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 type Props = {
   greeting?: string;
@@ -46,6 +48,7 @@ export default function HomeHeader({
   showLocation = true,
   locationValue = "",
 }: Props) {
+  const colors = useThemeColors();
   const router = useRouter();
   const segments = useSegments();
 
@@ -135,11 +138,11 @@ export default function HomeHeader({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.headerRow}>
-        <Text style={styles.greeting} numberOfLines={1}>
+      <View style={[styles.headerRow, { backgroundColor: colors.surface }]}>
+        <Text style={[styles.greeting, { color: colors.text }]} numberOfLines={1}>
           {derived.leftText}
         </Text>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
           {appTitle}
         </Text>
         <Pressable
@@ -147,19 +150,19 @@ export default function HomeHeader({
           hitSlop={10}
           style={styles.profileBtn}
         >
-          <Icon name="user-circle" size={34} color={tokens.gold} />
+          <Ionicons name="person-circle-outline" size={34} color={colors.accent} />
         </Pressable>
       </View>
 
-      {showDivider && <View style={styles.topDivider} />}
+      {showDivider && <View style={[styles.topDivider, { borderBottomColor: colors.accent }]} />}
 
       {showLocation && (
         <View style={styles.locationWrap}>
-          <Text style={styles.locationLabel}>{derived.label}</Text>
+          <Text style={[styles.locationLabel, { color: colors.textMuted }]}>{derived.label}</Text>
           <Pressable onPress={handleLocationPress}>
-            <View style={styles.locationCard}>
-              <Icon name="map-marker" size={16} color={tokens.gold} style={styles.locationIcon} />
-              <Text style={styles.locationValue} numberOfLines={1}>
+            <View style={[styles.locationCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <Ionicons name="location-outline" size={16} color={colors.accent} style={styles.locationIcon} />
+              <Text style={[styles.locationValue, { color: colors.text }]} numberOfLines={1}>
                 {derived.value || "Current location"}
               </Text>
               <Switch
@@ -169,8 +172,8 @@ export default function HomeHeader({
                   if (!derived.hasDestination) return;
                   setPreferDestinationView(v);
                 }}
-                trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                thumbColor={derived.switchValue ? tokens.gold : "#9aa8b6"}
+                trackColor={{ false: colors.border, true: colors.surfaceElevated }}
+                thumbColor={derived.switchValue ? colors.accent : colors.textMuted}
               />
             </View>
           </Pressable>
@@ -180,33 +183,22 @@ export default function HomeHeader({
   );
 }
 
-const tokens = {
-  bg: "#071a2a",
-  tile: "#0b0f14",
-  text: "#e8eef6",
-  muted: "#b8c6d4",
-  gold: "#f2a900",
-  divider: "#f2a900",
-};
-
 const styles = StyleSheet.create({
   wrap: {
     width: "100%",
-    paddingTop: 12,
-    paddingBottom: 6,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
   },
 
   headerRow: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 10,
+    marginBottom: Spacing.xl,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     position: "relative",
-    backgroundColor: "#11273a",
-    borderRadius: 12,
+    borderRadius: Radius.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
@@ -215,16 +207,14 @@ const styles = StyleSheet.create({
   },
 
   greeting: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "700",
     flexShrink: 1,
     zIndex: 1,
   },
 
   title: {
-    color: tokens.text,
-    fontSize: 30,
+    fontSize: Typography.size.xxl,
     fontWeight: "900",
     position: "absolute",
     left: 0,
@@ -234,39 +224,35 @@ const styles = StyleSheet.create({
 
   profileBtn: {
     marginLeft: "auto",
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
     zIndex: 1,
   },
 
   topDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: tokens.divider,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
 
   locationWrap: {
     width: "100%",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
 
   locationLabel: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "800",
     letterSpacing: 0.6,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 
   locationCard: {
-    backgroundColor: "#0d1f32",
     borderWidth: 1.5,
-    borderColor: "rgba(242,169,0,0.4)",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: Spacing.md,
   },
 
   locationIcon: {
@@ -274,8 +260,7 @@ const styles = StyleSheet.create({
   },
 
   locationValue: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
     flex: 1,
   },

@@ -36,8 +36,11 @@ import {
 } from "@/src/utils/webTTS";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Speech from "expo-speech";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 export default function AskAFriendWebScreen() {
+  const colors = useThemeColors();
   const isNavigatingAwayRef = useRef(false);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -1648,19 +1651,19 @@ export default function AskAFriendWebScreen() {
   if (Platform.OS !== "web") {
     const permGranted = nativePermission?.granted ?? false;
     return (
-      <View style={nativeStyles.screen}>
+      <View style={[nativeStyles.screen, { backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={nativeStyles.header}>
+        <View style={[nativeStyles.header, { borderBottomColor: colors.border }]}>
           <Pressable onPress={handleDisconnect} style={nativeStyles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color="#F9A826" />
+            <Ionicons name="arrow-back" size={22} color={colors.accent} />
           </Pressable>
-          <Text style={nativeStyles.headerTitle}>Ask a Friend</Text>
+          <Text style={[nativeStyles.headerTitle, { color: colors.text }]}>Ask a Friend</Text>
         </View>
 
         {/* Status */}
-        <View style={nativeStyles.statusBar}>
-          <View style={[nativeStyles.dot, isConnected && nativeStyles.dotGreen]} />
-          <Text style={nativeStyles.statusText}>
+        <View style={[nativeStyles.statusBar, { backgroundColor: colors.background }]}>
+          <View style={[nativeStyles.dot, { backgroundColor: colors.textMuted }, isConnected && { backgroundColor: colors.success }]} />
+          <Text style={[nativeStyles.statusText, { color: colors.textMuted }]}>
             {isConnecting
               ? "Connecting…"
               : isConnected
@@ -1673,31 +1676,31 @@ export default function AskAFriendWebScreen() {
 
         {/* Session code */}
         {sessionId ? (
-          <View style={nativeStyles.card}>
-            <Text style={nativeStyles.cardLabel}>YOUR SESSION CODE</Text>
-            <Text style={nativeStyles.sessionCode}>{sessionId}</Text>
-            <Text style={nativeStyles.cardHint}>Share this code with your helper</Text>
-            <Pressable style={nativeStyles.shareBtn} onPress={shareSessionCode}>
-              <Ionicons name="share-social-outline" size={18} color="#1B263B" />
-              <Text style={nativeStyles.shareBtnText}>Share Code</Text>
+          <View style={[nativeStyles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[nativeStyles.cardLabel, { color: colors.textMuted }]}>YOUR SESSION CODE</Text>
+            <Text style={[nativeStyles.sessionCode, { color: colors.accent }]}>{sessionId}</Text>
+            <Text style={[nativeStyles.cardHint, { color: colors.textMuted }]}>Share this code with your helper</Text>
+            <Pressable style={[nativeStyles.shareBtn, { backgroundColor: colors.accent }]} onPress={shareSessionCode}>
+              <Ionicons name="share-social-outline" size={18} color={colors.accentText} />
+              <Text style={[nativeStyles.shareBtnText, { color: colors.accentText }]}>Share Code</Text>
             </Pressable>
           </View>
         ) : isConnecting ? (
-          <View style={nativeStyles.card}>
-            <ActivityIndicator color="#F9A826" />
-            <Text style={nativeStyles.cardHint}>Creating session…</Text>
+          <View style={[nativeStyles.card, { backgroundColor: colors.surface }]}>
+            <ActivityIndicator color={colors.accent} />
+            <Text style={[nativeStyles.cardHint, { color: colors.textMuted }]}>Creating session…</Text>
           </View>
         ) : (
-          <View style={nativeStyles.card}>
-            <Text style={nativeStyles.cardHint}>Session creation failed.</Text>
-            <Pressable style={nativeStyles.shareBtn} onPress={createSession}>
-              <Text style={nativeStyles.shareBtnText}>Retry</Text>
+          <View style={[nativeStyles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[nativeStyles.cardHint, { color: colors.textMuted }]}>Session creation failed.</Text>
+            <Pressable style={[nativeStyles.shareBtn, { backgroundColor: colors.accent }]} onPress={createSession}>
+              <Text style={[nativeStyles.shareBtnText, { color: colors.accentText }]}>Retry</Text>
             </Pressable>
           </View>
         )}
 
         {/* Camera section */}
-        <View style={nativeStyles.cameraCard}>
+        <View style={[nativeStyles.cameraCard, { backgroundColor: colors.surface }]}>
           {!permGranted ? (
             <Pressable
               style={nativeStyles.enableCameraBtn}
@@ -1706,9 +1709,9 @@ export default function AskAFriendWebScreen() {
                 if (result.granted) setNativeCameraActive(true);
               }}
             >
-              <Ionicons name="camera-outline" size={28} color="#F9A826" />
-              <Text style={nativeStyles.enableCameraText}>Enable Camera</Text>
-              <Text style={nativeStyles.enableCameraHint}>
+              <Ionicons name="camera-outline" size={28} color={colors.accent} />
+              <Text style={[nativeStyles.enableCameraText, { color: colors.accent }]}>Enable Camera</Text>
+              <Text style={[nativeStyles.enableCameraHint, { color: colors.textMuted }]}>
                 Your helper will see your camera to guide you
               </Text>
             </Pressable>
@@ -1717,8 +1720,8 @@ export default function AskAFriendWebScreen() {
               style={nativeStyles.enableCameraBtn}
               onPress={() => setNativeCameraActive(true)}
             >
-              <Ionicons name="camera-outline" size={28} color="#F9A826" />
-              <Text style={nativeStyles.enableCameraText}>Start Camera</Text>
+              <Ionicons name="camera-outline" size={28} color={colors.accent} />
+              <Text style={[nativeStyles.enableCameraText, { color: colors.accent }]}>Start Camera</Text>
             </Pressable>
           ) : (
             <View style={nativeStyles.cameraWrap}>
@@ -1728,8 +1731,8 @@ export default function AskAFriendWebScreen() {
                 facing="back"
               />
               <View style={nativeStyles.cameraOverlayBadge}>
-                <View style={nativeStyles.recDot} />
-                <Text style={nativeStyles.recText}>
+                <View style={[nativeStyles.recDot, { backgroundColor: colors.danger }]} />
+                <Text style={[nativeStyles.recText, { color: colors.text }]}>
                   {guideConnected ? "Streaming to helper" : "Camera ready"}
                 </Text>
               </View>
@@ -1739,61 +1742,61 @@ export default function AskAFriendWebScreen() {
 
         {/* Guidance message */}
         {!!guidanceMessage && (
-          <View style={nativeStyles.guidanceCard}>
-            <Ionicons name="chatbubble-outline" size={18} color="#F9A826" />
-            <Text style={nativeStyles.guidanceText}>{guidanceMessage}</Text>
+          <View style={[nativeStyles.guidanceCard, { backgroundColor: colors.background, borderColor: colors.accent }]}>
+            <Ionicons name="chatbubble-outline" size={18} color={colors.accent} />
+            <Text style={[nativeStyles.guidanceText, { color: colors.text }]}>{guidanceMessage}</Text>
             <Pressable
               onPress={() => { Speech.stop(); }}
               style={nativeStyles.stopSpeakBtn}
             >
-              <Ionicons name="stop" size={14} color="#FF6B6B" />
+              <Ionicons name="stop" size={14} color={colors.danger} />
             </Pressable>
           </View>
         )}
 
         {/* Error */}
         {!!error && (
-          <View style={nativeStyles.errorCard}>
-            <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
-            <Text style={nativeStyles.errorCardText}>{error}</Text>
+          <View style={[nativeStyles.errorCard, { backgroundColor: colors.danger + "26" }]}>
+            <Ionicons name="alert-circle" size={16} color={colors.danger} />
+            <Text style={[nativeStyles.errorCardText, { color: colors.danger }]}>{error}</Text>
           </View>
         )}
 
         {/* Disconnect */}
-        <Pressable style={nativeStyles.disconnectBtn} onPress={handleDisconnect}>
-          <Ionicons name="close-circle-outline" size={20} color="#FF6B6B" />
-          <Text style={nativeStyles.disconnectBtnText}>Disconnect</Text>
+        <Pressable style={[nativeStyles.disconnectBtn, { borderColor: colors.danger }]} onPress={handleDisconnect}>
+          <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+          <Text style={[nativeStyles.disconnectBtnText, { color: colors.danger }]}>Disconnect</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.container}
+        style={[styles.scrollContainer, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable
             onPress={handleDisconnect}
-            style={styles.backBtnFloating}
+            style={[styles.backBtnFloating, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
             accessibilityLabel="Go back"
           >
-            <Ionicons name="arrow-back" size={24} color="#F9A826" />
+            <Ionicons name="arrow-back" size={24} color={colors.accent} />
           </Pressable>
           <View style={{ width: 32 }} />
-          <Text style={styles.headerTitle}>Ask a Friend</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Ask a Friend</Text>
           <View style={{ width: 32 }} />
         </View>
 
       {/* Status Bar */}
-      <View style={styles.statusBar}>
+      <View style={[styles.statusBar, { backgroundColor: colors.surface }]}>
         <View
-          style={[styles.statusDot, isConnected && styles.statusDotConnected]}
+          style={[styles.statusDot, { backgroundColor: colors.textMuted }, isConnected && { backgroundColor: colors.success }]}
         />
-        <Text style={styles.statusText}>
+        <Text style={[styles.statusText, { color: colors.text }]}>
           {isConnecting
             ? "Connecting..."
             : isConnected
@@ -1808,53 +1811,53 @@ export default function AskAFriendWebScreen() {
 
       {/* Session Code Display */}
       {sessionId ? (
-        <View style={styles.sessionContainer}>
-          <Text style={styles.sessionLabel}>Session Code:</Text>
-          <Pressable onPress={copySessionCode} style={styles.sessionCode}>
-            <Text style={styles.sessionCodeText}>{sessionId}</Text>
-            <Ionicons name="copy-outline" size={20} color="#F9A826" />
+        <View style={[styles.sessionContainer, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sessionLabel, { color: colors.textMuted }]}>Session Code:</Text>
+          <Pressable onPress={copySessionCode} style={[styles.sessionCode, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sessionCodeText, { color: colors.accent }]}>{sessionId}</Text>
+            <Ionicons name="copy-outline" size={20} color={colors.accent} />
           </Pressable>
-          <Text style={styles.sessionHint}>
+          <Text style={[styles.sessionHint, { color: colors.textMuted }]}>
             Share this code with your helper so they can join
           </Text>
 
           {/* Web Helper Link */}
-          <View style={styles.webHelperContainer}>
-            <Ionicons name="globe-outline" size={16} color="#F9A826" />
-            <Text style={styles.webHelperText}>
+          <View style={[styles.webHelperContainer, { backgroundColor: colors.background }]}>
+            <Ionicons name="globe-outline" size={16} color={colors.accent} />
+            <Text style={[styles.webHelperText, { color: colors.accent }]}>
               Helper can join via web: {getHelperWebUrl()}
             </Text>
           </View>
 
-          <Pressable style={styles.shareButton} onPress={shareSession}>
-            <Ionicons name="share-social" size={20} color="#1B263B" />
-            <Text style={styles.shareButtonText}>Share Session Code</Text>
+          <Pressable style={[styles.shareButton, { backgroundColor: colors.accent }]} onPress={shareSession}>
+            <Ionicons name="share-social" size={20} color={colors.accentText} />
+            <Text style={[styles.shareButtonText, { color: colors.accentText }]}>Share Session Code</Text>
           </Pressable>
         </View>
       ) : isConnecting ? (
-        <View style={styles.sessionContainer}>
-          <ActivityIndicator size="large" color="#F9A826" />
-          <Text style={styles.sessionHint}>Creating session...</Text>
+        <View style={[styles.sessionContainer, { backgroundColor: colors.surface }]}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.sessionHint, { color: colors.textMuted }]}>Creating session...</Text>
         </View>
       ) : (
-        <View style={styles.sessionContainer}>
-          <Text style={styles.sessionLabel}>Session Code:</Text>
+        <View style={[styles.sessionContainer, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sessionLabel, { color: colors.textMuted }]}>Session Code:</Text>
           <Pressable
             style={[
               styles.shareButton,
-              { backgroundColor: "#F9A826", marginTop: 8 },
+              { backgroundColor: colors.accent, marginTop: Spacing.sm },
             ]}
             onPress={createSession}
           >
-            <Ionicons name="refresh" size={20} color="#1B263B" />
-            <Text style={styles.shareButtonText}>Create Session</Text>
+            <Ionicons name="refresh" size={20} color={colors.accentText} />
+            <Text style={[styles.shareButtonText, { color: colors.accentText }]}>Create Session</Text>
           </Pressable>
           {error && (
             <Text
               style={{
-                color: "#FF6B6B",
-                marginTop: 8,
-                fontSize: 12,
+                color: colors.danger,
+                marginTop: Spacing.sm,
+                fontSize: Typography.size.xs,
                 textAlign: "center",
               }}
             >
@@ -1947,7 +1950,7 @@ export default function AskAFriendWebScreen() {
               nativeID="camera-preview-container"
             >
               <View style={styles.cameraOverlay}>
-                <Text style={styles.cameraStatusText}>
+                <Text style={[styles.cameraStatusText, { color: colors.success }]}>
                   {useFallbackMode
                     ? "Camera Active - Fallback mode (frame stream)"
                     : webrtcConnected && helperReceivedVideo
@@ -1959,27 +1962,27 @@ export default function AskAFriendWebScreen() {
                           : "Camera Active - Waiting for helper"}
                 </Text>
                 {!!cameraError && cameraError.includes("Tap the video") && (
-                  <Text style={styles.tapToPlayText}>
+                  <Text style={[styles.tapToPlayText, { color: colors.accent }]}>
                     Tap video to start playback
                   </Text>
                 )}
                 {webrtcConnected &&
                   !helperReceivedVideo &&
                   !useFallbackMode && (
-                    <Text style={styles.tapToPlayText}>
+                    <Text style={[styles.tapToPlayText, { color: colors.accent }]}>
                       Establishing connection...
                     </Text>
                   )}
                 {useFallbackMode && (
-                  <Text style={styles.tapToPlayText}>
+                  <Text style={[styles.tapToPlayText, { color: colors.accent }]}>
                     Using reliable frame streaming
                   </Text>
                 )}
                 {/* Audio Status */}
                 {helperReceivedAudio && (
                   <View style={styles.audioStatus}>
-                    <Ionicons name="volume-high" size={16} color="#4CAF50" />
-                    <Text style={styles.audioStatusText}>
+                    <Ionicons name="volume-high" size={16} color={colors.success} />
+                    <Text style={[styles.audioStatusText, { color: colors.success }]}>
                       Receiving audio from helper
                     </Text>
                     <Pressable
@@ -2002,25 +2005,25 @@ export default function AskAFriendWebScreen() {
                           );
                         }
                       }}
-                      style={styles.testAudioButton}
+                      style={[styles.testAudioButton, { backgroundColor: colors.surface }]}
                     >
-                      <Ionicons name="play" size={14} color="#4CAF50" />
-                      <Text style={styles.testAudioButtonText}>Test Audio</Text>
+                      <Ionicons name="play" size={14} color={colors.success} />
+                      <Text style={[styles.testAudioButtonText, { color: colors.success }]}>Test Audio</Text>
                     </Pressable>
                   </View>
                 )}
                 {/* Microphone Status Indicator */}
                 {hasAudioTrack && !isMuted && (
                   <View style={styles.micActiveIndicator}>
-                    <View style={styles.micPulse} />
-                    <Ionicons name="mic" size={16} color="#4CAF50" />
-                    <Text style={styles.micActiveText}>Microphone active</Text>
+                    <View style={[styles.micPulse, { backgroundColor: colors.success }]} />
+                    <Ionicons name="mic" size={16} color={colors.success} />
+                    <Text style={[styles.micActiveText, { color: colors.success }]}>Microphone active</Text>
                   </View>
                 )}
                 {hasAudioTrack && isMuted && (
                   <View style={styles.micMutedIndicator}>
-                    <Ionicons name="mic-off" size={16} color="#FF6B6B" />
-                    <Text style={styles.micMutedText}>Microphone muted</Text>
+                    <Ionicons name="mic-off" size={16} color={colors.danger} />
+                    <Text style={[styles.micMutedText, { color: colors.danger }]}>Microphone muted</Text>
                   </View>
                 )}
               </View>
@@ -2033,7 +2036,7 @@ export default function AskAFriendWebScreen() {
                   onPress={toggleMute}
                   style={[
                     styles.muteButton,
-                    { backgroundColor: isMuted ? "#FF6B6B" : "#4CAF50" },
+                    { backgroundColor: isMuted ? colors.danger : colors.success },
                   ]}
                 >
                   <Ionicons
@@ -2046,16 +2049,16 @@ export default function AskAFriendWebScreen() {
                   </Text>
                 </Pressable>
               ) : microphonePermission === "denied" ? (
-                <View style={styles.micPermissionDenied}>
-                  <Ionicons name="mic-off" size={20} color="#FF6B6B" />
-                  <Text style={styles.micPermissionDeniedText}>
+                <View style={[styles.micPermissionDenied, { backgroundColor: colors.danger + "26" }]}>
+                  <Ionicons name="mic-off" size={20} color={colors.danger} />
+                  <Text style={[styles.micPermissionDeniedText, { color: colors.danger }]}>
                     Microphone access denied
                   </Text>
                 </View>
               ) : (
                 <View style={styles.micLoading}>
-                  <ActivityIndicator size="small" color="#F9A826" />
-                  <Text style={styles.micLoadingText}>
+                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Text style={[styles.micLoadingText, { color: colors.accent }]}>
                     Initializing microphone...
                   </Text>
                 </View>
@@ -2064,28 +2067,28 @@ export default function AskAFriendWebScreen() {
           </Fragment>
         ) : cameraPermission === "denied" ? (
           <View style={styles.cameraError}>
-            <Ionicons name="camera-outline" size={48} color="#FF6B6B" />
-            <Text style={styles.cameraErrorText}>
+            <Ionicons name="camera-outline" size={48} color={colors.danger} />
+            <Text style={[styles.cameraErrorText, { color: colors.danger }]}>
               {cameraError || "Camera permission denied"}
             </Text>
             <Pressable
-              style={styles.retryButton}
+              style={[styles.retryButton, { backgroundColor: colors.accent }]}
               onPress={requestCameraPermission}
             >
-              <Text style={styles.retryButtonText}>Retry Camera Access</Text>
+              <Text style={[styles.retryButtonText, { color: colors.accentText }]}>Retry Camera Access</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.cameraPrompt}>
-            <Ionicons name="camera-outline" size={48} color="#F9A826" />
-            <Text style={styles.cameraPromptText}>
+            <Ionicons name="camera-outline" size={48} color={colors.accent} />
+            <Text style={[styles.cameraPromptText, { color: colors.textMuted }]}>
               Enable camera to share your view with your helper
             </Text>
             <Pressable
-              style={styles.enableButton}
+              style={[styles.enableButton, { backgroundColor: colors.accent }]}
               onPress={requestCameraPermission}
             >
-              <Text style={styles.enableButtonText}>Enable Camera</Text>
+              <Text style={[styles.enableButtonText, { color: colors.accentText }]}>Enable Camera</Text>
             </Pressable>
           </View>
         )}
@@ -2096,20 +2099,21 @@ export default function AskAFriendWebScreen() {
         <View
           style={[
             styles.guidanceContainer,
-            isSpeakingGuidance && { borderWidth: 2, borderColor: "#4CAF50" },
+            { backgroundColor: colors.surface },
+            isSpeakingGuidance && { borderWidth: 2, borderColor: colors.success },
           ]}
         >
           <Ionicons
             name={isSpeakingGuidance ? "volume-high" : "chatbubble-ellipses"}
             size={24}
-            color={isSpeakingGuidance ? "#4CAF50" : "#F9A826"}
+            color={isSpeakingGuidance ? colors.success : colors.accent}
           />
           <View style={styles.guidanceTextContainer}>
-            <Text style={styles.guidanceText}>{guidanceMessage}</Text>
+            <Text style={[styles.guidanceText, { color: colors.text }]}>{guidanceMessage}</Text>
             {isSpeakingGuidance && (
               <View style={styles.speakingIndicator}>
-                <View style={styles.speakingDot} />
-                <Text style={styles.speakingText}>Speaking...</Text>
+                <View style={[styles.speakingDot, { backgroundColor: colors.success }]} />
+                <Text style={[styles.speakingText, { color: colors.success }]}>Speaking...</Text>
               </View>
             )}
           </View>
@@ -2119,9 +2123,9 @@ export default function AskAFriendWebScreen() {
                 stopWebSpeech();
                 setIsSpeakingGuidance(false);
               }}
-              style={styles.stopSpeakingButton}
+              style={[styles.stopSpeakingButton, { backgroundColor: colors.danger + "26" }]}
             >
-              <Ionicons name="stop" size={16} color="#FF6B6B" />
+              <Ionicons name="stop" size={16} color={colors.danger} />
             </Pressable>
           )}
         </View>
@@ -2129,132 +2133,116 @@ export default function AskAFriendWebScreen() {
 
       {/* Error Display */}
       {!!error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={20} color="#FF6B6B" />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={[styles.errorContainer, { backgroundColor: colors.danger + "26" }]}>
+          <Ionicons name="alert-circle" size={20} color={colors.danger} />
+          <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
         </View>
       )}
 
       {/* Disconnect Button */}
-      <Pressable style={styles.disconnectButton} onPress={handleDisconnect}>
-        <Ionicons name="close-circle" size={24} color="#FF6B6B" />
-        <Text style={styles.disconnectButtonText}>Disconnect</Text>
+      <Pressable style={[styles.disconnectButton, { backgroundColor: colors.danger + "26", borderColor: colors.danger }]} onPress={handleDisconnect}>
+        <Ionicons name="close-circle" size={24} color={colors.danger} />
+        <Text style={[styles.disconnectButtonText, { color: colors.danger }]}>Disconnect</Text>
       </Pressable>
       </ScrollView>
     </View>
   );
 }
 
+// STYLES — structural only; colors applied inline so they react to
+// light/dark via useThemeColors(). Camera/video surfaces (pure black,
+// translucent black scrims) are intentionally left as raw literals since
+// the camera viewfinder is not part of the semantic color system.
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     position: "relative",
-    backgroundColor: "#1B263B",
   },
   scrollContainer: {
     flex: 1,
-    backgroundColor: "#1B263B",
   },
   container: {
     flex: 1,
-    backgroundColor: "#1B263B",
-    paddingBottom: 20,
+    paddingBottom: Spacing.xl,
   },
   header: {
     position: "relative",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   backBtnFloating: {
     position: "absolute",
-    top: 4,
-    left: 8,
+    top: Spacing.xs,
+    left: Spacing.sm,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(27,38,59,0.65)",
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: "#F9A826",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
   },
   headerTitle: {
     flex: 1,
-    color: "#FFF",
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "700",
     textAlign: "center",
   },
   statusBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#2A2A2A",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#666",
-    marginRight: 8,
-  },
-  statusDotConnected: {
-    backgroundColor: "#4CAF50",
+    marginRight: Spacing.sm,
   },
   statusText: {
-    color: "#FFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
   },
   sessionContainer: {
-    padding: 16,
-    backgroundColor: "#2A2A2A",
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 8,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    borderRadius: Radius.sm,
   },
   sessionLabel: {
-    color: "#AAA",
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: Typography.size.xs,
+    marginBottom: Spacing.xs,
   },
   sessionCode: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1B263B",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.sm,
   },
   sessionCodeText: {
-    color: "#F9A826",
-    fontSize: 24,
+    fontSize: Typography.size.xl,
     fontWeight: "700",
     letterSpacing: 4,
   },
   sessionHint: {
-    color: "#888",
-    fontSize: 12,
-    marginBottom: 12,
+    fontSize: Typography.size.xs,
+    marginBottom: Spacing.md,
   },
   webHelperContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1B263B",
     padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 8,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   webHelperText: {
     flex: 1,
-    color: "#F9A826",
     fontSize: 11,
     lineHeight: 16,
   },
@@ -2262,19 +2250,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9A826",
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
   },
   shareButtonText: {
-    color: "#1B263B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   cameraSection: {
-    margin: 16,
-    borderRadius: 12,
+    margin: Spacing.lg,
+    borderRadius: Radius.md,
     overflow: "hidden",
     backgroundColor: "#000",
     minHeight: 300,
@@ -2285,7 +2271,7 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 9,
     backgroundColor: "#000",
     position: "relative",
-    borderRadius: 12,
+    borderRadius: Radius.md,
     overflow: "hidden",
   },
   cameraOverlay: {
@@ -2294,82 +2280,72 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 8,
+    padding: Spacing.sm,
     alignItems: "center",
     zIndex: 10,
   },
   cameraStatusText: {
-    color: "#4CAF50",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "600",
   },
   tapToPlayText: {
-    color: "#F9A826",
     fontSize: 11,
-    marginTop: 4,
+    marginTop: Spacing.xs,
     fontStyle: "italic",
   },
   cameraPrompt: {
-    padding: 32,
+    padding: Spacing.xxxl,
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: Spacing.lg,
   },
   cameraPromptText: {
-    color: "#AAA",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     textAlign: "center",
   },
   enableButton: {
-    backgroundColor: "#F9A826",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Radius.sm,
   },
   enableButtonText: {
-    color: "#1B263B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   cameraError: {
-    padding: 32,
+    padding: Spacing.xxxl,
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: Spacing.lg,
   },
   cameraErrorText: {
-    color: "#FF6B6B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     textAlign: "center",
   },
   retryButton: {
-    backgroundColor: "#F9A826",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Radius.sm,
   },
   retryButtonText: {
-    color: "#1B263B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   guidanceContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2A2A2A",
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 8,
-    gap: 12,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    gap: Spacing.md,
   },
   guidanceTextContainer: {
     flex: 1,
-    gap: 4,
+    gap: Spacing.xs,
   },
   guidanceText: {
-    color: "#FFF",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "600",
     lineHeight: 24,
   },
@@ -2377,61 +2353,53 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 4,
+    marginTop: Spacing.xs,
   },
   speakingDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#4CAF50",
   },
   speakingText: {
-    color: "#4CAF50",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
     fontStyle: "italic",
   },
   stopSpeakingButton: {
     padding: 6,
     borderRadius: 4,
-    backgroundColor: "#3A1F1F",
   },
   errorContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#3A1F1F",
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
   },
   errorText: {
     flex: 1,
-    color: "#FF6B6B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
   },
   disconnectButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#3A1F1F",
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: "#FF6B6B",
-    gap: 8,
+    gap: Spacing.sm,
   },
   disconnectButtonText: {
-    color: "#FF6B6B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   audioControlsContainer: {
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2440,61 +2408,57 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
     minWidth: 120,
   },
   muteButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   micPermissionDenied: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#3A1F1F",
-    gap: 8,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
   },
   micPermissionDeniedText: {
-    color: "#FF6B6B",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   micLoading: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
   },
   micLoadingText: {
-    color: "#F9A826",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   audioStatus: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
     gap: 6,
   },
   audioStatusText: {
-    color: "#4CAF50",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   micActiveIndicator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
     gap: 6,
     position: "relative",
   },
@@ -2503,58 +2467,53 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#4CAF50",
     opacity: 0.5,
   },
   micActiveText: {
-    color: "#4CAF50",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   micMutedIndicator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
     gap: 6,
   },
   micMutedText: {
-    color: "#FF6B6B",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   testAudioButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    marginLeft: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
     borderRadius: 4,
-    backgroundColor: "#2A2A2A",
-    gap: 4,
+    gap: Spacing.xs,
   },
   testAudioButtonText: {
-    color: "#4CAF50",
     fontSize: 10,
     fontWeight: "500",
   },
 });
 
 // ── Styles for the native (iOS/Android) Ask a Friend UI ───────────────────
+// Styles for the native (iOS/Android) Ask a Friend UI — structural only;
+// colors applied inline so they react to light/dark via useThemeColors().
 const nativeStyles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#1B263B",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     paddingTop: 52,
-    paddingBottom: 12,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
-    gap: 12,
+    gap: Spacing.md,
   },
   backBtn: {
     width: 36,
@@ -2564,75 +2523,61 @@ const nativeStyles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    color: "#FFF",
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "700",
   },
   statusBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#0d1b2a",
-    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#555",
-  },
-  dotGreen: {
-    backgroundColor: "#4CAF50",
   },
   statusText: {
-    color: "#CCC",
     fontSize: 13,
   },
   card: {
-    backgroundColor: "#2A2A2A",
-    borderRadius: 12,
-    margin: 16,
-    padding: 16,
+    borderRadius: Radius.md,
+    margin: Spacing.lg,
+    padding: Spacing.lg,
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
   },
   cardLabel: {
-    color: "#888",
     fontSize: 11,
     letterSpacing: 1,
     fontWeight: "700",
   },
   sessionCode: {
-    color: "#F9A826",
-    fontSize: 32,
+    fontSize: Typography.size.xxl,
     fontWeight: "800",
     letterSpacing: 6,
   },
   cardHint: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     textAlign: "center",
   },
   shareBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9A826",
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
-    marginTop: 4,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   shareBtnText: {
-    color: "#1B263B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
   },
   cameraCard: {
-    backgroundColor: "#2A2A2A",
-    borderRadius: 12,
-    marginHorizontal: 16,
+    borderRadius: Radius.md,
+    marginHorizontal: Spacing.lg,
     overflow: "hidden",
     minHeight: 220,
     alignItems: "center",
@@ -2641,17 +2586,15 @@ const nativeStyles = StyleSheet.create({
   enableCameraBtn: {
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    gap: 8,
+    padding: Spacing.xxl,
+    gap: Spacing.sm,
   },
   enableCameraText: {
-    color: "#F9A826",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
   },
   enableCameraHint: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     textAlign: "center",
     maxWidth: 240,
   },
@@ -2670,8 +2613,8 @@ const nativeStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: 6,
     gap: 6,
   },
@@ -2679,59 +2622,50 @@ const nativeStyles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#FF4444",
   },
   recText: {
-    color: "#FFF",
     fontSize: 11,
   },
   guidanceCard: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "#0d1b2a",
     borderWidth: 1,
-    borderColor: "#F9A826",
     borderRadius: 10,
-    margin: 16,
-    padding: 12,
-    gap: 8,
+    margin: Spacing.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
   },
   guidanceText: {
     flex: 1,
-    color: "#FFF",
-    fontSize: 15,
+    fontSize: Typography.size.sm,
     lineHeight: 22,
   },
   stopSpeakBtn: {
-    padding: 4,
+    padding: Spacing.xs,
   },
   errorCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2A1010",
-    borderRadius: 8,
-    marginHorizontal: 16,
+    borderRadius: Radius.sm,
+    marginHorizontal: Spacing.lg,
     padding: 10,
-    gap: 8,
+    gap: Spacing.sm,
   },
   errorCardText: {
     flex: 1,
-    color: "#FF6B6B",
     fontSize: 13,
   },
   disconnectBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    margin: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
+    margin: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: "#FF6B6B",
-    gap: 8,
+    gap: Spacing.sm,
   },
   disconnectBtnText: {
-    color: "#FF6B6B",
     fontSize: 15,
     fontWeight: "600",
   },
