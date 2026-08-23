@@ -1,7 +1,7 @@
 # WalkBuddy Local Setup Guide
 
-> **Status:** Windows setup verified; macOS setup still requires validation  
-> **Last updated:** 27 July 2026  
+> **Status:** Windows setup verified; macOS core setup validated; device-level checks remain network-dependent
+> **Last updated:** 21 August 2026
 > **Official repository:** `InnovAIte-Deakin/AI-Assisted-Navigation-Device`  
 > **Working branch:** `t2-2026-development`
 
@@ -441,9 +441,11 @@ In the backend terminal, press:
 Ctrl + C
 ```
 
-## 16. macOS Status
+## 16. macOS Status — historical baseline
 
-The old macOS instructions are not yet considered verified against this baseline.
+The old macOS instructions were not considered verified against the original
+Windows baseline. The core macOS setup has now been validated locally; see
+section 17 for the tested procedure and remaining device-level checks.
 
 A macOS tester must confirm:
 
@@ -454,4 +456,101 @@ A macOS tester must confirm:
 - Expo connection;
 - basic object detection and speech-to-text.
 
-Until then, macOS-specific steps should be treated as provisional.
+The phone/Expo check must still be repeated when the computer or phone changes
+network, because the backend address is LAN-specific.
+
+## 17. macOS Quick-Start and Validation Record
+
+The core local setup was validated on macOS on 21 August 2026. The validation used
+Python 3.11, Node.js 24, npm 11, the backend virtual environment, and the
+model files listed above. Device testing still depends on the phone and Mac
+being reachable on the same network.
+
+### Create the backend environment
+
+From the repository root:
+
+```bash
+python3.11 -m venv software_side/walkbuddy_reactNative/backend/.venv
+source software_side/walkbuddy_reactNative/backend/.venv/bin/activate
+python -m pip install --upgrade pip
+cd software_side/walkbuddy_reactNative/backend
+python -m pip install -r requirements.txt
+```
+
+`llama-cpp-python` is installed separately because its runtime is
+platform-dependent. The local macOS validation used version `0.3.34`:
+
+```bash
+python -m pip install llama-cpp-python==0.3.34
+```
+
+If this package cannot be installed on a particular Mac, record the Mac model,
+CPU architecture, Python version, and the full pip error before changing the
+shared dependency guidance. Do not silently replace the dependency version.
+
+Verify the important imports:
+
+```bash
+python -c "import fastapi, uvicorn, easyocr, faster_whisper; print('Core backend imports OK')"
+python -c "from llama_cpp import Llama; print('llama_cpp import OK')"
+```
+
+### Check models and start the backend
+
+The model files are shared through Teams/SharePoint and are not committed to
+GitHub:
+
+```bash
+cd /path/to/AI-Assisted-Navigation-Device
+ls -lh ML_side/models/best.pt
+ls -lh ML_side/models/llama-3.2-1b-instruct-q4_k_m.gguf
+cd software_side/walkbuddy_reactNative/backend
+export WALKBUDDY_MODEL_DIR="$(cd ../../../ML_side/models && pwd)"
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+In a second terminal, verify both local and LAN access:
+
+```bash
+curl http://127.0.0.1:8000/ping
+MAC_IP="$(ipconfig getifaddr en0)"
+curl "http://${MAC_IP}:8000/ping"
+```
+
+Both responses must contain:
+
+```json
+{"ok":true}
+```
+
+### Configure and start Expo
+
+Use the Mac's Wi-Fi address when the Expo automatic address is not correct:
+
+```bash
+cd /path/to/AI-Assisted-Navigation-Device/software_side/walkbuddy_reactNative/frontend_reactNative
+npm install
+MAC_IP="$(ipconfig getifaddr en0)"
+export EXPO_PUBLIC_API_BASE="http://${MAC_IP}:8000"
+npm run dev
+```
+
+The phone and Mac must be on the same Wi-Fi network. Restart Expo after
+changing `EXPO_PUBLIC_API_BASE`, because the value is read when the app starts.
+
+### macOS issues found during setup
+
+- The first STT test returned HTTP 503 because `faster-whisper` was not
+  installed in the Python environment being used to run the backend. Installing
+  the requirements inside the backend virtual environment resolved this.
+- An old frontend fallback used a developer-specific IP address. The current
+  frontend supports `EXPO_PUBLIC_API_BASE` and Expo LAN address detection; use
+  the environment variable when changing networks.
+- The model files are not in Git and must be downloaded from the project Teams
+  setup assets before starting the backend. Verify the local artifact against
+  `ML_side/models/README.md` before relying on its class mapping.
+- The Vision Assist HTTP 405 is not a macOS setup failure. It is a separate
+  frontend/backend integration issue and is tracked in Issue #200.
+
+The validation evidence is stored in `evidence/07_macos_setup_validation.md`.
