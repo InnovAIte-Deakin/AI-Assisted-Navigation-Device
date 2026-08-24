@@ -592,12 +592,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
 
-  visionActive: {
-    borderWidth: 1,
-    borderColor: tokens.gold,
-  },
-
-  visionRow: {
+   visionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
