@@ -116,3 +116,38 @@ export async function askChat(question: string): Promise<ChatResponse> {
   }
   return await res.json();
 }
+
+export interface PredictivePathAlert {
+  step: number;
+  risk_label: string;
+  confidence: number;
+  distance: number;
+}
+
+export interface PredictivePathResponse {
+  overall_risk: "safe" | "risky";
+  first_alert: PredictivePathAlert | null;
+  alerts: PredictivePathAlert[];
+}
+
+export async function predictPath(
+  speed: number,
+  heading: number,
+  gyro: number
+): Promise<PredictivePathResponse> {
+  const res = await fetch(`${API_BASE}/predict-path`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-API-Key": API_KEY,
+      ...NGROK_HEADERS,
+    },
+    body: JSON.stringify({ speed, heading, gyro }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Predict path failed: ${res.status}`);
+  }
+  return await res.json();
+}
