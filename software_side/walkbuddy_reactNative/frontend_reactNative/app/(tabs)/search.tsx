@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import HomeHeader from "../HomeHeader";
 import {
   dismissRecentPlace,
@@ -20,6 +20,8 @@ import {
   PlaceItem,
   upsertPlaceUsed,
 } from "../../src/utils/placesStore";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 /*
   NOTE:
   This screen was originally UI-first.
@@ -29,17 +31,10 @@ import {
   not here.
 */
 
-const tokens = {
-  bg: "#0D1B2A",
-  tile: "#111",
-  text: "#E0E1DD",
-  muted: "#b8c6d4",
-  gold: "#FCA311",
-};
-
 type DestinationType = "I" | "E";
 
 export default function SearchPage() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const resultFontSize = Math.max(20, Math.min(28, height * 0.035));
@@ -156,13 +151,13 @@ export default function SearchPage() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
       <Pressable
         onPress={handleBack}
-        style={styles.backBtnFloating}
+        style={[styles.backBtnFloating, { backgroundColor: "rgba(27,38,59,0.65)", borderColor: colors.accent }]}
         accessibilityLabel="Go back"
       >
-        <Icon name="arrow-left" size={20} color={tokens.gold} />
+        <Ionicons name="arrow-back-outline" size={20} color={colors.accent} />
       </Pressable>
       <ScrollView
         contentContainerStyle={[
@@ -180,11 +175,11 @@ export default function SearchPage() {
 
         <View style={{ height: 4 }} />
         <View style={styles.mainArea}>
-          <Text style={styles.sectionTitle}>Enter Your Search</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Enter Your Search</Text>
 
           {/* Search input */}
-          <View style={styles.searchBar}>
-            <Icon name="search" size={18} color={tokens.muted} />
+          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
+            <Ionicons name="search-outline" size={18} color={colors.textMuted} />
             <TextInput
               value={query}
               onChangeText={(text) => {
@@ -193,8 +188,8 @@ export default function SearchPage() {
                 setDestinationType(null);
               }}
               placeholder="Enter a destination"
-              placeholderTextColor={tokens.muted}
-              style={styles.searchInput}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { color: colors.text }]}
               autoCapitalize="words"
               autoCorrect={false}
               returnKeyType="search"
@@ -202,18 +197,18 @@ export default function SearchPage() {
           </View>
 
           {!hasDestination && recents.length > 0 && (
-            <View style={styles.recentsCard}>
-              <Text style={styles.recentsTitle}>Recent destinations</Text>
+            <View style={[styles.recentsCard, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
+              <Text style={[styles.recentsTitle, { color: colors.text }]}>Recent destinations</Text>
               <View style={styles.recentsGrid}>
                 {recents.map((p) => (
                   <Pressable
                     key={p.id}
-                    style={styles.recentChip}
+                    style={[styles.recentChip, { backgroundColor: colors.background, borderColor: colors.accent }]}
                     onPress={() => applyRecent(p)}
                     accessibilityLabel={`Recent destination ${p.title}`}
                   >
-                    <Text style={styles.recentChipType}>{p.kind}</Text>
-                    <Text style={styles.recentChipText} numberOfLines={1}>
+                    <Text style={[styles.recentChipType, { borderColor: colors.text, color: colors.text }]}>{p.kind}</Text>
+                    <Text style={[styles.recentChipText, { color: colors.text }]} numberOfLines={1}>
                       {p.title}
                     </Text>
                     <Pressable
@@ -222,10 +217,10 @@ export default function SearchPage() {
                         void removeRecent(p);
                       }}
                       hitSlop={10}
-                      style={styles.recentRemoveBtn}
+                      style={[styles.recentRemoveBtn, { backgroundColor: colors.accent + "1F", borderColor: colors.accent + "73" }]}
                       accessibilityLabel={`Remove ${p.title} from recents`}
                     >
-                      <Text style={styles.recentRemoveText}>×</Text>
+                      <Text style={[styles.recentRemoveText, { color: colors.text }]}>×</Text>
                     </Pressable>
                   </Pressable>
                 ))}
@@ -234,16 +229,16 @@ export default function SearchPage() {
           )}
 
           {/* Result display area */}
-          <View style={styles.resultCard}>
+          <View style={[styles.resultCard, { backgroundColor: colors.surface, borderColor: colors.accent }]}>
             <Text
-              style={[styles.resultTitle, { fontSize: resultFontSize }]}
+              style={[styles.resultTitle, { color: colors.text, fontSize: resultFontSize }]}
               numberOfLines={3}
             >
               {hasDestination
                 ? query
                 : "Enter a destination in the search bar to continue..."}
             </Text>
-            <Text style={styles.resultSub} numberOfLines={3}>
+            <Text style={[styles.resultSub, { color: colors.text }]} numberOfLines={3}>
               {hasDestination
                 ? "This is the destination you entered"
                 : "The selected destination will appear here"}
@@ -255,6 +250,7 @@ export default function SearchPage() {
             <Pressable
               style={[
                 styles.modeBtn,
+                { backgroundColor: colors.surface, borderColor: colors.accent },
                 !hasDestination && styles.modeBtnDisabled,
               ]}
               onPress={onPressInterior}
@@ -265,6 +261,7 @@ export default function SearchPage() {
               <Text
                 style={[
                   styles.modeBtnText,
+                  { color: colors.text },
                   !hasDestination && styles.modeBtnTextDisabled,
                 ]}
               >
@@ -275,6 +272,7 @@ export default function SearchPage() {
             <Pressable
               style={[
                 styles.modeBtn,
+                { backgroundColor: colors.surface, borderColor: colors.accent },
                 !hasDestination && styles.modeBtnDisabled,
               ]}
               onPress={onPressMaps}
@@ -285,6 +283,7 @@ export default function SearchPage() {
               <Text
                 style={[
                   styles.modeBtnText,
+                  { color: colors.text },
                   !hasDestination && styles.modeBtnTextDisabled,
                 ]}
               >
@@ -298,30 +297,30 @@ export default function SearchPage() {
   );
 }
 
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
     position: "relative",
   },
 
   content: {
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingTop: 14,
     paddingBottom: 40,
   },
 
   backBtnFloating: {
     position: "absolute",
-    top: 12,
-    left: 12,
+    top: Spacing.md,
+    left: Spacing.md,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(27,38,59,0.65)",
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
@@ -335,8 +334,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: tokens.text,
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "800",
     marginBottom: 6,
   },
@@ -344,37 +342,31 @@ const styles = StyleSheet.create({
   searchBar: {
     width: "100%",
     height: 56,
-    backgroundColor: tokens.tile,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 14,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: Spacing.md,
   },
 
   searchInput: {
     flex: 1,
-    color: tokens.text,
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
   },
 
   recentsCard: {
     width: "100%",
-    backgroundColor: tokens.tile,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     gap: 10,
   },
 
   recentsTitle: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "900",
     letterSpacing: 0.3,
   },
@@ -388,13 +380,11 @@ const styles = StyleSheet.create({
   recentChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "#0b0f14",
+    gap: Spacing.sm,
     borderWidth: 1,
-    borderColor: tokens.gold,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     maxWidth: "100%",
   },
 
@@ -406,14 +396,11 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: tokens.text,
-    color: tokens.text,
     fontSize: 11,
     fontWeight: "900",
   },
 
   recentChipText: {
-    color: tokens.text,
     fontSize: 13,
     fontWeight: "800",
     maxWidth: 240,
@@ -423,17 +410,14 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(252,163,17,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(252,163,17,0.45)",
   },
 
   recentRemoveText: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900",
     lineHeight: 18,
     marginTop: -1,
@@ -441,12 +425,10 @@ const styles = StyleSheet.create({
 
   resultCard: {
     width: "100%",
-    backgroundColor: tokens.tile,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 18,
     paddingVertical: 18,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
@@ -454,16 +436,14 @@ const styles = StyleSheet.create({
   },
 
   resultTitle: {
-    color: tokens.text,
     fontWeight: "900",
     textAlign: "center",
     letterSpacing: 0.6,
   },
 
   resultSub: {
-    color: tokens.text,
     opacity: 0.75,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 20,
@@ -472,14 +452,12 @@ const styles = StyleSheet.create({
   buttonRow: {
     width: "100%",
     flexDirection: "row",
-    gap: 12,
+    gap: Spacing.md,
   },
 
   modeBtn: {
     flex: 1,
-    backgroundColor: tokens.tile,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: "center",
@@ -490,8 +468,7 @@ const styles = StyleSheet.create({
   },
 
   modeBtnText: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "900",
     letterSpacing: 0.6,
   },

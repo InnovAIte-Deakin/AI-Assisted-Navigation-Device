@@ -24,6 +24,8 @@ import {
 } from "@/src/utils/collaboration";
 import { API_BASE } from "@/src/config";
 import { Ionicons } from "@expo/vector-icons";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 const apiUrl = (path: string) =>
   `${API_BASE.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
@@ -41,6 +43,7 @@ type ConnectionState =
 export default function HelperWebScreen() {
   console.log("[HelperWeb] 🚀 HelperWebScreen mounted");
 
+  const colors = useThemeColors();
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
@@ -1511,8 +1514,8 @@ export default function HelperWebScreen() {
   // Show message if not on web
   if (Platform.OS !== "web") {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.danger }]}>
           This helper interface is only available on web browsers. Please open
           this page in a browser.
         </Text>
@@ -1524,8 +1527,8 @@ export default function HelperWebScreen() {
   if (!isAuthenticated) {
     return (
       <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.container}
+        style={[styles.scrollContainer, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
       >
         <View style={styles.header}>
           <Image
@@ -1533,19 +1536,19 @@ export default function HelperWebScreen() {
             style={styles.companyLogo}
             resizeMode="contain"
           />
-          <Text style={styles.headerTitle}>WalkBuddy Helper</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>WalkBuddy Helper</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.accent }]}>
             Help someone navigate in real-time
           </Text>
         </View>
 
-        <View style={styles.authContainer}>
+        <View style={[styles.authContainer, { backgroundColor: colors.surface }]}>
           {/* Toggle between Login and Signup */}
-          <View style={styles.authToggle}>
+          <View style={[styles.authToggle, { backgroundColor: colors.background }]}>
             <Pressable
               style={[
                 styles.authToggleButton,
-                !showSignup && styles.authToggleButtonActive,
+                !showSignup && { backgroundColor: colors.accent },
               ]}
               onPress={() => {
                 setShowSignup(false);
@@ -1555,7 +1558,8 @@ export default function HelperWebScreen() {
               <Text
                 style={[
                   styles.authToggleText,
-                  !showSignup && styles.authToggleTextActive,
+                  { color: colors.textMuted },
+                  !showSignup && { color: colors.accentText },
                 ]}
               >
                 Login
@@ -1564,7 +1568,7 @@ export default function HelperWebScreen() {
             <Pressable
               style={[
                 styles.authToggleButton,
-                showSignup && styles.authToggleButtonActive,
+                showSignup && { backgroundColor: colors.accent },
               ]}
               onPress={() => {
                 setShowSignup(true);
@@ -1574,7 +1578,8 @@ export default function HelperWebScreen() {
               <Text
                 style={[
                   styles.authToggleText,
-                  showSignup && styles.authToggleTextActive,
+                  { color: colors.textMuted },
+                  showSignup && { color: colors.accentText },
                 ]}
               >
                 Sign Up
@@ -1584,11 +1589,11 @@ export default function HelperWebScreen() {
 
           {/* Error Message */}
           {authError && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{authError}</Text>
+            <View style={[styles.errorContainer, { backgroundColor: colors.danger + "26" }]}>
+              <Text style={[styles.errorText, { color: colors.danger }]}>{authError}</Text>
               {authError.includes("already exists") && (
                 <Pressable
-                  style={styles.switchToLoginButton}
+                  style={[styles.switchToLoginButton, { backgroundColor: colors.accent }]}
                   onPress={() => {
                     setShowSignup(false);
                     setAuthError(null);
@@ -1598,7 +1603,7 @@ export default function HelperWebScreen() {
                     }
                   }}
                 >
-                  <Text style={styles.switchToLoginButtonText}>
+                  <Text style={[styles.switchToLoginButtonText, { color: colors.accentText }]}>
                     Go to Login →
                   </Text>
                 </Pressable>
@@ -1609,29 +1614,29 @@ export default function HelperWebScreen() {
           {/* Login Form */}
           {!showSignup ? (
             <View style={styles.authForm}>
-              <Text style={styles.authLabel}>Email</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Email</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={loginData.email}
                 onChangeText={(text) =>
                   setLoginData({ ...loginData, email: text })
                 }
                 placeholder="Enter your email"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Password</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Password</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={loginData.password}
                 onChangeText={(text) =>
                   setLoginData({ ...loginData, password: text })
                 }
                 placeholder="Enter your password"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry
                 editable={!isLoadingAuth}
               />
@@ -1639,36 +1644,37 @@ export default function HelperWebScreen() {
               <Pressable
                 style={[
                   styles.authSubmitButton,
+                  { backgroundColor: colors.accent },
                   isLoadingAuth && styles.authSubmitButtonDisabled,
                 ]}
                 onPress={handleLogin}
                 disabled={isLoadingAuth}
               >
                 {isLoadingAuth ? (
-                  <ActivityIndicator color="#1B263B" />
+                  <ActivityIndicator color={colors.accentText} />
                 ) : (
-                  <Text style={styles.authSubmitButtonText}>Login</Text>
+                  <Text style={[styles.authSubmitButtonText, { color: colors.accentText }]}>Login</Text>
                 )}
               </Pressable>
             </View>
           ) : (
             /* Signup Form */
             <View style={styles.authForm}>
-              <Text style={styles.authLabel}>Name *</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Name *</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.name}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, name: text })
                 }
                 placeholder="Enter your full name"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Age</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Age</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.age}
                 onChangeText={(text) =>
                   setSignupData({
@@ -1677,67 +1683,67 @@ export default function HelperWebScreen() {
                   })
                 }
                 placeholder="Enter your age"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Email *</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Email *</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.email}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, email: text })
                 }
                 placeholder="Enter your email"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Phone Number</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Phone Number</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.phone}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, phone: text })
                 }
                 placeholder="Enter your phone number"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Address</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Address</Text>
               <TextInput
-                style={[styles.authInput, styles.authTextArea]}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }, styles.authTextArea]}
                 value={signupData.address}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, address: text })
                 }
                 placeholder="Enter your address"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={2}
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Emergency Contact Name</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Emergency Contact Name</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.emergency_contact_name}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, emergency_contact_name: text })
                 }
                 placeholder="Emergency contact name"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Emergency Contact Phone</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Emergency Contact Phone</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.emergency_contact_phone}
                 onChangeText={(text) =>
                   setSignupData({
@@ -1746,26 +1752,26 @@ export default function HelperWebScreen() {
                   })
                 }
                 placeholder="Emergency contact phone"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Experience Level</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Experience Level</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.experience_level}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, experience_level: text })
                 }
                 placeholder="e.g., Beginner, Intermediate, Expert"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 editable={!isLoadingAuth}
               />
 
-              <Text style={styles.authLabel}>Password *</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Password *</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.password}
                 onChangeText={(text) => {
                   setSignupData({ ...signupData, password: text });
@@ -1778,24 +1784,24 @@ export default function HelperWebScreen() {
                   }
                 }}
                 placeholder="Enter password (min 8 chars: A-Z, a-z, 0-9, special)"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry
                 editable={!isLoadingAuth}
               />
-              <Text style={styles.passwordHint}>
+              <Text style={[styles.passwordHint, { color: colors.textMuted }]}>
                 Password must be at least 8 characters and include: uppercase,
                 lowercase, number, and special character
               </Text>
 
-              <Text style={styles.authLabel}>Confirm Password *</Text>
+              <Text style={[styles.authLabel, { color: colors.text }]}>Confirm Password *</Text>
               <TextInput
-                style={styles.authInput}
+                style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
                 value={signupData.confirmPassword}
                 onChangeText={(text) =>
                   setSignupData({ ...signupData, confirmPassword: text })
                 }
                 placeholder="Confirm your password"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry
                 editable={!isLoadingAuth}
               />
@@ -1810,17 +1816,18 @@ export default function HelperWebScreen() {
                   <View
                     style={[
                       styles.checkbox,
-                      termsAccepted && styles.checkboxChecked,
+                      { borderColor: colors.accent, backgroundColor: colors.background },
+                      termsAccepted && { backgroundColor: colors.accent },
                     ]}
                   >
                     {termsAccepted && (
-                      <Ionicons name="checkmark" size={16} color="#1B263B" />
+                      <Ionicons name="checkmark" size={16} color={colors.accentText} />
                     )}
                   </View>
-                  <Text style={styles.termsText}>
+                  <Text style={[styles.termsText, { color: colors.textMuted }]}>
                     I accept the{" "}
                     <Text
-                      style={styles.termsLink}
+                      style={[styles.termsLink, { color: colors.accent }]}
                       onPress={(e) => {
                         e.stopPropagation();
                         // Show terms in a simple alert for now (since settings modal requires auth)
@@ -1847,6 +1854,7 @@ export default function HelperWebScreen() {
               <Pressable
                 style={[
                   styles.authSubmitButton,
+                  { backgroundColor: colors.accent },
                   (isLoadingAuth || !termsAccepted) &&
                     styles.authSubmitButtonDisabled,
                 ]}
@@ -1854,9 +1862,9 @@ export default function HelperWebScreen() {
                 disabled={isLoadingAuth || !termsAccepted}
               >
                 {isLoadingAuth ? (
-                  <ActivityIndicator color="#1B263B" />
+                  <ActivityIndicator color={colors.accentText} />
                 ) : (
-                  <Text style={styles.authSubmitButtonText}>Sign Up</Text>
+                  <Text style={[styles.authSubmitButtonText, { color: colors.accentText }]}>Sign Up</Text>
                 )}
               </Pressable>
             </View>
@@ -1869,21 +1877,21 @@ export default function HelperWebScreen() {
   // Main interface (shown after authentication)
   return (
     <ScrollView
-      style={styles.scrollContainer}
-      contentContainerStyle={styles.container}
+      style={[styles.scrollContainer, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
     >
       <View style={styles.header}>
         {/* Settings Button - Top Right */}
         {isAuthenticated && (
           <Pressable
-            style={styles.settingsButton}
+            style={[styles.settingsButton, { backgroundColor: colors.surface }]}
             onPress={() => {
               setShowSettings(true);
               setSettingsSection(null);
               fetchHelperData();
             }}
           >
-            <Ionicons name="settings-outline" size={24} color="#F9A826" />
+            <Ionicons name="settings-outline" size={24} color={colors.accent} />
           </Pressable>
         )}
 
@@ -1892,30 +1900,30 @@ export default function HelperWebScreen() {
           style={styles.companyLogo}
           resizeMode="contain"
         />
-        <Text style={styles.headerTitle}>WalkBuddy Helper</Text>
-        <Text style={styles.headerSubtitle}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>WalkBuddy Helper</Text>
+        <Text style={[styles.headerSubtitle, { color: colors.accent }]}>
           Help someone navigate in real-time
         </Text>
-        <Text style={styles.headerDescription}>
+        <Text style={[styles.headerDescription, { color: colors.textMuted }]}>
           No app download required. Just enter the session code to start
           helping.
         </Text>
         {/* Logout Button */}
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={16} color="#FF6B6B" />
-          <Text style={styles.logoutButtonText}>Logout</Text>
+        <Pressable style={[styles.logoutButton, { backgroundColor: colors.danger + "26", borderColor: colors.danger }]} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={16} color={colors.danger} />
+          <Text style={[styles.logoutButtonText, { color: colors.danger }]}>Logout</Text>
         </Pressable>
       </View>
 
       {!isConnected ? (
         <View style={styles.joinContainer}>
-          <Text style={styles.title}>Enter Session Code</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.text }]}>Enter Session Code</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             Ask the person needing help for their 8-character session code
           </Text>
 
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface, color: colors.text }]}
             value={sessionId}
             onChangeText={(text) => {
               // Auto-uppercase and limit to 8 characters
@@ -1926,7 +1934,7 @@ export default function HelperWebScreen() {
             autoCapitalize="characters"
             maxLength={8}
             placeholder="Enter session code (e.g., ABC12345)"
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="characters"
             maxLength={8}
             editable={!isConnecting}
@@ -1934,29 +1942,30 @@ export default function HelperWebScreen() {
 
           {/* Session Status Display */}
           {sessionStatus && (
-            <View style={styles.statusContainer}>
+            <View style={[styles.statusContainer, { backgroundColor: colors.surface }]}>
               <View style={styles.statusRow}>
                 <View
                   style={[
                     styles.statusDot,
-                    sessionStatus.user_connected && styles.statusDotActive,
+                    { backgroundColor: colors.textMuted },
+                    sessionStatus.user_connected && { backgroundColor: colors.success },
                   ]}
                 />
-                <Text style={styles.statusText}>
+                <Text style={[styles.statusText, { color: colors.text }]}>
                   {sessionStatus.user_connected
                     ? "User Connected"
                     : "Waiting for user"}
                 </Text>
               </View>
-              <Text style={styles.statusSubtext}>
+              <Text style={[styles.statusSubtext, { color: colors.textMuted }]}>
                 Expires in: {Math.floor(sessionStatus.expires_in / 60)} minutes
               </Text>
             </View>
           )}
 
           {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
+            <View style={[styles.errorContainer, { backgroundColor: colors.danger + "26" }]}>
+              <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
             </View>
           )}
 
@@ -1964,30 +1973,32 @@ export default function HelperWebScreen() {
             <Pressable
               style={[
                 styles.secondaryButton,
+                { backgroundColor: colors.surface, borderColor: colors.accent },
                 isCheckingStatus && styles.secondaryButtonDisabled,
               ]}
               onPress={handleCheckStatus}
               disabled={isCheckingStatus || !sessionId.trim()}
             >
               {isCheckingStatus ? (
-                <ActivityIndicator size="small" color="#1B263B" />
+                <ActivityIndicator size="small" color={colors.accentText} />
               ) : (
-                <Text style={styles.secondaryButtonText}>Check Status</Text>
+                <Text style={[styles.secondaryButtonText, { color: colors.accent }]}>Check Status</Text>
               )}
             </Pressable>
 
             <Pressable
               style={[
                 styles.primaryButton,
+                { backgroundColor: colors.accent },
                 isConnecting && styles.primaryButtonDisabled,
               ]}
               onPress={handleJoinSession}
               disabled={isConnecting || !sessionId.trim()}
             >
               {isConnecting ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <ActivityIndicator size="small" color={colors.text} />
               ) : (
-                <Text style={styles.primaryButtonText}>Join Session</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.accentText }]}>Join Session</Text>
               )}
             </Pressable>
           </View>
@@ -1995,14 +2006,15 @@ export default function HelperWebScreen() {
       ) : (
         <View style={styles.helperContainer}>
           {/* Status Bar */}
-          <View style={styles.statusBar}>
+          <View style={[styles.statusBar, { backgroundColor: colors.surface }]}>
             <View
               style={[
                 styles.statusDot,
-                userConnected && styles.statusDotConnected,
+                { backgroundColor: colors.textMuted },
+                userConnected && { backgroundColor: colors.success },
               ]}
             />
-            <Text style={styles.statusText}>
+            <Text style={[styles.statusText, { color: colors.text }]}>
               {userConnected &&
               (hasVideoTrack || useFallbackMode || lastFrameDataUrl)
                 ? useFallbackMode || lastFrameDataUrl
@@ -2013,18 +2025,18 @@ export default function HelperWebScreen() {
                   : "Waiting for user to connect..."}
             </Text>
             {webrtcError && !useFallbackMode && (
-              <Text style={styles.errorText}>{webrtcError}</Text>
+              <Text style={[styles.errorText, { color: colors.danger }]}>{webrtcError}</Text>
             )}
             {useFallbackMode && (
-              <Text style={styles.statusSubtext}>
+              <Text style={[styles.statusSubtext, { color: colors.textMuted }]}>
                 Using reliable frame streaming
               </Text>
             )}
             {/* Audio Status */}
             {userReceivedAudio && (
               <View style={styles.audioStatus}>
-                <Ionicons name="volume-high" size={16} color="#4CAF50" />
-                <Text style={styles.audioStatusText}>
+                <Ionicons name="volume-high" size={16} color={colors.success} />
+                <Text style={[styles.audioStatusText, { color: colors.success }]}>
                   Receiving audio from user
                 </Text>
               </View>
@@ -2032,15 +2044,15 @@ export default function HelperWebScreen() {
             {/* Microphone Status Indicator */}
             {hasAudioTrack && !isMuted && (
               <View style={styles.micActiveIndicator}>
-                <View style={styles.micPulse} />
-                <Ionicons name="mic" size={16} color="#4CAF50" />
-                <Text style={styles.micActiveText}>Microphone active</Text>
+                <View style={[styles.micPulse, { backgroundColor: colors.success }]} />
+                <Ionicons name="mic" size={16} color={colors.success} />
+                <Text style={[styles.micActiveText, { color: colors.success }]}>Microphone active</Text>
               </View>
             )}
             {hasAudioTrack && isMuted && (
               <View style={styles.micMutedIndicator}>
-                <Ionicons name="mic-off" size={16} color="#FF6B6B" />
-                <Text style={styles.micMutedText}>Microphone muted</Text>
+                <Ionicons name="mic-off" size={16} color={colors.danger} />
+                <Text style={[styles.micMutedText, { color: colors.danger }]}>Microphone muted</Text>
               </View>
             )}
           </View>
@@ -2175,14 +2187,14 @@ export default function HelperWebScreen() {
               </>
             ) : (
               <View style={styles.cameraPlaceholder}>
-                <Ionicons name="camera-outline" size={64} color="#666" />
-                <Text style={styles.cameraPlaceholderText}>
+                <Ionicons name="camera-outline" size={64} color={colors.textMuted} />
+                <Text style={[styles.cameraPlaceholderText, { color: colors.textMuted }]}>
                   {userConnected
                     ? webrtcError || "Waiting for camera feed..."
                     : "No user connected"}
                 </Text>
                 {userConnected && !webrtcError && (
-                  <Text style={styles.cameraPlaceholderHint}>
+                  <Text style={[styles.cameraPlaceholderHint, { color: colors.textMuted }]}>
                     Establishing video connection...
                   </Text>
                 )}
@@ -2208,15 +2220,15 @@ export default function HelperWebScreen() {
                   }}
                   style={[
                     styles.muteButton,
-                    { backgroundColor: isMuted ? "#FF6B6B" : "#4CAF50" },
+                    { backgroundColor: isMuted ? colors.danger : colors.success },
                   ]}
                 >
                   <Ionicons
                     name={isMuted ? "mic-off" : "mic"}
                     size={20}
-                    color="#FFFFFF"
+                    color={colors.text}
                   />
-                  <Text style={styles.muteButtonText}>
+                  <Text style={[styles.muteButtonText, { color: colors.text }]}>
                     {isMuted ? "Unmute" : "Mute"}
                   </Text>
                 </Pressable>
@@ -2269,10 +2281,10 @@ export default function HelperWebScreen() {
                       );
                     }
                   }}
-                  style={styles.requestMicButton}
+                  style={[styles.requestMicButton, { backgroundColor: colors.accent }]}
                 >
-                  <Ionicons name="mic" size={20} color="#FFFFFF" />
-                  <Text style={styles.requestMicButtonText}>
+                  <Ionicons name="mic" size={20} color={colors.accentText} />
+                  <Text style={[styles.requestMicButtonText, { color: colors.accentText }]}>
                     Enable Microphone
                   </Text>
                 </Pressable>
@@ -2327,10 +2339,10 @@ export default function HelperWebScreen() {
                       );
                     }
                   }}
-                  style={styles.requestMicButton}
+                  style={[styles.requestMicButton, { backgroundColor: colors.accent }]}
                 >
-                  <Ionicons name="mic" size={20} color="#FFFFFF" />
-                  <Text style={styles.requestMicButtonText}>
+                  <Ionicons name="mic" size={20} color={colors.accentText} />
+                  <Text style={[styles.requestMicButtonText, { color: colors.accentText }]}>
                     Enable Microphone
                   </Text>
                 </Pressable>
@@ -2339,28 +2351,32 @@ export default function HelperWebScreen() {
           )}
 
           {/* Guidance Input */}
-          <View style={styles.guidanceContainer}>
-            <Text style={styles.guidanceLabel}>Send Guidance</Text>
+          <View style={[styles.guidanceContainer, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.guidanceLabel, { color: colors.text }]}>Send Guidance</Text>
             <View style={styles.guidanceInputRow}>
               <TextInput
-                style={styles.guidanceInput}
+                style={[styles.guidanceInput, { backgroundColor: colors.background, color: colors.text }]}
                 value={guidanceText}
                 onChangeText={setGuidanceText}
                 placeholder="Type guidance message..."
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 editable={userConnected}
               />
               <Pressable
                 style={[
                   styles.sendButton,
+                  { backgroundColor: colors.accent },
                   (!userConnected || !guidanceText.trim()) &&
                     styles.sendButtonDisabled,
+                  (!userConnected || !guidanceText.trim()) && {
+                    backgroundColor: colors.textMuted,
+                  },
                 ]}
                 onPress={handleSendGuidance}
                 disabled={!userConnected || !guidanceText.trim()}
               >
-                <Text style={styles.sendButtonText}>Send</Text>
+                <Text style={[styles.sendButtonText, { color: colors.accentText }]}>Send</Text>
               </Pressable>
             </View>
           </View>
@@ -2368,7 +2384,7 @@ export default function HelperWebScreen() {
           {/* Quick Guidance Buttons */}
           {userConnected && (
             <View style={styles.quickGuidanceContainer}>
-              <Text style={styles.quickGuidanceLabel}>Quick Guidance</Text>
+              <Text style={[styles.quickGuidanceLabel, { color: colors.textMuted }]}>Quick Guidance</Text>
               <View style={styles.quickGuidanceButtons}>
                 {[
                   "Turn left",
@@ -2379,11 +2395,11 @@ export default function HelperWebScreen() {
                 ].map((msg) => (
                   <Pressable
                     key={msg}
-                    style={styles.quickGuidanceButton}
+                    style={[styles.quickGuidanceButton, { backgroundColor: colors.surface, borderColor: colors.accent }]}
                     onPress={() => handleQuickGuidance(msg)}
                     disabled={!userConnected}
                   >
-                    <Text style={styles.quickGuidanceButtonText}>{msg}</Text>
+                    <Text style={[styles.quickGuidanceButtonText, { color: colors.accent }]}>{msg}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -2391,8 +2407,8 @@ export default function HelperWebScreen() {
           )}
 
           {/* Disconnect Button */}
-          <Pressable style={styles.disconnectButton} onPress={handleDisconnect}>
-            <Text style={styles.disconnectButtonText}>Disconnect</Text>
+          <Pressable style={[styles.disconnectButton, { backgroundColor: colors.danger + "26", borderColor: colors.danger }]} onPress={handleDisconnect}>
+            <Text style={[styles.disconnectButtonText, { color: colors.danger }]}>Disconnect</Text>
           </Pressable>
         </View>
       )}
@@ -2400,10 +2416,10 @@ export default function HelperWebScreen() {
       {/* Settings Modal */}
       {showSettings && (
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
             {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {settingsSection === "account"
                   ? "Account"
                   : settingsSection === "privacy"
@@ -2421,7 +2437,7 @@ export default function HelperWebScreen() {
                 }}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color="#FFF" />
+                <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
             </View>
 
@@ -2429,50 +2445,50 @@ export default function HelperWebScreen() {
             {!settingsSection && (
               <View style={styles.settingsMenu}>
                 <Pressable
-                  style={styles.settingsMenuItem}
+                  style={[styles.settingsMenuItem, { backgroundColor: colors.surface }]}
                   onPress={() => setSettingsSection("account")}
                 >
-                  <Ionicons name="person-outline" size={24} color="#F9A826" />
-                  <Text style={styles.settingsMenuItemText}>Account</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#AAA" />
+                  <Ionicons name="person-outline" size={24} color={colors.accent} />
+                  <Text style={[styles.settingsMenuItemText, { color: colors.text }]}>Account</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                 </Pressable>
                 <Pressable
-                  style={styles.settingsMenuItem}
+                  style={[styles.settingsMenuItem, { backgroundColor: colors.surface }]}
                   onPress={() => setSettingsSection("privacy")}
                 >
                   <Ionicons
                     name="lock-closed-outline"
                     size={24}
-                    color="#F9A826"
+                    color={colors.accent}
                   />
-                  <Text style={styles.settingsMenuItemText}>
+                  <Text style={[styles.settingsMenuItemText, { color: colors.text }]}>
                     Privacy & Policy
                   </Text>
-                  <Ionicons name="chevron-forward" size={20} color="#AAA" />
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                 </Pressable>
                 <Pressable
-                  style={styles.settingsMenuItem}
+                  style={[styles.settingsMenuItem, { backgroundColor: colors.surface }]}
                   onPress={() => setSettingsSection("help")}
                 >
                   <Ionicons
                     name="help-circle-outline"
                     size={24}
-                    color="#F9A826"
+                    color={colors.accent}
                   />
-                  <Text style={styles.settingsMenuItemText}>Help Center</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#AAA" />
+                  <Text style={[styles.settingsMenuItemText, { color: colors.text }]}>Help Center</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                 </Pressable>
                 <Pressable
-                  style={styles.settingsMenuItem}
+                  style={[styles.settingsMenuItem, { backgroundColor: colors.surface }]}
                   onPress={() => setSettingsSection("about")}
                 >
                   <Ionicons
                     name="information-circle-outline"
                     size={24}
-                    color="#F9A826"
+                    color={colors.accent}
                   />
-                  <Text style={styles.settingsMenuItemText}>About</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#AAA" />
+                  <Text style={[styles.settingsMenuItemText, { color: colors.text }]}>About</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                 </Pressable>
               </View>
             )}
@@ -2482,89 +2498,89 @@ export default function HelperWebScreen() {
               <ScrollView style={styles.settingsContent}>
                 {helperData ? (
                   <>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Name</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Name</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.name || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Age</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Age</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.age || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Email</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Email</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.email || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Phone Number</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Phone Number</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.phone || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Address</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Address</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.address || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>
                         Emergency Contact Name
                       </Text>
-                      <Text style={styles.accountValue}>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.emergency_contact_name || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>
                         Emergency Contact Phone
                       </Text>
-                      <Text style={styles.accountValue}>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.emergency_contact_phone || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Experience Level</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Experience Level</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.experience_level || "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Account Created</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Account Created</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.created_at
                           ? new Date(helperData.created_at).toLocaleDateString()
                           : "N/A"}
                       </Text>
                     </View>
-                    <View style={styles.accountSection}>
-                      <Text style={styles.accountLabel}>Last Login</Text>
-                      <Text style={styles.accountValue}>
+                    <View style={[styles.accountSection, { borderBottomColor: colors.border }]}>
+                      <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Last Login</Text>
+                      <Text style={[styles.accountValue, { color: colors.text }]}>
                         {helperData.last_login
                           ? new Date(helperData.last_login).toLocaleDateString()
                           : "N/A"}
                       </Text>
                     </View>
                     <Pressable
-                      style={styles.deleteAccountButton}
+                      style={[styles.deleteAccountButton, { backgroundColor: colors.danger }]}
                       onPress={handleDeleteAccount}
                       disabled={isDeletingAccount}
                     >
                       {isDeletingAccount ? (
-                        <ActivityIndicator color="#FFF" />
+                        <ActivityIndicator color={colors.text} />
                       ) : (
                         <>
                           <Ionicons
                             name="trash-outline"
                             size={20}
-                            color="#FFF"
+                            color={colors.text}
                           />
-                          <Text style={styles.deleteAccountButtonText}>
+                          <Text style={[styles.deleteAccountButtonText, { color: colors.text }]}>
                             Delete Account
                           </Text>
                         </>
@@ -2572,7 +2588,7 @@ export default function HelperWebScreen() {
                     </Pressable>
                   </>
                 ) : (
-                  <ActivityIndicator size="large" color="#F9A826" />
+                  <ActivityIndicator size="large" color={colors.accent} />
                 )}
               </ScrollView>
             )}
@@ -2580,36 +2596,36 @@ export default function HelperWebScreen() {
             {/* Privacy & Policy Section */}
             {settingsSection === "privacy" && (
               <ScrollView style={styles.settingsContent}>
-                <Text style={styles.sectionTitle}>Privacy & Policy</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Privacy & Policy</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   WalkBuddy Helper is committed to protecting your privacy. This
                   Privacy Policy explains how we collect, use, and safeguard
                   your personal information.
                 </Text>
-                <Text style={styles.sectionSubtitle}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>
                   Information We Collect
                 </Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   We collect information you provide during registration,
                   including your name, email, phone number, address, and
                   emergency contact details.
                 </Text>
-                <Text style={styles.sectionSubtitle}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>
                   How We Use Your Information
                 </Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   Your information is used to facilitate the assistance service,
                   connect helpers with users, and ensure the safety and security
                   of our platform.
                 </Text>
-                <Text style={styles.sectionSubtitle}>Data Security</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Data Security</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   We implement appropriate security measures to protect your
                   personal information. However, no method of transmission over
                   the internet is 100% secure.
                 </Text>
-                <Text style={styles.sectionSubtitle}>Your Rights</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Your Rights</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   You have the right to access, update, or delete your personal
                   information at any time through your account settings.
                 </Text>
@@ -2619,17 +2635,17 @@ export default function HelperWebScreen() {
             {/* Help Center Section */}
             {settingsSection === "help" && (
               <ScrollView style={styles.settingsContent}>
-                <Text style={styles.sectionTitle}>Help Center</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Help Center</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   Need assistance? We're here to help! Contact our support team
                   for any questions or issues you may have.
                 </Text>
 
-                <Text style={styles.sectionSubtitle}>Contact Support</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Contact Support</Text>
 
                 {/* Email Support */}
                 <Pressable
-                  style={styles.helpContactItem}
+                  style={[styles.helpContactItem, { backgroundColor: colors.surface }]}
                   onPress={() => {
                     const email = "support@walkbuddy.com";
                     const subject = encodeURIComponent(
@@ -2654,24 +2670,24 @@ export default function HelperWebScreen() {
                     }
                   }}
                 >
-                  <Ionicons name="mail-outline" size={24} color="#F9A826" />
+                  <Ionicons name="mail-outline" size={24} color={colors.accent} />
                   <View style={styles.helpContactTextContainer}>
-                    <Text style={styles.helpContactTitle}>Email Support</Text>
-                    <Text style={styles.helpContactSubtitle}>
+                    <Text style={[styles.helpContactTitle, { color: colors.text }]}>Email Support</Text>
+                    <Text style={[styles.helpContactSubtitle, { color: colors.textMuted }]}>
                       support@walkbuddy.com
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#AAA" />
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                 </Pressable>
 
                 {/* Send Message Form */}
-                <Text style={styles.sectionSubtitle}>Send Us a Message</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Send Us a Message</Text>
                 <TextInput
-                  style={[styles.authInput, styles.supportMessageInput]}
+                  style={[styles.authInput, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }, styles.supportMessageInput]}
                   value={supportMessage}
                   onChangeText={setSupportMessage}
                   placeholder="Describe your issue or question..."
-                  placeholderTextColor="#888"
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   numberOfLines={6}
                   textAlignVertical="top"
@@ -2679,6 +2695,7 @@ export default function HelperWebScreen() {
                 <Pressable
                   style={[
                     styles.supportSendButton,
+                    { backgroundColor: colors.accent },
                     (!supportMessage.trim() || isSendingSupport) &&
                       styles.supportSendButtonDisabled,
                   ]}
@@ -2750,11 +2767,11 @@ export default function HelperWebScreen() {
                   disabled={!supportMessage.trim() || isSendingSupport}
                 >
                   {isSendingSupport ? (
-                    <ActivityIndicator color="#FFF" />
+                    <ActivityIndicator color={colors.accentText} />
                   ) : (
                     <>
-                      <Ionicons name="send-outline" size={20} color="#FFF" />
-                      <Text style={styles.supportSendButtonText}>
+                      <Ionicons name="send-outline" size={20} color={colors.accentText} />
+                      <Text style={[styles.supportSendButtonText, { color: colors.accentText }]}>
                         Send Message
                       </Text>
                     </>
@@ -2762,57 +2779,57 @@ export default function HelperWebScreen() {
                 </Pressable>
 
                 {/* FAQ Section */}
-                <Text style={styles.sectionSubtitle}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>
                   Frequently Asked Questions
                 </Text>
 
-                <View style={styles.faqItem}>
-                  <Text style={styles.faqQuestion}>
+                <View style={[styles.faqItem, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.faqQuestion, { color: colors.accent }]}>
                     How do I join a session?
                   </Text>
-                  <Text style={styles.faqAnswer}>
+                  <Text style={[styles.faqAnswer, { color: colors.textMuted }]}>
                     Enter the 8-character session code provided by the user in
                     the "Enter Session Code" field and click "Join Session".
                   </Text>
                 </View>
 
-                <View style={styles.faqItem}>
-                  <Text style={styles.faqQuestion}>
+                <View style={[styles.faqItem, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.faqQuestion, { color: colors.accent }]}>
                     I can't see the user's camera feed
                   </Text>
-                  <Text style={styles.faqAnswer}>
+                  <Text style={[styles.faqAnswer, { color: colors.textMuted }]}>
                     Make sure the user has enabled their camera and is
                     connected. Try refreshing the page or ask the user to check
                     their connection.
                   </Text>
                 </View>
 
-                <View style={styles.faqItem}>
-                  <Text style={styles.faqQuestion}>
+                <View style={[styles.faqItem, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.faqQuestion, { color: colors.accent }]}>
                     How do I send guidance to the user?
                   </Text>
-                  <Text style={styles.faqAnswer}>
+                  <Text style={[styles.faqAnswer, { color: colors.textMuted }]}>
                     Type your guidance message in the "Send Guidance" field and
                     click "Send". The user will hear your message spoken aloud.
                   </Text>
                 </View>
 
-                <View style={styles.faqItem}>
-                  <Text style={styles.faqQuestion}>
+                <View style={[styles.faqItem, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.faqQuestion, { color: colors.accent }]}>
                     Can I use my microphone?
                   </Text>
-                  <Text style={styles.faqAnswer}>
+                  <Text style={[styles.faqAnswer, { color: colors.textMuted }]}>
                     Yes! Click the "Enable Microphone" button to allow audio
                     communication with the user. Make sure to grant microphone
                     permissions when prompted.
                   </Text>
                 </View>
 
-                <View style={styles.faqItem}>
-                  <Text style={styles.faqQuestion}>
+                <View style={[styles.faqItem, { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.faqQuestion, { color: colors.accent }]}>
                     How do I delete my account?
                   </Text>
-                  <Text style={styles.faqAnswer}>
+                  <Text style={[styles.faqAnswer, { color: colors.textMuted }]}>
                     Go to Settings → Account → Delete Account. This action
                     cannot be undone, so make sure you want to permanently
                     delete your account.
@@ -2824,27 +2841,27 @@ export default function HelperWebScreen() {
             {/* About Section */}
             {settingsSection === "about" && (
               <ScrollView style={styles.settingsContent}>
-                <Text style={styles.sectionTitle}>About WalkBuddy Helper</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>About WalkBuddy Helper</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   WalkBuddy Helper is a real-time assistance platform designed
                   to help people navigate and receive guidance from trusted
                   helpers.
                 </Text>
-                <Text style={styles.sectionSubtitle}>Our Mission</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Our Mission</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   To provide accessible, real-time assistance to those who need
                   help navigating their environment, connecting helpers with
                   users in a safe and secure manner.
                 </Text>
-                <Text style={styles.sectionSubtitle}>Version</Text>
-                <Text style={styles.sectionText}>1.0.0</Text>
-                <Text style={styles.sectionSubtitle}>Contact</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Version</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>1.0.0</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Contact</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   For support or inquiries, please contact us through the app or
                   visit our website.
                 </Text>
-                <Text style={styles.sectionSubtitle}>Developed by</Text>
-                <Text style={styles.sectionText}>
+                <Text style={[styles.sectionSubtitle, { color: colors.accent }]}>Developed by</Text>
+                <Text style={[styles.sectionText, { color: colors.textMuted }]}>
                   Mekong Inclusive Ventures
                 </Text>
               </ScrollView>
@@ -2856,8 +2873,8 @@ export default function HelperWebScreen() {
                 style={styles.backButton}
                 onPress={() => setSettingsSection(null)}
               >
-                <Ionicons name="arrow-back" size={20} color="#F9A826" />
-                <Text style={styles.backButtonText}>Back to Settings</Text>
+                <Ionicons name="arrow-back" size={20} color={colors.accent} />
+                <Text style={[styles.backButtonText, { color: colors.accent }]}>Back to Settings</Text>
               </Pressable>
             )}
           </View>
@@ -2867,9 +2884,9 @@ export default function HelperWebScreen() {
       {/* Delete Account Confirmation Modal */}
       {showDeleteConfirm && (
         <View style={styles.modalOverlay}>
-          <View style={styles.confirmModalContainer}>
-            <Text style={styles.confirmModalTitle}>Delete Account</Text>
-            <Text style={styles.confirmModalText}>
+          <View style={[styles.confirmModalContainer, { backgroundColor: colors.background }]}>
+            <Text style={[styles.confirmModalTitle, { color: colors.text }]}>Delete Account</Text>
+            <Text style={[styles.confirmModalText, { color: colors.textMuted }]}>
               Are you sure you want to delete your account? This action cannot
               be undone and all your data will be permanently removed.
             </Text>
@@ -2878,23 +2895,25 @@ export default function HelperWebScreen() {
                 style={[
                   styles.confirmModalButton,
                   styles.confirmModalButtonCancel,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
                 onPress={() => setShowDeleteConfirm(false)}
               >
-                <Text style={styles.confirmModalButtonCancelText}>Cancel</Text>
+                <Text style={[styles.confirmModalButtonCancelText, { color: colors.text }]}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={[
                   styles.confirmModalButton,
                   styles.confirmModalButtonDelete,
+                  { backgroundColor: colors.danger },
                 ]}
                 onPress={confirmDeleteAccount}
                 disabled={isDeletingAccount}
               >
                 {isDeletingAccount ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={colors.text} />
                 ) : (
-                  <Text style={styles.confirmModalButtonDeleteText}>
+                  <Text style={[styles.confirmModalButtonDeleteText, { color: colors.text }]}>
                     Delete
                   </Text>
                 )}
@@ -2910,50 +2929,44 @@ export default function HelperWebScreen() {
 const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
-    backgroundColor: "#1B263B",
   },
   container: {
     flex: 1,
-    backgroundColor: "#1B263B",
-    padding: 20,
+    padding: Spacing.xl,
     minHeight: "100vh",
   },
   header: {
-    marginBottom: 32,
+    marginBottom: Spacing.xxxl,
     alignItems: "center",
     position: "relative",
   },
   companyLogo: {
     width: 200,
     height: 80,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   logoContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#2A2A2A",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   headerTitle: {
-    color: "#FFF",
     fontSize: 32,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   headerSubtitle: {
-    color: "#F9A826",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   headerDescription: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   joinContainer: {
     maxWidth: 500,
@@ -2961,121 +2974,102 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   title: {
-    color: "#FFF",
-    fontSize: 24,
+    fontSize: Typography.size.xl,
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     textAlign: "center",
   },
   subtitle: {
-    color: "#AAA",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: Spacing.xxxl,
   },
   input: {
-    backgroundColor: "#2A2A2A",
-    color: "#FFF",
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "700",
     letterSpacing: 4,
-    padding: 16,
-    borderRadius: 8,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   errorContainer: {
-    backgroundColor: "#3A1F1F",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.lg,
   },
   errorText: {
-    color: "#FF6B6B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   switchToLoginButton: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#F9A826",
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
     borderRadius: 6,
     alignSelf: "center",
   },
   switchToLoginButtonText: {
-    color: "#1B263B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: "#2A2A2A",
-    padding: 16,
-    borderRadius: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#F9A826",
   },
   secondaryButtonDisabled: {
     opacity: 0.5,
   },
   secondaryButtonText: {
-    color: "#F9A826",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   statusContainer: {
-    backgroundColor: "#2A2A2A",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.lg,
   },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#666",
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
-  statusDotActive: {
-    backgroundColor: "#4CAF50",
-  },
+  statusDotActive: {},
   statusText: {
-    color: "#FFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   statusSubtext: {
-    color: "#AAA",
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: Typography.size.xs,
+    marginTop: Spacing.xs,
   },
   primaryButton: {
-    backgroundColor: "#F9A826",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xxxl,
+    borderRadius: Radius.md,
     alignItems: "center",
   },
   primaryButtonDisabled: {
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: "#1B263B",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "700",
   },
   helperContainer: {
@@ -3087,32 +3081,27 @@ const styles = StyleSheet.create({
   statusBar: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.lg,
   },
   statusDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#666",
-    marginRight: 12,
+    marginRight: Spacing.md,
   },
-  statusDotConnected: {
-    backgroundColor: "#4CAF50",
-  },
+  statusDotConnected: {},
   statusText: {
-    color: "#FFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
   },
   cameraDisplay: {
     width: "100%",
     aspectRatio: 16 / 9,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     overflow: "hidden",
     backgroundColor: "#000",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   cameraPlaceholder: {
     flex: 1,
@@ -3120,111 +3109,95 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cameraPlaceholderText: {
-    color: "#888",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     textAlign: "center",
   },
   cameraPlaceholderHint: {
-    color: "#666",
-    fontSize: 12,
-    marginTop: 8,
+    fontSize: Typography.size.xs,
+    marginTop: Spacing.sm,
     textAlign: "center",
     fontStyle: "italic",
   },
   guidanceContainer: {
-    backgroundColor: "#2A2A2A",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.lg,
   },
   guidanceLabel: {
-    color: "#FFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   guidanceInputRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: Spacing.sm,
     alignItems: "flex-end",
   },
   guidanceInput: {
     flex: 1,
-    backgroundColor: "#1B263B",
-    color: "#FFF",
-    padding: 12,
-    borderRadius: 8,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
     minHeight: 44,
     maxHeight: 100,
   },
   sendButton: {
-    backgroundColor: "#F9A826",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Radius.sm,
   },
   sendButtonDisabled: {
-    backgroundColor: "#666",
     opacity: 0.5,
   },
   sendButtonText: {
-    color: "#FFF",
     fontWeight: "600",
   },
   quickGuidanceContainer: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   quickGuidanceLabel: {
-    color: "#AAA",
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: Typography.size.xs,
+    marginBottom: Spacing.sm,
   },
   quickGuidanceButtons: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: Spacing.sm,
   },
   quickGuidanceButton: {
-    backgroundColor: "#2A2A2A",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: "#F9A826",
   },
   quickGuidanceButtonText: {
-    color: "#F9A826",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
   disconnectButton: {
-    backgroundColor: "#3A1F1F",
-    padding: 16,
-    borderRadius: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: "#FF6B6B",
     alignItems: "center",
   },
   disconnectButtonText: {
-    color: "#FF6B6B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   audioControls: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.lg,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
   },
   muteButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    gap: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
     minWidth: 140,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -3233,47 +3206,42 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   muteButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   micPermissionDenied: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: "#3A1F1F",
-    gap: 8,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
   },
   micPermissionDeniedText: {
-    color: "#FF6B6B",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   micLoading: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
   },
   micLoadingText: {
-    color: "#F9A826",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   requestMicButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9A826",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    gap: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
     minWidth: 180,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -3282,26 +3250,24 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   requestMicButtonText: {
-    color: "#1B263B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   audioStatus: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
     gap: 6,
   },
   audioStatusText: {
-    color: "#4CAF50",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   micActiveIndicator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
     gap: 6,
     position: "relative",
   },
@@ -3310,115 +3276,96 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#4CAF50",
     opacity: 0.5,
   },
   micActiveText: {
-    color: "#4CAF50",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   micMutedIndicator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
     gap: 6,
   },
   micMutedText: {
-    color: "#FF6B6B",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "500",
   },
   footer: {
-    marginTop: 32,
-    padding: 16,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 8,
+    marginTop: Spacing.xxxl,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
     alignItems: "center",
   },
   footerText: {
-    color: "#AAA",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     textAlign: "center",
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   // Authentication styles
   authContainer: {
     maxWidth: 500,
     width: "100%",
     alignSelf: "center",
-    backgroundColor: "#2A2A2A",
-    borderRadius: 12,
-    padding: 24,
-    marginTop: 32,
+    borderRadius: Radius.md,
+    padding: Spacing.xxl,
+    marginTop: Spacing.xxxl,
   },
   authToggle: {
     flexDirection: "row",
-    marginBottom: 24,
-    backgroundColor: "#1B263B",
-    borderRadius: 8,
+    marginBottom: Spacing.xxl,
+    borderRadius: Radius.sm,
     padding: 4,
   },
   authToggleButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     alignItems: "center",
     borderRadius: 6,
   },
-  authToggleButtonActive: {
-    backgroundColor: "#F9A826",
-  },
+  authToggleButtonActive: {},
   authToggleText: {
-    color: "#AAA",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
-  authToggleTextActive: {
-    color: "#1B263B",
-  },
+  authToggleTextActive: {},
   authForm: {
-    gap: 16,
+    gap: Spacing.lg,
   },
   authLabel: {
-    color: "#FFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   authInput: {
-    backgroundColor: "#1B263B",
-    color: "#FFF",
-    fontSize: 16,
-    padding: 12,
-    borderRadius: 8,
+    fontSize: Typography.size.base,
+    padding: Spacing.md,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
   },
   authTextArea: {
     minHeight: 60,
     textAlignVertical: "top",
   },
   passwordHint: {
-    color: "#888",
     fontSize: 11,
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
     lineHeight: 14,
   },
   authSubmitButton: {
-    backgroundColor: "#F9A826",
-    paddingVertical: 16,
-    borderRadius: 8,
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.sm,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
   authSubmitButtonDisabled: {
     opacity: 0.6,
   },
   authSubmitButtonText: {
-    color: "#1B263B",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "700",
   },
   logoutButton: {
@@ -3426,28 +3373,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    marginTop: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#3A1F1F",
-    borderRadius: 8,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: "#FF6B6B",
   },
   logoutButtonText: {
-    color: "#FF6B6B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   // Settings styles
   settingsButton: {
     position: "absolute",
-    top: 20,
-    right: 20,
+    top: Spacing.xl,
+    right: Spacing.xl,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#2A2A2A",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
@@ -3467,22 +3410,19 @@ const styles = StyleSheet.create({
     width: "90%",
     maxWidth: 600,
     maxHeight: "90%",
-    backgroundColor: "#1B263B",
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: Radius.md,
+    padding: Spacing.xl,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
-    paddingBottom: 16,
+    marginBottom: Spacing.xl,
+    paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   modalTitle: {
-    color: "#FFF",
-    fontSize: 24,
+    fontSize: Typography.size.xl,
     fontWeight: "700",
   },
   modalCloseButton: {
@@ -3492,241 +3432,206 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   settingsMenu: {
-    gap: 12,
+    gap: Spacing.md,
   },
   settingsMenuItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2A2A2A",
-    padding: 16,
-    borderRadius: 8,
-    gap: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
+    gap: Spacing.md,
   },
   settingsMenuItemText: {
     flex: 1,
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   settingsContent: {
     maxHeight: 500,
   },
   accountSection: {
-    marginBottom: 20,
-    paddingBottom: 16,
+    marginBottom: Spacing.xl,
+    paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   accountLabel: {
-    color: "#AAA",
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: Typography.size.xs,
+    marginBottom: Spacing.xs,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   accountValue: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "500",
   },
   deleteAccountButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF6B6B",
-    padding: 16,
-    borderRadius: 8,
-    marginTop: 32,
-    gap: 8,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
+    marginTop: Spacing.xxxl,
+    gap: Spacing.sm,
   },
   deleteAccountButtonText: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
   },
   sectionTitle: {
-    color: "#FFF",
     fontSize: 22,
     fontWeight: "700",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   sectionSubtitle: {
-    color: "#F9A826",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "600",
-    marginTop: 20,
-    marginBottom: 8,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.sm,
   },
   sectionText: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     lineHeight: 22,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 20,
-    paddingVertical: 12,
-    gap: 8,
+    marginTop: Spacing.xl,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
   },
   backButtonText: {
-    color: "#F9A826",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   // Terms and Conditions checkbox styles
   termsContainer: {
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: Spacing.md,
   },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: "#F9A826",
-    backgroundColor: "#1B263B",
     alignItems: "center",
     justifyContent: "center",
   },
-  checkboxChecked: {
-    backgroundColor: "#F9A826",
-  },
+  checkboxChecked: {},
   termsText: {
     flex: 1,
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     lineHeight: 20,
   },
   termsLink: {
-    color: "#F9A826",
     fontWeight: "600",
     textDecorationLine: "underline",
   },
   termsErrorText: {
-    color: "#FF6B6B",
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: Typography.size.xs,
+    marginTop: Spacing.xs,
     marginLeft: 36,
   },
   // Delete confirmation modal styles
   confirmModalContainer: {
     width: "90%",
     maxWidth: 400,
-    backgroundColor: "#1B263B",
-    borderRadius: 12,
-    padding: 24,
+    borderRadius: Radius.md,
+    padding: Spacing.xxl,
   },
   confirmModalTitle: {
-    color: "#FFF",
-    fontSize: 24,
+    fontSize: Typography.size.xl,
     fontWeight: "700",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   confirmModalText: {
-    color: "#AAA",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: Spacing.xxl,
   },
   confirmModalButtons: {
     flexDirection: "row",
-    gap: 12,
+    gap: Spacing.md,
     justifyContent: "flex-end",
   },
   confirmModalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Radius.sm,
     minWidth: 100,
     alignItems: "center",
     justifyContent: "center",
   },
   confirmModalButtonCancel: {
-    backgroundColor: "#2A2A2A",
     borderWidth: 1,
-    borderColor: "#666",
   },
   confirmModalButtonCancelText: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
-  confirmModalButtonDelete: {
-    backgroundColor: "#FF6B6B",
-  },
+  confirmModalButtonDelete: {},
   confirmModalButtonDeleteText: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
   },
   // Help Center styles
   helpContactItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2A2A2A",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-    gap: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
   },
   helpContactTextContainer: {
     flex: 1,
   },
   helpContactTitle: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   helpContactSubtitle: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
   },
   supportMessageInput: {
     minHeight: 120,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   supportSendButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9A826",
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-    marginBottom: 24,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xxl,
   },
   supportSendButtonDisabled: {
     opacity: 0.5,
   },
   supportSendButtonText: {
-    color: "#1B263B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
   },
   faqItem: {
-    backgroundColor: "#2A2A2A",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: Spacing.lg,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.md,
   },
   faqQuestion: {
-    color: "#F9A826",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   faqAnswer: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     lineHeight: 20,
   },
 });

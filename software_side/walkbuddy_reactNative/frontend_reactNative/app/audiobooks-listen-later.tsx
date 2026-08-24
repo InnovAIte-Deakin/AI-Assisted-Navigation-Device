@@ -14,8 +14,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getListenLater, removeFromListenLater, AudiobookItem } from "@/src/utils/audiobookStorage";
+import { Radius, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 export default function AudiobooksListenLaterScreen() {
+  const colors = useThemeColors();
   const [listenLater, setListenLater] = useState<AudiobookItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,28 +69,28 @@ export default function AudiobooksListenLaterScreen() {
 
   const renderBookItem = ({ item }: { item: AudiobookItem }) => (
     <Pressable
-      style={styles.bookCard}
+      style={[styles.bookCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => handleBookPress(item)}
       accessibilityRole="button"
       accessibilityLabel={`Play ${item.title} by ${item.author}`}
     >
       {item.cover_url ? (
-        <Image source={{ uri: item.cover_url }} style={styles.coverImage} />
+        <Image source={{ uri: item.cover_url }} style={[styles.coverImage, { backgroundColor: colors.background }]} />
       ) : (
-        <View style={styles.coverPlaceholder}>
-          <Ionicons name="book" size={40} color="#888" />
+        <View style={[styles.coverPlaceholder, { backgroundColor: colors.background }]}>
+          <Ionicons name="book" size={40} color={colors.textMuted} />
         </View>
       )}
       <View style={styles.bookInfo}>
-        <Text style={styles.bookTitle} numberOfLines={2}>
+        <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
           {item.title}
         </Text>
-        <Text style={styles.bookAuthor} numberOfLines={1}>
+        <Text style={[styles.bookAuthor, { color: colors.textMuted }]} numberOfLines={1}>
           {item.author}
         </Text>
         <View style={styles.bookMeta}>
-          <Text style={styles.bookDuration}>{item.duration_formatted}</Text>
-          <Text style={styles.bookLanguage}>{item.language}</Text>
+          <Text style={[styles.bookDuration, { color: colors.textMuted }]}>{item.duration_formatted}</Text>
+          <Text style={[styles.bookLanguage, { color: colors.textMuted }]}>{item.language}</Text>
         </View>
       </View>
       <View style={styles.bookActions}>
@@ -99,31 +102,31 @@ export default function AudiobooksListenLaterScreen() {
           style={styles.actionButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="bookmark" size={24} color="#F9A826" />
+          <Ionicons name="bookmark" size={24} color={colors.accent} />
         </Pressable>
-        <Ionicons name="play-circle" size={32} color="#F9A826" />
+        <Ionicons name="play-circle" size={32} color={colors.accent} />
       </View>
     </Pressable>
   );
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.headerRow}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
+      <View style={[styles.headerRow, { borderBottomColor: colors.accent }]}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerText}>LISTEN LATER</Text>
+        <Text style={[styles.headerText, { color: colors.text }]}>LISTEN LATER</Text>
         <View style={styles.iconBtn} />
       </View>
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F9A826" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : listenLater.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="bookmark-outline" size={64} color="#666" />
-          <Text style={styles.emptyText}>No books saved</Text>
-          <Text style={styles.emptySubtext}>
+          <Ionicons name="bookmark-outline" size={64} color={colors.textMuted} />
+          <Text style={[styles.emptyText, { color: colors.text }]}>No books saved</Text>
+          <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
             Tap the bookmark icon on any book to save it for later
           </Text>
         </View>
@@ -134,7 +137,7 @@ export default function AudiobooksListenLaterScreen() {
           renderItem={renderBookItem}
           contentContainerStyle={{ paddingBottom: 24 }}
           ListHeaderComponent={
-            <Text style={styles.countText}>
+            <Text style={[styles.countText, { color: colors.textMuted }]}>
               {listenLater.length} {listenLater.length === 1 ? "book" : "books"} saved
             </Text>
           }
@@ -147,7 +150,6 @@ export default function AudiobooksListenLaterScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#1B263B",
   },
   headerRow: {
     flexDirection: "row",
@@ -156,7 +158,6 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 10,
     borderBottomWidth: 1.25,
-    borderBottomColor: "#F9A826",
   },
   iconBtn: {
     width: 32,
@@ -167,8 +168,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
-    color: "#ffffffff",
-    fontSize: 22,
+    fontSize: Typography.size.xl,
     fontWeight: "800",
     letterSpacing: 1.1,
     textAlign: "center",
@@ -185,20 +185,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    color: "#FFF",
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "600",
     marginTop: 16,
   },
   emptySubtext: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     marginTop: 8,
     textAlign: "center",
   },
   countText: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
@@ -209,22 +206,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     padding: 12,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: "#3A3A3A",
   },
   coverImage: {
     width: 60,
     height: 60,
-    borderRadius: 8,
-    backgroundColor: "#1A1A1A",
+    borderRadius: Radius.sm,
   },
   coverPlaceholder: {
     width: 60,
     height: 60,
-    borderRadius: 8,
-    backgroundColor: "#1A1A1A",
+    borderRadius: Radius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -234,14 +227,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   bookTitle: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
     marginBottom: 4,
   },
   bookAuthor: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     marginBottom: 4,
   },
   bookMeta: {
@@ -249,12 +240,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   bookDuration: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
   bookLanguage: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
   bookActions: {
     flexDirection: "row",

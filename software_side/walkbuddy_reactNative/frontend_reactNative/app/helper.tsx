@@ -18,10 +18,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { collaborationService, normalizeCode } from "@/src/utils/collaboration";
 import { API_BASE } from "@/src/config";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 type Stage = "join" | "connecting" | "session";
 
 export default function HelperScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ code?: string }>();
   const [stage, setStage] = useState<Stage>("join");
   const [codeInput, setCodeInput] = useState(
@@ -146,32 +149,32 @@ export default function HelperScreen() {
   // ─────────────────────────────────────────────────────────────────────────
   if (stage === "join" || stage === "connecting") {
     return (
-      <View style={s.screen}>
+      <View style={[s.screen, { backgroundColor: colors.background }]}>
         <View style={s.joinCard}>
-          <Ionicons name="people-outline" size={48} color="#F9A826" style={{ marginBottom: 8 }} />
-          <Text style={s.title}>Join as Helper</Text>
-          <Text style={s.subtitle}>
+          <Ionicons name="people-outline" size={48} color={colors.accent} style={{ marginBottom: Spacing.xs }} />
+          <Text style={[s.title, { color: colors.text }]}>Join as Helper</Text>
+          <Text style={[s.subtitle, { color: colors.textMuted }]}>
             Enter the session code shown on the WalkBuddy user's phone.
           </Text>
 
-          <Text style={s.label}>Your name (optional)</Text>
+          <Text style={[s.label, { color: colors.textMuted }]}>Your name (optional)</Text>
           <TextInput
-            style={s.input}
+            style={[s.input, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
             value={nameInput}
             onChangeText={setNameInput}
             placeholder="e.g. Alex"
-            placeholderTextColor="#555"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
             returnKeyType="next"
           />
 
-          <Text style={s.label}>Session code</Text>
+          <Text style={[s.label, { color: colors.textMuted }]}>Session code</Text>
           <TextInput
-            style={[s.input, s.codeInput]}
+            style={[s.input, { backgroundColor: colors.surfaceElevated, color: colors.text }, s.codeInput, { color: colors.accent }]}
             value={codeInput}
             onChangeText={(v) => setCodeInput(v.toUpperCase())}
             placeholder="A1B2C3D4"
-            placeholderTextColor="#555"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="characters"
             maxLength={8}
             returnKeyType="go"
@@ -180,22 +183,22 @@ export default function HelperScreen() {
 
           {!!error && (
             <View style={s.errorRow}>
-              <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
-              <Text style={s.errorText}>{error}</Text>
+              <Ionicons name="alert-circle" size={16} color={colors.danger} />
+              <Text style={[s.errorText, { color: colors.danger }]}>{error}</Text>
             </View>
           )}
 
           <Pressable
-            style={[s.joinBtn, stage === "connecting" && s.joinBtnDisabled]}
+            style={[s.joinBtn, { backgroundColor: colors.accent }, stage === "connecting" && s.joinBtnDisabled]}
             onPress={handleJoin}
             disabled={stage === "connecting"}
           >
             {stage === "connecting" ? (
-              <ActivityIndicator color="#1B263B" />
+              <ActivityIndicator color={colors.accentText} />
             ) : (
               <>
-                <Ionicons name="log-in-outline" size={20} color="#1B263B" />
-                <Text style={s.joinBtnText}>Join Session</Text>
+                <Ionicons name="log-in-outline" size={20} color={colors.accentText} />
+                <Text style={[s.joinBtnText, { color: colors.accentText }]}>Join Session</Text>
               </>
             )}
           </Pressable>
@@ -208,19 +211,19 @@ export default function HelperScreen() {
   // SESSION SCREEN
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <View style={s.screen}>
+    <View style={[s.screen, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={s.header}>
+      <View style={[s.header, { borderBottomColor: colors.border }]}>
         <Pressable onPress={handleDisconnect} style={s.backBtn}>
-          <Ionicons name="log-out-outline" size={22} color="#FF6B6B" />
+          <Ionicons name="log-out-outline" size={22} color={colors.danger} />
         </Pressable>
-        <Text style={s.headerTitle}>Helping — {sessionId}</Text>
-        <View style={[s.dot, userConnected ? s.dotGreen : s.dotGray]} />
+        <Text style={[s.headerTitle, { color: colors.text }]}>Helping — {sessionId}</Text>
+        <View style={[s.dot, { backgroundColor: userConnected ? colors.success : colors.textMuted }]} />
       </View>
 
       {/* User status */}
-      <View style={s.statusBar}>
-        <Text style={s.statusText}>
+      <View style={[s.statusBar, { backgroundColor: colors.surface }]}>
+        <Text style={[s.statusText, { color: colors.textMuted }]}>
           {userConnected
             ? `User connected · ${frameCount} frames received`
             : "Waiting for user to connect…"}
@@ -257,31 +260,31 @@ export default function HelperScreen() {
       {/* Send guidance */}
       <View style={s.guidanceRow}>
         <TextInput
-          style={s.guidanceInput}
+          style={[s.guidanceInput, { backgroundColor: colors.surfaceElevated, color: colors.text }]}
           value={guidanceText}
           onChangeText={setGuidanceText}
           placeholder="Type guidance… (e.g. Turn left, Stop)"
-          placeholderTextColor="#555"
+          placeholderTextColor={colors.textMuted}
           returnKeyType="send"
           onSubmitEditing={handleSendGuidance}
         />
         <Pressable
-          style={[s.sendBtn, !guidanceText.trim() && s.sendBtnDisabled]}
+          style={[s.sendBtn, { backgroundColor: colors.accent }, !guidanceText.trim() && s.sendBtnDisabled]}
           onPress={handleSendGuidance}
           disabled={!guidanceText.trim()}
         >
-          <Ionicons name="send" size={20} color="#1B263B" />
+          <Ionicons name="send" size={20} color={colors.accentText} />
         </Pressable>
       </View>
 
       {/* Sent message history */}
       {sentMessages.length > 0 && (
-        <ScrollView style={s.historyBox} contentContainerStyle={{ padding: 12, gap: 6 }}>
-          <Text style={s.historyLabel}>SENT MESSAGES</Text>
+        <ScrollView style={[s.historyBox, { backgroundColor: colors.surface }]} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.sm }}>
+          <Text style={[s.historyLabel, { color: colors.textMuted }]}>SENT MESSAGES</Text>
           {sentMessages.map((msg, i) => (
             <View key={i} style={s.historyItem}>
-              <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-              <Text style={s.historyText}>{msg}</Text>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={[s.historyText, { color: colors.textMuted }]}>{msg}</Text>
             </View>
           ))}
         </ScrollView>
@@ -293,45 +296,39 @@ export default function HelperScreen() {
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#1B263B",
   },
   // ── Join ──
   joinCard: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 32,
+    padding: Spacing.xxxl,
   },
   title: {
-    color: "#FFF",
-    fontSize: 24,
+    fontSize: Typography.size.xl,
     fontWeight: "800",
-    marginBottom: 8,
+    marginBottom: Spacing.xs,
   },
   subtitle: {
-    color: "#888",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: Spacing.xxl,
     maxWidth: 320,
   },
   label: {
-    color: "#AAA",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "700",
     alignSelf: "flex-start",
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
     width: "100%",
     maxWidth: 360,
   },
   input: {
-    backgroundColor: "#2A2A2A",
-    borderRadius: 8,
-    color: "#FFF",
-    fontSize: 16,
+    borderRadius: Radius.sm,
+    fontSize: Typography.size.base,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
     width: "100%",
     maxWidth: 360,
   },
@@ -339,28 +336,25 @@ const s = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: 6,
-    color: "#F9A826",
     textAlign: "center",
   },
   errorRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   errorText: {
-    color: "#FF6B6B",
     fontSize: 13,
   },
   joinBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F9A826",
     paddingVertical: 14,
-    paddingHorizontal: 32,
+    paddingHorizontal: Spacing.xxxl,
     borderRadius: 10,
-    gap: 8,
-    marginTop: 4,
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
     minWidth: 200,
     justifyContent: "center",
   },
@@ -368,19 +362,17 @@ const s = StyleSheet.create({
     opacity: 0.6,
   },
   joinBtnText: {
-    color: "#1B263B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "800",
   },
   // ── Session ──
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 52 : 16,
-    paddingBottom: 12,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Platform.OS === "ios" ? 52 : Spacing.lg,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
     gap: 10,
   },
   backBtn: {
@@ -391,8 +383,7 @@ const s = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
     letterSpacing: 1,
   },
@@ -401,22 +392,18 @@ const s = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  dotGreen: { backgroundColor: "#4CAF50" },
-  dotGray: { backgroundColor: "#555" },
   statusBar: {
-    backgroundColor: "#0d1b2a",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xs,
   },
   statusText: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
   feedBox: {
     flex: 1,
     backgroundColor: "#000",
-    margin: 12,
-    borderRadius: 12,
+    margin: Spacing.md,
+    borderRadius: Radius.md,
     overflow: "hidden",
     minHeight: 240,
   },
@@ -428,31 +415,28 @@ const s = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: Spacing.md,
   },
   feedPlaceholderText: {
     color: "#555",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
   },
   guidanceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 12,
-    marginBottom: 8,
-    gap: 8,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    gap: Spacing.xs,
   },
   guidanceInput: {
     flex: 1,
-    backgroundColor: "#2A2A2A",
     borderRadius: 10,
-    color: "#FFF",
     fontSize: 15,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
   },
   sendBtn: {
-    backgroundColor: "#F9A826",
     width: 46,
     height: 46,
     borderRadius: 10,
@@ -464,13 +448,11 @@ const s = StyleSheet.create({
   },
   historyBox: {
     maxHeight: 160,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    backgroundColor: "#0d1b2a",
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
     borderRadius: 10,
   },
   historyLabel: {
-    color: "#444",
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 1,
@@ -482,7 +464,6 @@ const s = StyleSheet.create({
     gap: 6,
   },
   historyText: {
-    color: "#CCC",
     fontSize: 13,
   },
 });

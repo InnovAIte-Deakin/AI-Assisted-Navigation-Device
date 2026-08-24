@@ -30,6 +30,8 @@ import FilterBar, {
 } from "@/components/FilterBar";
 import FilterModal from "@/components/FilterModal";
 import UserGuideModal from "@/components/UserGuideModal";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 // Debounce hook
 function useDebouncedValue<T>(value: T, delay: number = 500): T {
@@ -64,6 +66,7 @@ interface SearchResponse {
 }
 
 export default function AudiobooksScreen() {
+  const colors = useThemeColors();
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Audiobook[]>([]);
   const [popularBooks, setPopularBooks] = useState<Audiobook[]>([]);
@@ -752,14 +755,14 @@ export default function AudiobooksScreen() {
     const authorInitials = getInitials(author);
 
     return (
-      <View style={styles.textCover}>
+      <View style={[styles.textCover, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "40" }]}>
         <View style={styles.textCoverIcon}>
-          <Ionicons name="book" size={24} color="#F9A826" />
+          <Ionicons name="book" size={24} color={colors.accent} />
         </View>
-        <Text style={styles.textCoverTitle} numberOfLines={2}>
+        <Text style={[styles.textCoverTitle, { color: colors.text }]} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={styles.textCoverAuthor} numberOfLines={1}>
+        <Text style={[styles.textCoverAuthor, { color: colors.textMuted }]} numberOfLines={1}>
           {author}
         </Text>
       </View>
@@ -963,7 +966,7 @@ export default function AudiobooksScreen() {
 
     return (
       <Pressable
-        style={styles.bookCard}
+        style={[styles.bookCard, { backgroundColor: colors.surface, borderColor: colors.accent + "40" }]}
         onPress={() => {
           console.log(
             `[Press] Clicked index ${index}, book ID: ${item.id}, title: "${item.title}"`,
@@ -1013,7 +1016,7 @@ export default function AudiobooksScreen() {
           return (
             <Image
               source={{ uri: coverUrl }}
-              style={styles.coverImage}
+              style={[styles.coverImage, { backgroundColor: colors.background }]}
               onError={(e) => {
                 const error = e.nativeEvent.error;
                 console.error(`[Audiobooks] ❌ Cover image failed to load`);
@@ -1064,15 +1067,15 @@ export default function AudiobooksScreen() {
           );
         })()}
         <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle} numberOfLines={2}>
+          <Text style={[styles.bookTitle, { color: colors.text }]} numberOfLines={2}>
             {item.title}
           </Text>
-          <Text style={styles.bookAuthor} numberOfLines={1}>
+          <Text style={[styles.bookAuthor, { color: colors.textMuted }]} numberOfLines={1}>
             {item.author}
           </Text>
           <View style={styles.bookMeta}>
-            <Text style={styles.bookDuration}>{item.duration_formatted}</Text>
-            <Text style={styles.bookLanguage}>{item.language}</Text>
+            <Text style={[styles.bookDuration, { color: colors.textMuted }]}>{item.duration_formatted}</Text>
+            <Text style={[styles.bookLanguage, { color: colors.textMuted }]}>{item.language}</Text>
           </View>
         </View>
         <View style={styles.bookActions}>
@@ -1084,7 +1087,7 @@ export default function AudiobooksScreen() {
             <Ionicons
               name={isFav ? "heart" : "heart-outline"}
               size={24}
-              color={isFav ? "#FF6B6B" : "#888"}
+              color={isFav ? colors.danger : colors.textMuted}
             />
           </Pressable>
           <Pressable
@@ -1095,10 +1098,10 @@ export default function AudiobooksScreen() {
             <Ionicons
               name={isInList ? "bookmark" : "bookmark-outline"}
               size={24}
-              color={isInList ? "#F9A826" : "#888"}
+              color={isInList ? colors.accent : colors.textMuted}
             />
           </Pressable>
-          <Ionicons name="play-circle" size={32} color="#F9A826" />
+          <Ionicons name="play-circle" size={32} color={colors.accent} />
         </View>
       </Pressable>
     );
@@ -1125,38 +1128,38 @@ export default function AudiobooksScreen() {
   }, [query, searchResults, displayBooks.length, hasQuery]);
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
       {/* Header and Search - Fixed at top */}
-      <View style={styles.fixedHeader}>
-        <View style={styles.headerWrapper}>
-          <View style={styles.headerPill}>
-            <Text style={styles.headerSubtitle}>Camera</Text>
-            <Text style={styles.headerMain}>AUDIOBOOKS</Text>
+      <View style={[styles.fixedHeader, { backgroundColor: colors.background }]}>
+        <View style={[styles.headerWrapper, { backgroundColor: colors.background }]}>
+          <View style={[styles.headerPill, { backgroundColor: colors.surfaceElevated }]}>
+            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Camera</Text>
+            <Text style={[styles.headerMain, { color: colors.accent }]}>AUDIOBOOKS</Text>
           </View>
         </View>
 
         {/* Dropdown Menu - Positioned absolutely */}
         {showMenu && (
-          <View style={styles.dropdownMenu}>
+          <View style={[styles.dropdownMenu, { backgroundColor: colors.surface, borderColor: colors.accent + "4d" }]}>
             <Pressable
-              style={styles.menuItem}
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => {
                 setShowMenu(false);
                 router.push("/audiobooks-favourites");
               }}
             >
-              <Ionicons name="heart" size={20} color="#FF6B6B" />
-              <Text style={styles.menuItemText}>Favourites</Text>
+              <Ionicons name="heart" size={20} color={colors.danger} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Favourites</Text>
             </Pressable>
             <Pressable
-              style={styles.menuItem}
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
               onPress={() => {
                 setShowMenu(false);
                 router.push("/audiobooks-history");
               }}
             >
-              <Ionicons name="time" size={20} color="#F9A826" />
-              <Text style={styles.menuItemText}>History</Text>
+              <Ionicons name="time" size={20} color={colors.accent} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>History</Text>
             </Pressable>
             <Pressable
               style={[styles.menuItem, styles.menuItemLast]}
@@ -1165,26 +1168,26 @@ export default function AudiobooksScreen() {
                 router.push("/audiobooks-listen-later");
               }}
             >
-              <Ionicons name="bookmark" size={20} color="#F9A826" />
-              <Text style={styles.menuItemText}>Listen Later</Text>
+              <Ionicons name="bookmark" size={20} color={colors.accent} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Listen Later</Text>
             </Pressable>
           </View>
         )}
 
-        <View style={styles.searchWrap}>
+        <View style={[styles.searchWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <Ionicons
             name="search"
             size={16}
-            color="#888"
+            color={colors.textMuted}
             style={{ marginRight: 8 }}
           />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Search audiobooks (e.g., Sherlock, Dracula, Austen)..."
-            placeholderTextColor="#888"
+            placeholderTextColor={colors.textMuted}
             accessibilityLabel="Search audiobooks"
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             returnKeyType="search"
             onSubmitEditing={() =>
               query.trim().length >= 3 && searchAudiobooks(query.trim())
@@ -1194,7 +1197,7 @@ export default function AudiobooksScreen() {
           <View style={styles.micButtonContainer}>
             <Pressable
               onPress={isListening ? stopListening : startListening}
-              style={[styles.micButton, isListening && styles.micButtonActive]}
+              style={[styles.micButton, isListening && { backgroundColor: colors.danger }]}
               disabled={Platform.OS !== "web" && !sttAvailable}
               accessibilityRole="button"
               accessibilityLabel={
@@ -1205,12 +1208,12 @@ export default function AudiobooksScreen() {
               <Ionicons
                 name={isListening ? "mic" : "mic-outline"}
                 size={20}
-                color={isListening ? "#FFF" : "#888"}
+                color={isListening ? colors.text : colors.textMuted}
               />
             </Pressable>
             {isListening && (
               <Text
-                style={styles.listeningText}
+                style={[styles.listeningText, { color: colors.danger }]}
                 accessibilityLiveRegion="polite"
                 accessibilityLabel="Listening"
               >
@@ -1225,24 +1228,24 @@ export default function AudiobooksScreen() {
               disabled={loading || query.trim().length < 3}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#F9A826" />
+                <ActivityIndicator size="small" color={colors.accent} />
               ) : (
-                <Ionicons name="arrow-forward" size={20} color="#F9A826" />
+                <Ionicons name="arrow-forward" size={20} color={colors.accent} />
               )}
             </Pressable>
           )}
         </View>
 
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: colors.danger + "22" }]}>
+            <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
           </View>
         )}
         {(loading && query.trim().length >= 3) ||
         (loadingPopular && !query.trim()) ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#F9A826" />
-            <Text style={styles.loadingText}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[styles.loadingText, { color: colors.accent }]}>
               {query.trim().length >= 3
                 ? "Searching Librivox..."
                 : "Loading popular books..."}
@@ -1271,10 +1274,11 @@ export default function AudiobooksScreen() {
       />
 
       {/* Search Button - Centered below filters */}
-      <View style={styles.searchButtonContainer}>
+      <View style={[styles.searchButtonContainer, { backgroundColor: colors.background }]}>
         <Pressable
           style={[
             styles.searchButtonMain,
+            { backgroundColor: colors.accent, shadowColor: colors.accent },
             (loading || (!query.trim() && !hasAnyFilter)) &&
               styles.searchButtonDisabled,
           ]}
@@ -1307,22 +1311,22 @@ export default function AudiobooksScreen() {
           accessibilityRole="button"
           accessibilityLabel="Search audiobooks"
         >
-          <Ionicons name="search" size={20} color="#17243A" />
-          <Text style={styles.searchButtonText}>Search Audiobooks</Text>
+          <Ionicons name="search" size={20} color={colors.accentText} />
+          <Text style={[styles.searchButtonText, { color: colors.accentText }]}>Search Audiobooks</Text>
         </Pressable>
       </View>
 
       {/* Popular Books Header */}
       {!hasQuery && !hasAnyFilter && popularBooks.length > 0 && (
         <View style={styles.popularHeader}>
-          <Text style={styles.popularHeaderText}>Popular Audiobooks</Text>
+          <Text style={[styles.popularHeaderText, { color: colors.accent }]}>Popular Audiobooks</Text>
         </View>
       )}
 
       {/* Filtered Results Header */}
       {hasAnyFilter && searchResults.length > 0 && (
         <View style={styles.popularHeader}>
-          <Text style={styles.popularHeaderText}>
+          <Text style={[styles.popularHeaderText, { color: colors.accent }]}>
             {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}{" "}
             found
           </Text>
@@ -1340,8 +1344,8 @@ export default function AudiobooksScreen() {
         ListEmptyComponent={
           !loading && !loadingPopular && (query.trim() || hasAnyFilter) ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="book-outline" size={64} color="#666" />
-              <Text style={styles.emptyText}>
+              <Ionicons name="book-outline" size={64} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 {error ||
                   (hasAnyFilter && !query.trim()
                     ? `No books found matching your filters. Try adjusting your filters or search for a specific book.`
@@ -1356,8 +1360,8 @@ export default function AudiobooksScreen() {
             !hasAnyFilter &&
             popularBooks.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="book-outline" size={64} color="#666" />
-              <Text style={styles.emptyText}>
+              <Ionicons name="book-outline" size={64} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 Failed to load popular books. Please try again.
               </Text>
             </View>
@@ -1391,19 +1395,16 @@ export default function AudiobooksScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#17243A",
   },
 
   headerWrapper: {
   paddingHorizontal: 16,
   paddingTop: 10,
   paddingBottom: 12,
-  backgroundColor: "#17243A",
 },
 
   headerPill: {
-    backgroundColor: "#1B3A5B",
-    borderRadius: 22,
+    borderRadius: Radius.xl,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
@@ -1416,13 +1417,11 @@ const styles = StyleSheet.create({
   },
 
   headerSubtitle: {
-    color: "#C7D2E0",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
 
   headerMain: {
-    color: "#F9A826",
     fontSize: 22,
     fontWeight: "900",
     marginTop: 2,
@@ -1430,7 +1429,6 @@ const styles = StyleSheet.create({
   },
 
   fixedHeader: {
-    backgroundColor: "#17243A",
     zIndex: 10,
     position: "relative",
   },
@@ -1503,13 +1501,10 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#2A2A2A",
-    backgroundColor: "#111111",
   },
 
   searchInput: {
     flex: 1,
-    color: "#EEE",
     fontSize: 15,
     marginRight: 4,
   },
@@ -1528,14 +1523,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  micButtonActive: {
-    backgroundColor: "#FF4444",
-    borderRadius: 20,
-  },
-
   listeningText: {
     fontSize: 10,
-    color: "#FF4444",
     marginLeft: 4,
     fontWeight: "500",
   },
@@ -1549,15 +1538,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 8,
     padding: 12,
-    backgroundColor: "#3A1F1F",
-    borderRadius: 12,
+    borderRadius: Radius.md,
     borderLeftWidth: 4,
-    borderLeftColor: "#FF6B6B",
   },
 
   errorText: {
-    color: "#FF6B6B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
   },
 
   loadingContainer: {
@@ -1570,8 +1556,7 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    color: "#F9A826",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     marginLeft: 8,
   },
 
@@ -1579,20 +1564,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: "#17243A",
   },
 
   searchButtonMain: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#B98325",
     paddingHorizontal: 28,
     paddingVertical: 15,
     borderRadius: 30,
     gap: 8,
     minWidth: 240,
-    shadowColor: "#F9A826",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -1604,8 +1586,7 @@ const styles = StyleSheet.create({
   },
 
   searchButtonText: {
-    color: "#17243A",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "800",
   },
 
@@ -1616,8 +1597,7 @@ const styles = StyleSheet.create({
   },
 
   popularHeaderText: {
-    color: "#F9A826",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
@@ -1628,23 +1608,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     padding: 14,
-    backgroundColor: "#22314D",
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(249, 168, 38, 0.25)",
   },
 
   coverImage: {
     width: 62,
     height: 62,
-    borderRadius: 12,
-    backgroundColor: "#111111",
+    borderRadius: Radius.md,
   },
 
   coverPlaceholder: {
     width: 62,
     height: 62,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     backgroundColor: "#111111",
     alignItems: "center",
     justifyContent: "center",
@@ -1653,13 +1630,11 @@ const styles = StyleSheet.create({
   textCover: {
     width: 62,
     height: 62,
-    borderRadius: 12,
-    backgroundColor: "#1B2A44",
+    borderRadius: Radius.md,
     alignItems: "center",
     justifyContent: "center",
     padding: 4,
     borderWidth: 1,
-    borderColor: "rgba(249, 168, 38, 0.25)",
   },
 
   textCoverIcon: {
@@ -1667,7 +1642,6 @@ const styles = StyleSheet.create({
   },
 
   textCoverTitle: {
-    color: "#FFF",
     fontSize: 8,
     fontWeight: "700",
     textAlign: "center",
@@ -1675,7 +1649,6 @@ const styles = StyleSheet.create({
   },
 
   textCoverAuthor: {
-    color: "#AAA",
     fontSize: 6,
     textAlign: "center",
     marginTop: 1,
@@ -1698,15 +1671,13 @@ const styles = StyleSheet.create({
   },
 
   bookTitle: {
-    color: "#FFF",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
     marginBottom: 4,
   },
 
   bookAuthor: {
-    color: "#C7C7C7",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     marginBottom: 4,
   },
 
@@ -1716,13 +1687,11 @@ const styles = StyleSheet.create({
   },
 
   bookDuration: {
-    color: "#A8A8A8",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
 
   bookLanguage: {
-    color: "#A8A8A8",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
 
   emptyContainer: {
@@ -1733,8 +1702,7 @@ const styles = StyleSheet.create({
   },
 
   emptyText: {
-    color: "#A8A8A8",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     textAlign: "center",
     marginTop: 16,
   },
@@ -1743,10 +1711,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 62,
     right: 16,
-    backgroundColor: "#22314D",
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(249, 168, 38, 0.3)",
     minWidth: 200,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1764,7 +1730,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
   },
 
   menuItemLast: {
@@ -1772,7 +1737,6 @@ const styles = StyleSheet.create({
   },
 
   menuItemText: {
-    color: "#FFF",
     fontSize: 15,
     fontWeight: "600",
     flex: 1,
