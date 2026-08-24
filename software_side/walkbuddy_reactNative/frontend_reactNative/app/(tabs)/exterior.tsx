@@ -28,6 +28,7 @@ try {
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -772,7 +773,7 @@ export default function ExteriorNavigationScreen() {
   };
 
   const currentStep = route?.steps[currentStepIndex];
-  const remainingDistanceMeters = (() => {
+  const remainingDistanceMeters = useMemo(() => {
     if (!route || !destination) return 0;
   
     if (
@@ -803,7 +804,7 @@ export default function ExteriorNavigationScreen() {
           .reduce((sum, step) => sum + step.distanceToNext, 0)
       )
     );
-  })();
+  }, [route, destination, currentLocation, currentStepIndex]);
   
   const formatRemainingDistance = (metres: number): string => {
     if (metres >= 1000) {
@@ -1092,11 +1093,7 @@ export default function ExteriorNavigationScreen() {
 
 {/* Instruction Card */}
 {isNavigating && currentStep ? (
-  <ScrollView
-    style={styles.navigationDashboard}
-    contentContainerStyle={{ gap: 16 }}
-    showsVerticalScrollIndicator={false}
-  >
+   <View style={[styles.navigationDashboard, { gap: 16 }]}>
     {/* Navigation status */}
     <View style={styles.navigationStatusRow}>
       <MaterialIcons name="navigation" size={20} color={GOLD} />
@@ -1217,7 +1214,7 @@ export default function ExteriorNavigationScreen() {
         CANCEL NAVIGATION
       </Text>
     </Pressable>
-  </ScrollView>
+  </View>
 ) : (
   <View style={styles.instructionCard}>
     <Text style={styles.instructionText}>
@@ -1422,40 +1419,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  distanceText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  etaText: {
-    color: GOLD,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  progressText: {
-    color: GOLD,
-    fontSize: 14,
-    fontWeight: "600",
-    marginTop: 8,
-  },
-
-  roadNameText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
-    marginTop: 4,
-    fontStyle: "italic",
-  },
-
-  destinationInfo: {
+    destinationInfo: {
     color: "#aaa",
     fontSize: 12,
     marginTop: 4,
