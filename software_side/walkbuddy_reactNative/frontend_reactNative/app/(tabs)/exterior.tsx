@@ -28,6 +28,7 @@ try {
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -772,7 +773,54 @@ export default function ExteriorNavigationScreen() {
   };
 
   const currentStep = route?.steps[currentStepIndex];
-
+  const remainingDistanceMeters = useMemo(() => {
+    if (!route || !destination) return 0;
+  
+    if (
+      currentLocation &&
+      route.geometry &&
+      route.geometry.length > 0
+    ) {
+      return Math.max(
+        0,
+        Math.round(
+          calculateRemainingDistance(
+            currentLocation.latitude,
+            currentLocation.longitude,
+            route.geometry,
+            destination.lat,
+            destination.lng,
+            SNAP_TO_ROUTE_THRESHOLD_M
+          )
+        )
+      );
+    }
+  
+    return Math.max(
+      0,
+      Math.round(
+        route.steps
+          .slice(currentStepIndex)
+          .reduce((sum, step) => sum + step.distanceToNext, 0)
+      )
+    );
+  }, [route, destination, currentLocation, currentStepIndex]);
+  
+  const formatRemainingDistance = (metres: number): string => {
+    if (metres >= 1000) {
+      return `${(metres / 1000).toFixed(1)} km`;
+    }
+    return `${metres} m`;
+  };
+  
+  const currentStreet =
+    currentStep?.roadName?.trim() ||
+    "Current road unavailable";
+  
+  const destinationName =
+    destination?.name?.trim() ||
+    "Selected destination";
+  
   const progress = (() => {
     if (!route || !currentLocation || !destination) return 0;
     if (route.geometry && route.geometry.length > 0) {
@@ -808,15 +856,26 @@ export default function ExteriorNavigationScreen() {
         >
           <MaterialIcons name="arrow-back" size={24} color={GOLD} />
         </Pressable>
+  
         <Text style={styles.headerTitle}>EXTERIOR NAVIGATION</Text>
+  
         {destination && (
-          <Pressable onPress={() => setShowDestinationModal(true)} style={styles.headerEditBtn}>
+          <Pressable
+            onPress={() => setShowDestinationModal(true)}
+            style={styles.headerEditBtn}
+          >
             <MaterialIcons name="edit-location" size={20} color={GOLD} />
           </Pressable>
         )}
       </View>
-
-      <View style={styles.previewBox}>
+  
+      <ScrollView
+        style={styles.pageScroll}
+        contentContainerStyle={styles.pageScrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.previewBox}>
         <View style={styles.mapInner}>
           <MapPanel
             currentLocation={currentLocation || undefined}
@@ -1032,49 +1091,176 @@ export default function ExteriorNavigationScreen() {
         </View>
       </Modal>
 
-      {/* Instruction Card */}
-      {isNavigating && currentStep ? (
-        <View style={styles.instructionCard}>
-          <Text style={styles.instructionText}>{currentStep.instructionText}</Text>
-          {currentStep.roadName && <Text style={styles.roadNameText}>{currentStep.roadName}</Text>}
-          <View style={styles.statsRow}>
-            <Text style={styles.distanceText}>
-              {(() => {
-                if (currentStep.maneuverType === 'arrive' && destination && currentLocation) {
-                  const distanceToDest = metersBetween(currentLocation.latitude, currentLocation.longitude, destination.lat, destination.lng);
-                  if (distanceToDest <= DESTINATION_ARRIVAL_THRESHOLD_M) return "You have arrived at your destination";
-                }
-                if (currentStep.distanceToNext > 0) return `${Math.round(currentStep.distanceToNext)}m to ${currentStep.maneuverType === 'arrive' ? 'destination' : 'turn'}`;
-                return "Calculating distance...";
-              })()}
-            </Text>
-            {eta !== null && eta > 0 && <Text style={styles.etaText}>ETA: {formatETA(eta)}</Text>}
-          </View>
-          {route && <Text style={styles.progressText}>{progress}% completed</Text>}
-        </View>
-      ) : (
-        <View style={styles.instructionCard}>
-          <Text style={styles.instructionText}>
-            {destination
-              ? `Ready to navigate${origin && origin.name !== "Current Location" ? ` from ${origin.name}` : ""} to ${destination.name || "destination"}. Tap Start to begin.`
-              : "Set a destination to begin navigation."}
+{/* Instruction Card */}
+{isNavigating && currentStep ? (
+   <View style={[styles.navigationDashboard, { gap: 16 }]}>
+    {/* Navigation status */}
+    <View style={styles.navigationStatusRow}>
+      <MaterialIcons name="navigation" size={20} color={GOLD} />
+      <Text style={styles.navigationStatusText}>NAVIGATING</Text>
+    </View>
+
+    {/* Destination */}
+    <Text style={styles.navigationDestination} numberOfLines={2}>
+      {destinationName}
+    </Text>
+
+    {/* Distance and ETA */}
+    <View style={styles.navigationSummaryRow}>
+      <View style={styles.navigationSummaryItem}>
+        <Text style={styles.navigationSummaryLabel}>
+          DISTANCE REMAINING
+        </Text>
+        <Text style={styles.navigationSummaryValue}>
+          {formatRemainingDistance(remainingDistanceMeters)}
+        </Text>
+      </View>
+
+      <View style={styles.navigationSummaryItem}>
+        <Text style={styles.navigationSummaryLabel}>
+          ESTIMATED TIME
+        </Text>
+        <Text style={styles.navigationSummaryValue}>
+          {eta !== null && eta > 0 ? formatETA(eta) : "Calculating"}
+        </Text>
+      </View>
+    </View>
+
+    {/* Current manoeuvre */}
+    <View style={styles.maneuverPanel}>
+      <MaterialIcons
+        name={
+          currentStep.maneuverType?.includes("left")
+            ? "turn-left"
+            : currentStep.maneuverType?.includes("right")
+              ? "turn-right"
+              : currentStep.maneuverType === "arrive"
+                ? "flag"
+                : "straight"
+        }
+        size={54}
+        color={GOLD}
+      />
+
+      <Text style={styles.maneuverInstruction}>
+        {currentStep.instructionText}
+      </Text>
+
+      <Text style={styles.maneuverStreet}>
+        {currentStreet}
+      </Text>
+
+      <Text style={styles.maneuverDistance}>
+        {currentStep.distanceToNext > 0
+          ? `${Math.round(currentStep.distanceToNext)} m`
+          : "Calculating distance..."}
+      </Text>
+    </View>
+
+    {/* Route progress */}
+    <View>
+      <View style={styles.progressHeader}>
+        <Text style={styles.progressLabel}>ROUTE PROGRESS</Text>
+        <Text style={styles.progressValue}>{progress}%</Text>
+      </View>
+
+      <View style={styles.progressTrack}>
+        <View
+          style={[
+            styles.progressFill,
+            { width: `${progress}%` as any },
+          ]}
+        />
+      </View>
+    </View>
+
+    {/* Current street */}
+    <View style={styles.currentStreetRow}>
+      <MaterialIcons name="signpost" size={20} color={GOLD} />
+
+      <Text style={styles.currentStreetLabel}>
+        CURRENT STREET
+      </Text>
+
+      <Text style={styles.currentStreetValue} numberOfLines={1}>
+        {currentStreet}
+      </Text>
+    </View>
+
+    {/* Cancel navigation */}
+    <Pressable
+      style={styles.cancelNavigationButton}
+      accessibilityRole="button"
+      accessibilityLabel="Cancel navigation"
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        Alert.alert(
+          "End Navigation",
+          "Are you sure you want to end active navigation?",
+          [
+            { text: "Continue", style: "cancel" },
+            {
+              text: "End Navigation",
+              style: "destructive",
+              onPress: () => stopNavigation(),
+            },
+          ]
+        );
+      }}
+    >
+      <MaterialIcons name="close" size={22} color="#ffffff" />
+      <Text style={styles.cancelNavigationText}>
+        CANCEL NAVIGATION
+      </Text>
+    </Pressable>
+  </View>
+) : (
+  <View style={styles.instructionCard}>
+    <Text style={styles.instructionText}>
+      {destination
+        ? `Ready to navigate${
+            origin && origin.name !== "Current Location"
+              ? ` from ${origin.name}`
+              : ""
+          } to ${destination.name || "destination"}. Tap Start to begin.`
+        : "Set a destination to begin navigation."}
+    </Text>
+
+    {destination && (
+      <>
+        <View style={styles.navOriginIndicator}>
+          <MaterialIcons
+            name={originMode === "custom" ? "place" : "my-location"}
+            size={14}
+            color={GOLD}
+          />
+
+          <Text style={styles.navOriginText}>
+            Nav Origin:{" "}
+            {originMode === "custom" && originCoords
+              ? `Planned (${origin?.name || "Custom"})`
+              : "Live GPS"}
           </Text>
-          {destination && (
-            <>
-              <View style={styles.navOriginIndicator}>
-                <MaterialIcons name={originMode === "custom" ? "place" : "my-location"} size={14} color={GOLD} />
-                <Text style={styles.navOriginText}>
-                  Nav Origin: {originMode === "custom" && originCoords ? `Planned (${origin?.name || "Custom"})` : "Live GPS"}
-                </Text>
-              </View>
-              {origin && origin.name !== "Current Location" && (
-                <Text style={styles.destinationInfo}>From: {origin.name || `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}</Text>
-              )}
-              <Text style={styles.destinationInfo}>To: {destination.name || `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}</Text>
-            </>
-          )}
         </View>
-      )}
+
+        {origin && origin.name !== "Current Location" && (
+          <Text style={styles.destinationInfo}>
+            From:{" "}
+            {origin.name ||
+              `${origin.lat.toFixed(4)}, ${origin.lng.toFixed(4)}`}
+          </Text>
+        )}
+
+        <Text style={styles.destinationInfo}>
+          To:{" "}
+          {destination.name ||
+            `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}`}
+        </Text>
+      </>
+    )}
+  </View>
+)}
 
       {/* Control Buttons */}
       <View style={styles.controlBar}>
@@ -1128,12 +1314,26 @@ export default function ExteriorNavigationScreen() {
           </Pressable>
         )}
       </View>
-    </View>
-  );
+    </ScrollView>
+  </View>
+);
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: "#1B263B" },
+  wrap: {
+    flex: 1,
+    backgroundColor: "#1B263B",
+  },
+
+  pageScroll: {
+    flex: 1,
+    width: "100%",
+  },
+
+  pageScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 180,
+  },
 
   header: {
     position: "relative",
@@ -1146,6 +1346,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: GOLD,
   },
+
   backBtnFloating: {
     position: "absolute",
     top: 4,
@@ -1160,6 +1361,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 20,
   },
+
   headerTitle: {
     color: GOLD,
     fontSize: 20,
@@ -1167,16 +1369,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 52,
   },
+
   headerEditBtn: {
-    position: "absolute", right: 14, top: 14,
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: "#10233d", borderWidth: 1.5,
+    position: "absolute",
+    right: 14,
+    top: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#10233d",
+    borderWidth: 1.5,
     borderColor: "rgba(249,178,51,0.45)",
   },
-  headerDestinationBtn: { padding: 8 },
 
-  mapInner: { flex: 1, width: "100%", height: "100%" },
+  headerDestinationBtn: {
+    padding: 8,
+  },
+
+  mapInner: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+
   previewBox: {
     height: SCREEN_H * 0.55,
     margin: 12,
@@ -1194,21 +1411,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: GOLD,
   },
-  instructionText: { color: GOLD, fontSize: 18, fontWeight: "700", marginBottom: 8 },
-  statsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  distanceText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  etaText: { color: GOLD, fontSize: 16, fontWeight: "600" },
-  progressText: { color: GOLD, fontSize: 14, fontWeight: "600", marginTop: 8 },
-  roadNameText: { color: "#fff", fontSize: 14, fontWeight: "500", marginTop: 4, fontStyle: "italic" },
-  destinationInfo: { color: "#aaa", fontSize: 12, marginTop: 4 },
-  navOriginIndicator: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, marginBottom: 4 },
-  navOriginText: { color: GOLD, fontSize: 12, fontWeight: "600", fontStyle: "italic" },
+
+  instructionText: {
+    color: GOLD,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
+    destinationInfo: {
+    color: "#aaa",
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  navOriginIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+
+  navOriginText: {
+    color: GOLD,
+    fontSize: 12,
+    fontWeight: "600",
+    fontStyle: "italic",
+  },
 
   controlBar: {
     paddingHorizontal: 16,
     paddingBottom: 20,
     flexDirection: "row",
-    gap: 12
+    gap: 12,
   },
 
   controlBtn: {
@@ -1218,7 +1454,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 50,
     gap: 8,
-    flex: 1
+    flex: 1,
   },
 
   startBtn: {
@@ -1234,7 +1470,7 @@ const styles = StyleSheet.create({
   startBtnText: {
     color: "#1B263B",
     fontSize: 18,
-    fontWeight: "900"
+    fontWeight: "900",
   },
 
   stopBtn: {
@@ -1251,7 +1487,7 @@ const styles = StyleSheet.create({
   stopBtnText: {
     color: GOLD,
     fontSize: 18,
-    fontWeight: "900"
+    fontWeight: "900",
   },
 
   destinationBtn: {
@@ -1263,7 +1499,7 @@ const styles = StyleSheet.create({
   destinationBtnText: {
     color: GOLD,
     fontSize: 14,
-    fontWeight: "800"
+    fontWeight: "800",
   },
 
   // ─── Modal ───
@@ -1273,6 +1509,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   modalContent: {
     backgroundColor: "#0f1e2e",
     borderRadius: 28,
@@ -1288,6 +1525,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 16,
   },
+
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1297,22 +1535,36 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 24,
   },
+
   modalTitle: {
     color: GOLD,
     fontSize: 20,
     fontWeight: "900",
     letterSpacing: 0.5,
   },
+
   modalDivider: {
     height: 1,
     backgroundColor: "rgba(249,178,51,0.2)",
     marginHorizontal: 0,
   },
-  modalScrollView: { maxHeight: 460 },
-  modalScrollContent: { padding: 24, paddingBottom: 8 },
 
-  inputGroup: { marginBottom: 12 },
-  inputGroupWithSuggestions: { marginBottom: 160 },
+  modalScrollView: {
+    maxHeight: 460,
+  },
+
+  modalScrollContent: {
+    padding: 24,
+    paddingBottom: 8,
+  },
+
+  inputGroup: {
+    marginBottom: 12,
+  },
+
+  inputGroupWithSuggestions: {
+    marginBottom: 160,
+  },
 
   inputLabel: {
     color: "#9bb0cc",
@@ -1322,8 +1574,18 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 8,
   },
-  inputWithMic: { flexDirection: "row", alignItems: "center", gap: 10 },
-  inputContainer: { position: "relative", flex: 1 },
+
+  inputWithMic: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  inputContainer: {
+    position: "relative",
+    flex: 1,
+  },
+
   input: {
     backgroundColor: "#162233",
     borderWidth: 1.5,
@@ -1335,7 +1597,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
-  inputFlex: { flex: 1 },
+
+  inputFlex: {
+    flex: 1,
+  },
 
   iconButton: {
     width: 46,
@@ -1347,12 +1612,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#162233",
   },
-  iconButtonActive: { backgroundColor: GOLD },
 
-  hintText: { color: "#5a7a99", fontSize: 11, marginTop: 6, fontWeight: "500" },
+  iconButtonActive: {
+    backgroundColor: GOLD,
+  },
+
+  hintText: {
+    color: "#5a7a99",
+    fontSize: 11,
+    marginTop: 6,
+    fontWeight: "500",
+  },
+
   listeningHint: {
-    color: GOLD, fontSize: 12, marginTop: 6,
-    fontStyle: "italic", fontWeight: "600",
+    color: GOLD,
+    fontSize: 12,
+    marginTop: 6,
+    fontStyle: "italic",
+    fontWeight: "600",
   },
 
   routeConnector: {
@@ -1362,6 +1639,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginVertical: 6,
   },
+
   connectorLine: {
     flex: 1,
     height: 1,
@@ -1369,39 +1647,90 @@ const styles = StyleSheet.create({
   },
 
   suggestionsContainer: {
-    position: "absolute", top: "100%", left: 0, right: 0,
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
     backgroundColor: "#0f1e2e",
-    borderRadius: 14, borderWidth: 1.5,
+    borderRadius: 14,
+    borderWidth: 1.5,
     borderColor: "rgba(249,178,51,0.4)",
-    marginTop: 6, maxHeight: 150,
-    zIndex: 9999, elevation: 10,
+    marginTop: 6,
+    maxHeight: 150,
+    zIndex: 9999,
+    elevation: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5, shadowRadius: 6,
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
     overflow: "hidden",
   },
-  suggestionsScrollView: { maxHeight: 200 },
-  suggestionItem: {
-    flexDirection: "row", alignItems: "center",
-    padding: 12, borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)", gap: 12,
+
+  suggestionsScrollView: {
+    maxHeight: 200,
   },
-  suggestionTextContainer: { flex: 1 },
-  suggestionName: { color: "#e8eef6", fontSize: 14, fontWeight: "600", marginBottom: 2 },
-  suggestionAddress: { color: "#6b7f99", fontSize: 12 },
+
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+    gap: 12,
+  },
+
+  suggestionTextContainer: {
+    flex: 1,
+  },
+
+  suggestionName: {
+    color: "#e8eef6",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+
+  suggestionAddress: {
+    color: "#6b7f99",
+    fontSize: 12,
+  },
 
   previewContainer: {
     backgroundColor: "#162233",
-    padding: 14, borderRadius: 14,
-    marginTop: 4, marginBottom: 8,
-    borderWidth: 1, borderColor: "rgba(249,178,51,0.25)",
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 4,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(249,178,51,0.25)",
     gap: 8,
   },
-  previewRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  previewText: { color: "#e8eef6", fontSize: 13, fontWeight: "600", flex: 1 },
-  previewModeText: { color: "#6b7f99", fontSize: 12, fontStyle: "italic" },
 
-  errorText: { color: "#ff6b6b", fontSize: 12, marginTop: 4, fontWeight: "600" },
+  previewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  previewText: {
+    color: "#e8eef6",
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
+  },
+
+  previewModeText: {
+    color: "#6b7f99",
+    fontSize: 12,
+    fontStyle: "italic",
+  },
+
+  errorText: {
+    color: "#ff6b6b",
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: "600",
+  },
 
   modalButtons: {
     flexDirection: "row",
@@ -1409,6 +1738,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 16,
   },
+
   cancelButton: {
     flex: 1,
     paddingVertical: 14,
@@ -1419,7 +1749,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "rgba(249,178,51,0.3)",
   },
-  cancelButtonText: { color: "#9bb0cc", fontSize: 15, fontWeight: "700" },
+
+  cancelButtonText: {
+    color: "#9bb0cc",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
   confirmButton: {
     flex: 2,
     flexDirection: "row",
@@ -1435,14 +1771,184 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  confirmButtonDisabled: { opacity: 0.5 },
-  confirmButtonText: { color: "#1B263B", fontSize: 15, fontWeight: "900" },
+
+  confirmButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  confirmButtonText: {
+    color: "#1B263B",
+    fontSize: 15,
+    fontWeight: "900",
+  },
 
   micButton: {
-    width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2, borderColor: GOLD,
-    alignItems: "center", justifyContent: "center",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: GOLD,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "transparent",
   },
-  micButtonActive: { backgroundColor: GOLD },
+
+  micButtonActive: {
+    backgroundColor: GOLD,
+  },
+
+  navigationDashboard: {
+    backgroundColor: "#0f1e2e",
+    borderWidth: 1.5,
+    borderColor: "rgba(242,169,0,0.45)",
+    borderRadius: 20,
+    marginHorizontal: 14,
+    marginTop: 12,
+    padding: 18,
+    gap: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  navigationStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  navigationStatusText: {
+    color: GOLD,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+
+  navigationDestination: {
+    color: "#ffffff",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+
+  navigationSummaryRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  navigationSummaryItem: {
+    flex: 1,
+    backgroundColor: "#16283a",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+
+  navigationSummaryLabel: {
+    color: "#9bb0cc",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+
+  navigationSummaryValue: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  maneuverPanel: {
+    backgroundColor: "#071a2a",
+    borderRadius: 16,
+    padding: 18,
+    alignItems: "center",
+    gap: 8,
+  },
+
+  maneuverInstruction: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  maneuverStreet: {
+    color: GOLD,
+    fontSize: 18,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  maneuverDistance: {
+    color: "#d7e2ee",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  progressLabel: {
+    color: "#9bb0cc",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  progressValue: {
+    color: GOLD,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
+  progressTrack: {
+    height: 10,
+    backgroundColor: "#26394d",
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+
+  progressFill: {
+    height: "100%",
+    backgroundColor: GOLD,
+    borderRadius: 999,
+  },
+
+  currentStreetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  currentStreetLabel: {
+    color: "#9bb0cc",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  currentStreetValue: {
+    flex: 1,
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  cancelNavigationButton: {
+    minHeight: 54,
+    backgroundColor: "#8f2635",
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  cancelNavigationText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "900",
+  },
 });
