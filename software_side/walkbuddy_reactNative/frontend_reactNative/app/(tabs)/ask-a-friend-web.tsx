@@ -38,6 +38,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Speech from "expo-speech";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function AskAFriendWebScreen() {
   const colors = useThemeColors();
@@ -1673,13 +1674,7 @@ export default function AskAFriendWebScreen() {
     const permGranted = nativePermission?.granted ?? false;
     return (
       <View style={[nativeStyles.screen, { backgroundColor: colors.background }]}>
-        {/* Header */}
-        <View style={[nativeStyles.header, { borderBottomColor: colors.border }]}>
-          <Pressable onPress={handleDisconnect} style={nativeStyles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={colors.accent} />
-          </Pressable>
-          <Text style={[nativeStyles.headerTitle, { color: colors.text }]}>Ask a Friend</Text>
-        </View>
+        <PageHeader title="Ask a Friend" onBackPress={handleDisconnect} />
 
         {/* Status */}
         <View style={[nativeStyles.statusBar, { backgroundColor: colors.background }]}>
@@ -1798,19 +1793,7 @@ export default function AskAFriendWebScreen() {
         style={[styles.scrollContainer, { backgroundColor: colors.background }]}
         contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
       >
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Pressable
-            onPress={handleDisconnect}
-            style={[styles.backBtnFloating, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
-            accessibilityLabel="Go back"
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.accent} />
-          </Pressable>
-          <View style={{ width: 32 }} />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Ask a Friend</Text>
-          <View style={{ width: 32 }} />
-        </View>
+        <PageHeader title="Ask a Friend" onBackPress={handleDisconnect} />
 
       {/* Status Bar */}
       <View style={[styles.statusBar, { backgroundColor: colors.surface }]}>
@@ -2192,32 +2175,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: Spacing.xl,
   },
-  header: {
-    position: "relative",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-  },
-  backBtnFloating: {
-    position: "absolute",
-    top: Spacing.xs,
-    left: Spacing.sm,
-    width: 44,
-    height: 44,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: Typography.size.lg,
-    fontWeight: "700",
-    textAlign: "center",
-  },
   statusBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -2536,26 +2493,6 @@ const styles = StyleSheet.create({
 const nativeStyles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 52,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-    gap: Spacing.md,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: Typography.size.lg,
-    fontWeight: "700",
   },
   statusBar: {
     flexDirection: "row",

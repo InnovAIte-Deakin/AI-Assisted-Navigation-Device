@@ -26,8 +26,10 @@ import {
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
 import { API_BASE, API_KEY } from "../../src/config";
-import { Radius, Typography } from "@/constants/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { BackButton } from "@/components/ui/BackButton";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -80,6 +82,11 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 export default function CameraAssistScreen() {
   const colors = useThemeColors();
   const router = useRouter();
+  // No SafeAreaView here (full-bleed camera preview must ignore the safe
+  // area), so the back button needs the real device inset instead of a
+  // guessed constant to sit at the same effective height as other screens.
+  const insets = useSafeAreaInsets();
+  const backBtnPosition = { top: insets.top + Spacing.xs, left: Spacing.sm };
   // Home screen's "TEXT READER" / "VOICE ASSIST" tiles navigate here with
   // ?mode=ocr / ?mode=voice. Both affordances (mic button, OCR button) are
   // always visible on this screen; `mode` just decides whether to jump
@@ -778,17 +785,7 @@ export default function CameraAssistScreen() {
   if (!perm.granted) {
     return (
       <View style={[styles.centerDark, { backgroundColor: colors.background }]}>
-        <Pressable
-          onPress={() => {
-            const canGoBack = (router as any)?.canGoBack?.() ?? false;
-            if (canGoBack) router.back();
-            else router.replace("/" as any);
-          }}
-          style={[styles.backBtn, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
-          accessibilityLabel="Go back"
-        >
-          <MaterialIcons name="arrow-back" size={24} color={colors.accent} />
-        </Pressable>
+        <BackButton style={backBtnPosition} />
         <Text style={{ color: colors.text, marginBottom: 12 }}>
           Camera access is required.
         </Text>
@@ -808,17 +805,7 @@ export default function CameraAssistScreen() {
         setPreviewLayout({ w: width, h: height });
       }}
     >
-      <Pressable
-        onPress={() => {
-          const canGoBack = (router as any)?.canGoBack?.() ?? false;
-          if (canGoBack) router.back();
-          else router.replace("/" as any);
-        }}
-        style={[styles.backBtn, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
-        accessibilityLabel="Go back"
-      >
-        <MaterialIcons name="arrow-back" size={24} color={colors.accent} />
-      </Pressable>
+      <BackButton style={backBtnPosition} />
 
       {/* Full-screen camera */}
       <CameraView
@@ -918,18 +905,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  backBtn: {
-    position: "absolute",
-    top: 44,
-    left: 12,
-    width: 44,
-    height: 44,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
   statusDot: {
     position: "absolute",
     top: 52,
@@ -973,7 +948,10 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     position: "absolute",
-    bottom: 48,
+    // The footer's floating pill overlays the bottom of every tab screen
+    // (~100-135px tall including its safe-area padding) — pushed up past
+    // it so these buttons aren't hidden underneath.
+    bottom: 150,
     left: 24,
     right: 24,
     flexDirection: "row",

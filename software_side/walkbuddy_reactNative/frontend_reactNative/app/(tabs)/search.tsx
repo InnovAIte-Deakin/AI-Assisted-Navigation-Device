@@ -22,6 +22,7 @@ import {
 } from "../../src/utils/placesStore";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { BackButton } from "@/components/ui/BackButton";
 /*
   NOTE:
   This screen was originally UI-first.
@@ -152,13 +153,7 @@ export default function SearchPage() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
-      <Pressable
-        onPress={handleBack}
-        style={[styles.backBtnFloating, { backgroundColor: "rgba(27,38,59,0.65)", borderColor: colors.accent }]}
-        accessibilityLabel="Go back"
-      >
-        <Ionicons name="arrow-back-outline" size={20} color={colors.accent} />
-      </Pressable>
+      <BackButton onPress={handleBack} />
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -311,19 +306,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingTop: 14,
     paddingBottom: 40,
-  },
-
-  backBtnFloating: {
-    position: "absolute",
-    top: Spacing.md,
-    left: Spacing.md,
-    width: 44,
-    height: 44,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
   },
 
   mainArea: {

@@ -13,7 +13,6 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -352,12 +351,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleBack = () => {
-    const canGoBack = (router as any)?.canGoBack?.() ?? false;
-    if (canGoBack) router.back();
-    else router.replace("/" as any);
-  };
-
   const handleLogout = () => {
     setAuth({ status: "loggedOut" });
     resetForm();
@@ -591,20 +584,13 @@ export default function ProfilePage() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
-      <Pressable
-        onPress={handleBack}
-        style={[styles.backBtnFloating, { backgroundColor: "rgba(27,38,59,0.65)", borderColor: colors.accent }]}
-        accessibilityLabel="Go back"
-      >
-        <Ionicons name="arrow-back-outline" size={20} color={colors.accent} />
-      </Pressable>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.kb}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={[styles.content, { width: contentWidth }]}>
-          <HomeHeader appTitle="WalkBuddy" showDivider showLocation={true} />
+          <HomeHeader appTitle="WalkBuddy" showDivider showLocation={false} showBackButton />
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -614,7 +600,7 @@ export default function ProfilePage() {
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -635,18 +621,6 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
 
-  backBtnFloating: {
-    position: "absolute",
-    top: Spacing.md,
-    left: Spacing.md,
-    width: 44,
-    height: 44,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
   scrollContent: {
     paddingBottom: 120,
     gap: 14,

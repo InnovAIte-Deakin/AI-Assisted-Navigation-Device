@@ -9,6 +9,8 @@ type PrimaryButtonProps = {
   label: string;
   onPress: () => void;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Defaults to Typography.size.md (matches the label). */
+  iconSize?: number;
   disabled?: boolean;
   style?: ViewStyle;
 };
@@ -18,7 +20,7 @@ type PrimaryButtonProps = {
  * that used to be hand-rolled per screen (see the old `BounceButton` in
  * app/(tabs)/index.tsx). Outlined accent style, reactive to light/dark.
  */
-export function PrimaryButton({ label, onPress, icon, disabled, style }: PrimaryButtonProps) {
+export function PrimaryButton({ label, onPress, icon, iconSize, disabled, style }: PrimaryButtonProps) {
   const colors = useThemeColors();
   const scale = useRef(new Animated.Value(1)).current;
   const overlay = useRef(new Animated.Value(0)).current;
@@ -49,7 +51,7 @@ export function PrimaryButton({ label, onPress, icon, disabled, style }: Primary
         ]}
       >
         <Animated.View pointerEvents="none" style={[styles.overlay, { opacity: overlay }]} />
-        {icon && <Ionicons name={icon} size={18} color={colors.text} />}
+        {icon && <Ionicons name={icon} size={iconSize ?? Typography.size.md} color={colors.text} />}
         <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
       </Animated.View>
     </Pressable>

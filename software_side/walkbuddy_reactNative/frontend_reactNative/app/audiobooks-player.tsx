@@ -11,7 +11,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,6 +21,7 @@ import { addToHistory } from "@/src/utils/audiobookStorage";
 import { speakWeb, stopWebSpeech } from "@/src/utils/webTTS";
 import { Radius, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Chapter {
   id: string;
@@ -1142,18 +1142,18 @@ export default function AudiobookPlayerScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={[styles.loadingText, { color: colors.text }]}>Loading audiobook...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error || !bookDetails) {
     return (
-      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color={colors.danger} />
           <Text style={[styles.errorText, { color: colors.danger }]}>
@@ -1163,7 +1163,7 @@ export default function AudiobookPlayerScreen() {
             <Text style={[styles.backButtonErrorText, { color: colors.accentText }]}>Go Back</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -1172,16 +1172,8 @@ export default function AudiobookPlayerScreen() {
   const hasNext = currentChapterIndex < bookDetails.chapters.length - 1;
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={goBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.accent} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-          {bookDetails.title}
-        </Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <PageHeader title={bookDetails.title} onBackPress={goBack} />
 
       <ScrollView
         style={styles.content}
@@ -1480,32 +1472,13 @@ export default function AudiobookPlayerScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: Typography.size.md,
-    fontWeight: "600",
-    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,

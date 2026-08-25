@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getHistory, removeFromHistory, clearHistory, AudiobookItem } from "@/src/utils/audiobookStorage";
 import { Radius, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { BackButton } from "@/components/ui/BackButton";
 
 export default function AudiobooksHistoryScreen() {
   const colors = useThemeColors();
@@ -148,9 +149,7 @@ export default function AudiobooksHistoryScreen() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={[styles.headerRow, { borderBottomColor: colors.accent }]}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </Pressable>
+        <BackButton />
         <Text style={[styles.headerText, { color: colors.text }]}>HISTORY</Text>
         {history.length > 0 && (
           <Pressable onPress={handleClearHistory} style={styles.iconBtn}>
@@ -192,6 +191,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRow: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
@@ -212,6 +212,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.1,
     textAlign: "center",
+    paddingLeft: 52,
   },
   loadingContainer: {
     flex: 1,

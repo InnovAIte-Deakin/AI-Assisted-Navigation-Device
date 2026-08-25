@@ -1,21 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useColorScheme as useRNColorScheme } from 'react-native';
+import type { ColorSchemeName } from 'react-native';
 
 /**
- * To support static rendering, this value needs to be re-calculated on the client side for web
+ * Forced to always report 'light' until dark mode is implemented app-wide.
+ * Previously followed the browser's `prefers-color-scheme`, which meant a
+ * user with OS-level dark mode enabled saw a different background here than
+ * on native (native is locked light via app.config.js's `userInterfaceStyle`,
+ * a setting Expo does not apply to web). Swap back to reading
+ * `useRNColorScheme()` (with a hydration guard, for static rendering) when
+ * dark mode lands.
  */
-export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
-  }
-
+export function useColorScheme(): ColorSchemeName {
   return 'light';
 }

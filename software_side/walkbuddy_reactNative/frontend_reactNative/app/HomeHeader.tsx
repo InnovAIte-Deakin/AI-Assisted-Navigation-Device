@@ -1,56 +1,36 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Switch } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useSegments } from "expo-router";
+import { useRouter } from "expo-router";
 import { useCurrentLocation } from "../src/utils/locationSaver";
+import { useSession } from "../src/context/SessionContext";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { BackButton } from "@/components/ui/BackButton";
 
 type Props = {
-  greeting?: string;
   appTitle?: string;
   onPressProfile?: () => void;
   showDivider?: boolean;
   showLocation?: boolean;
   locationValue?: string;
+  /** Replaces the profile icon with a back button, aligned in the same row
+   * (for pushed pages like Profile/Places/Favourites where navigating "to
+   * profile" from within them doesn't make sense). */
+  showBackButton?: boolean;
 };
 
-function titleCaseFromSegment(seg: string) {
-  const cleaned = (seg ?? "").replace(/[-_]/g, " ").trim();
-  if (!cleaned) return "";
-  return cleaned
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function getRouteNameFromSegments(segments: string[]) {
-  const usable = segments.filter((s) => !s.startsWith("(") && s.length > 0);
-  if (usable.length === 0) return "";
-  const last = usable[usable.length - 1];
-  if (last.toLowerCase() === "index") return "Home";
-  return titleCaseFromSegment(last);
-}
-
-function isHomeBySegments(segments: string[]) {
-  const usable = segments.filter((s) => !s.startsWith("(") && s.length > 0);
-  if (usable.length === 0) return true;
-  const last = (usable[usable.length - 1] ?? "").toLowerCase();
-  return last === "home" || last === "index";
-}
-
 export default function HomeHeader({
-  greeting = "Hi!",
   appTitle = "WalkBuddy",
   onPressProfile,
   showDivider = true,
   showLocation = true,
   locationValue = "",
+  showBackButton = false,
 }: Props) {
   const colors = useThemeColors();
   const router = useRouter();
-  const segments = useSegments();
+  const { auth } = useSession();
 
   const {
     currentLocation,
@@ -61,10 +41,17 @@ export default function HomeHeader({
     longitude,
   } = useCurrentLocation();
 
+  // Only shows the user's actual name when logged in with a profile;
+  // otherwise falls back to "there" rather than showing nothing.
+  const displayName = useMemo(() => {
+    if (auth.status === "loggedInWithProfile" && auth.profile.displayName) {
+      return auth.profile.displayName;
+    }
+    return "there";
+  }, [auth]);
+
   const derived = useMemo(() => {
-    const onHome = isHomeBySegments(segments);
-    const routeName = getRouteNameFromSegments(segments);
-    const leftText = onHome ? greeting : routeName || "Page";
+    const leftText = displayName;
 
     const hasDestination = !!destination && destination.trim().length > 0;
     const showingDestination = hasDestination && preferDestinationView;
@@ -81,8 +68,7 @@ export default function HomeHeader({
       switchValue: hasDestination ? preferDestinationView : false,
     };
   }, [
-    segments,
-    greeting,
+    displayName,
     currentLocation,
     destination,
     preferDestinationView,
@@ -139,19 +125,30 @@ export default function HomeHeader({
   return (
     <View style={styles.wrap}>
       <View style={[styles.headerRow, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.greeting, { color: colors.text }]} numberOfLines={1}>
-          {derived.leftText}
-        </Text>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-          {appTitle}
-        </Text>
-        <Pressable
-          onPress={handleProfilePress}
-          hitSlop={10}
-          style={styles.profileBtn}
-        >
-          <Ionicons name="person-circle-outline" size={34} color={colors.accent} />
-        </Pressable>
+        <View style={styles.brandGroup}>
+          {showBackButton ? (
+            <BackButton inline />
+          ) : (
+            <Pressable
+              onPress={handleProfilePress}
+              hitSlop={10}
+              style={styles.profileBtn}
+            >
+              <Ionicons name="person-circle-outline" size={34} color={colors.accent} />
+            </Pressable>
+          )}
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+            {appTitle}
+          </Text>
+        </View>
+        <View style={styles.greetingStack}>
+          <Text style={[styles.welcomeLabel, { color: colors.textMuted }]} numberOfLines={1}>
+            Welcome
+          </Text>
+          <Text style={[styles.greeting, { color: colors.text }]} numberOfLines={1}>
+            {derived.leftText}
+          </Text>
+        </View>
       </View>
 
       {showDivider && <View style={[styles.topDivider, { borderBottomColor: colors.accent }]} />}
@@ -187,17 +184,16 @@ const styles = StyleSheet.create({
   wrap: {
     width: "100%",
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.xs,
   },
 
   headerRow: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: Spacing.xl,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    position: "relative",
     borderRadius: Radius.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
@@ -206,26 +202,39 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
+  brandGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexShrink: 1,
+  },
+
+  greetingStack: {
+    alignItems: "flex-end",
+    flexShrink: 1,
+    marginLeft: Spacing.sm,
+  },
+
+  welcomeLabel: {
+    fontSize: Typography.size.md,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+
   greeting: {
     fontSize: Typography.size.md,
     fontWeight: "700",
-    flexShrink: 1,
-    zIndex: 1,
+    textAlign: "right",
   },
 
   title: {
     fontSize: Typography.size.xxl,
     fontWeight: "900",
-    position: "absolute",
-    left: 0,
-    right: 0,
-    textAlign: "center",
+    flexShrink: 1,
   },
 
   profileBtn: {
-    marginLeft: "auto",
     paddingVertical: Spacing.xs,
-    zIndex: 1,
   },
 
   topDivider: {
@@ -235,7 +244,7 @@ const styles = StyleSheet.create({
 
   locationWrap: {
     width: "100%",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.xs,
   },
 
   locationLabel: {

@@ -3,9 +3,9 @@
  * border radius, and typography. Import from here instead of hardcoding
  * hex values / magic numbers in a screen's own StyleSheet.
  *
- * The app is dark-mode-only in practice today, so `Colors.dark` is what
- * every screen should actually render with. `Colors.light` is kept for
- * forward-compatibility with `useThemeColor` but nothing switches to it yet.
+ * The app is forced to light mode everywhere (see `hooks/use-color-scheme`),
+ * so `Colors.light` is what every screen actually renders with today.
+ * `Colors.dark` is kept in place for when dark mode support is implemented.
  */
 
 import { Platform } from 'react-native';

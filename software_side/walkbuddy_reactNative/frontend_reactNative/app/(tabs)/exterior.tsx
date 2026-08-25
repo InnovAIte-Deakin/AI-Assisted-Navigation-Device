@@ -66,6 +66,7 @@ import {
 } from "../../src/utils/navigationHelpers";
 import { Radius, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const { height: SCREEN_H } = Dimensions.get("window");
 
@@ -802,21 +803,17 @@ export default function ExteriorNavigationScreen() {
 
   return (
     <View style={[styles.wrap, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.accent }]}>
-        <Pressable
-          onPress={handleBack}
-          style={[styles.backBtnFloating, { backgroundColor: colors.background + "A6", borderColor: colors.accent }]}
-          accessibilityLabel="Go back"
-        >
-          <MaterialIcons name="arrow-back" size={24} color={colors.accent} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: colors.accent }]}>EXTERIOR NAVIGATION</Text>
-        {destination && (
-          <Pressable onPress={() => setShowDestinationModal(true)} style={[styles.headerEditBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "73" }]}>
-            <MaterialIcons name="edit-location" size={20} color={colors.accent} />
-          </Pressable>
-        )}
-      </View>
+      <PageHeader
+        title="Exterior Navigation"
+        onBackPress={handleBack}
+        right={
+          destination && (
+            <Pressable onPress={() => setShowDestinationModal(true)} style={[styles.headerEditBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "73" }]}>
+              <MaterialIcons name="edit-location" size={20} color={colors.accent} />
+            </Pressable>
+          )
+        }
+      />
 
       <View style={[styles.previewBox, { backgroundColor: colors.background }]}>
         <View style={styles.mapInner}>
@@ -1140,36 +1137,7 @@ export default function ExteriorNavigationScreen() {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
 
-  header: {
-    position: "relative",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-    borderBottomWidth: 2,
-  },
-  backBtnFloating: {
-    position: "absolute",
-    top: 4,
-    left: 8,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
-  headerTitle: {
-    fontSize: Typography.size.lg,
-    fontWeight: "800",
-    flex: 1,
-    paddingLeft: 52,
-  },
   headerEditBtn: {
-    position: "absolute", right: 14, top: 14,
     width: 40, height: 40, borderRadius: Radius.md,
     alignItems: "center", justifyContent: "center",
     borderWidth: 1.5,

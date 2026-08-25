@@ -12,7 +12,6 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -156,13 +155,13 @@ export default function FavouritesPage() {
   /* ── UI ─────────────────────────────────────────────────── */
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.outerContent, { width: contentWidth }]}>
         <HomeHeader
-          greeting="Favourites"
           appTitle="WalkBuddy"
           showDivider
           showLocation
+          showBackButton
         />
 
         {/* Add‑favourite toggle button */}
@@ -292,7 +291,7 @@ export default function FavouritesPage() {
           }
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

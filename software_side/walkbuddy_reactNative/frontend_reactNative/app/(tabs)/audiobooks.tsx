@@ -13,7 +13,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE } from "@/src/config";
 import {
@@ -32,6 +31,7 @@ import FilterModal from "@/components/FilterModal";
 import UserGuideModal from "@/components/UserGuideModal";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 // Debounce hook
 function useDebouncedValue<T>(value: T, delay: number = 500): T {
@@ -1128,15 +1128,10 @@ export default function AudiobooksScreen() {
   }, [query, searchResults, displayBooks.length, hasQuery]);
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={["top"]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Header and Search - Fixed at top */}
       <View style={[styles.fixedHeader, { backgroundColor: colors.background }]}>
-        <View style={[styles.headerWrapper, { backgroundColor: colors.background }]}>
-          <View style={[styles.headerPill, { backgroundColor: colors.surfaceElevated }]}>
-            <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Camera</Text>
-            <Text style={[styles.headerMain, { color: colors.accent }]}>AUDIOBOOKS</Text>
-          </View>
-        </View>
+        <PageHeader title="Audiobooks" />
 
         {/* Dropdown Menu - Positioned absolutely */}
         {showMenu && (
@@ -1388,44 +1383,13 @@ export default function AudiobooksScreen() {
         onClose={handleCloseUserGuide}
         showAsFirstTime={showAsFirstTime}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-
-  headerWrapper: {
-  paddingHorizontal: 16,
-  paddingTop: 10,
-  paddingBottom: 12,
-},
-
-  headerPill: {
-    borderRadius: Radius.xl,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-
-  headerSubtitle: {
-    fontSize: Typography.size.sm,
-    fontWeight: "600",
-  },
-
-  headerMain: {
-    fontSize: 22,
-    fontWeight: "900",
-    marginTop: 2,
-    letterSpacing: 1,
   },
 
   fixedHeader: {

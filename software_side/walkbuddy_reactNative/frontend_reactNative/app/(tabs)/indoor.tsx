@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { POIS, V2_GRAPH, type NodeId } from "../../src/nav/v2_graph";
 import { Radius, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Adj = Record<string, Array<{ to: NodeId; cost: number }>>;
 
@@ -236,9 +237,9 @@ export default function IndoorNavScreen() {
   const poiList = useMemo(() => Object.values(POIS), []);
 
   return (
-    <ScrollView style={[styles.wrap, { backgroundColor: colors.background }]} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text style={[styles.title, { color: colors.accent }]}>Indoor Navigation Demo</Text>
-
+    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <PageHeader title="Interior Navigation" />
+      <ScrollView style={styles.wrap} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Current location */}
       <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
         <Text style={[styles.h, { color: colors.accent }]}>Current Location</Text>
@@ -321,7 +322,8 @@ export default function IndoorNavScreen() {
           <Text style={[styles.sub, { color: colors.textMuted }]}>Web keys: ↑ walk, ← rotate left, → rotate right, R reset</Text>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -329,8 +331,8 @@ export default function IndoorNavScreen() {
    light/dark via useThemeColors(). */
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 14 },
-  title: { fontWeight: "900", fontSize: Typography.size.md, marginTop: 6, marginBottom: 10 },
+  safeArea: { flex: 1 },
+  wrap: { flex: 1, paddingHorizontal: 14 },
 
   card: {
     borderWidth: 1,

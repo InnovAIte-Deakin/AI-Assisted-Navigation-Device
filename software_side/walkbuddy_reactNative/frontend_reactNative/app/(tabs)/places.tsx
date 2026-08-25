@@ -7,7 +7,6 @@ import {
   FlatList,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -106,28 +105,14 @@ export default function PlacesPage() {
     </Pressable>
   );
 
-  const handleBack = () => {
-    const canGoBack = (router as any)?.canGoBack?.() ?? false;
-    if (canGoBack) router.back();
-    else router.replace("/" as any);
-  };
-
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
-      <Pressable
-        onPress={handleBack}
-        style={[styles.backBtnFloating, { backgroundColor: "rgba(27,38,59,0.65)", borderColor: colors.accent }]}
-        accessibilityLabel="Go back"
-      >
-        <Ionicons name="arrow-back-outline" size={20} color={colors.accent} />
-      </Pressable>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
-          greeting="Places"
           appTitle="WalkBuddy"
-          onPressProfile={() => router.push("/profile" as any)}
           showDivider
           showLocation
+          showBackButton
         />
 
         {/* Section Title */}
@@ -162,7 +147,7 @@ export default function PlacesPage() {
           }
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -180,19 +165,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.md,
     paddingTop: 14,
-  },
-
-  backBtnFloating: {
-    position: "absolute",
-    top: Spacing.md,
-    left: Spacing.md,
-    width: 44,
-    height: 44,
-    borderRadius: Radius.xl,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
   },
 
   sectionHeader: {

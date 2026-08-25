@@ -22,7 +22,6 @@ export default function SettingsPage() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
-          title="Settings"
           showDivider
           showLocation={true}
         />

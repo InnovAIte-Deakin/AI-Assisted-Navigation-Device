@@ -14,13 +14,11 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import HomeHeader from "../HomeHeader";
 import ModelWebView from "../../src/components/ModelWebView";
 import { API_BASE } from "../../src/config";
-import { useSession } from "../../src/context/SessionContext";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { IconTile } from "@/components/ui/IconTile";
@@ -33,16 +31,6 @@ export default function HomePage() {
   const colors = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { auth } = useSession();
-
-  const displayName = useMemo(() => {
-    if (auth.status === "loggedInWithProfile" && auth.profile.displayName) {
-      return auth.profile.displayName;
-    }
-    return "there";
-  }, [auth]);
-
-  const greeting = `Hi ${displayName}`;
 
   const [visionEnabled, setVisionEnabled] = useState(true);
   const [visionPreviewOn, setVisionPreviewOn] = useState(false);
@@ -66,7 +54,7 @@ export default function HomePage() {
 
   const goToSavedPlaces = () => router.push("/places");
   const goToFavourites = () => router.push("/favourites" as any);
-  const goToAskAFriend = () => router.push("/ask-a-friend-web" as any);
+  const goToAudiobooks = () => router.push("/audiobooks" as any);
   const goToPredictivePath = () => router.push("/predictive-path" as any);
 
   const goToCameraVoice = () =>
@@ -137,7 +125,7 @@ export default function HomePage() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <ScrollView
           style={styles.pageScroll}
@@ -145,14 +133,13 @@ export default function HomePage() {
           showsVerticalScrollIndicator={false}
         >
           <HomeHeader
-            greeting={greeting}
             appTitle="WalkBuddy"
             onPressProfile={goToProfile}
             showDivider
             showLocation
           />
 
-          <PrimaryButton label="SEARCH" icon="search-outline" onPress={openSearch} />
+          <PrimaryButton label="Search Location" icon="search" iconSize={24} onPress={openSearch} />
 
           {/* ─── Primary actions ─── */}
           <View style={styles.heroStack}>
@@ -191,9 +178,9 @@ export default function HomePage() {
               onPress={goToSavedPlaces}
             />
             <IconTile
-              icon="people-outline"
-              label="ASK A FRIEND"
-              onPress={goToAskAFriend}
+              icon="book-outline"
+              label="AUDIOBOOKS"
+              onPress={goToAudiobooks}
             />
             <IconTile
               icon="trending-up-outline"
@@ -368,7 +355,7 @@ export default function HomePage() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
