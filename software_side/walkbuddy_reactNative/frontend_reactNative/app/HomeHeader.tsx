@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Switch } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCurrentLocation } from "../src/utils/locationSaver";
@@ -31,6 +32,7 @@ export default function HomeHeader({
   const colors = useThemeColors();
   const router = useRouter();
   const { auth } = useSession();
+  const insets = useSafeAreaInsets();
 
   const {
     currentLocation,
@@ -123,7 +125,7 @@ export default function HomeHeader({
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { paddingTop: insets.top + Spacing.xs }]}>
       <View style={[styles.headerRow, { backgroundColor: colors.surface }]}>
         <View style={styles.brandGroup}>
           {showBackButton ? (
@@ -183,7 +185,6 @@ export default function HomeHeader({
 const styles = StyleSheet.create({
   wrap: {
     width: "100%",
-    paddingTop: Spacing.md,
   },
 
   headerRow: {

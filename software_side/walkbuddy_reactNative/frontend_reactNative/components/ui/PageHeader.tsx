@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/use-theme-colors';
@@ -18,12 +19,18 @@ type PageHeaderProps = {
  * but for non-tab pages: back button in place of the profile icon, the
  * page's own title in place of "WalkBuddy", and no Welcome/name greeting or
  * location bar underneath.
+ *
+ * Screens render this directly in a plain View (no SafeAreaView) — it
+ * handles its own top clearance via useSafeAreaInsets so it can't render
+ * under the status bar/notch, without the double-reserved gap a
+ * SafeAreaView + this component's own padding would otherwise stack up.
  */
 export function PageHeader({ title, onBackPress, right }: PageHeaderProps) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { paddingTop: insets.top + Spacing.xs }]}>
       <View style={[styles.headerRow, { backgroundColor: colors.surface }]}>
         <BackButton inline onPress={onBackPress} />
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
@@ -39,7 +46,6 @@ export function PageHeader({ title, onBackPress, right }: PageHeaderProps) {
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
-    paddingTop: Spacing.md,
   },
 
   headerRow: {
