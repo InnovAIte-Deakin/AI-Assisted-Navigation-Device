@@ -1,9 +1,8 @@
 // app/(tabs)/index.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import {
   Alert,
-  Animated,
   Modal,
   Platform,
   Pressable,
@@ -15,29 +14,23 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 
 import HomeHeader from "../HomeHeader";
 import ModelWebView from "../../src/components/ModelWebView";
 import { API_BASE } from "../../src/config";
-import { useSession } from "../../src/context/SessionContext";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+import { IconTile } from "@/components/ui/IconTile";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { HeroButton } from "@/components/ui/HeroButton";
 
 type DestinationType = "I" | "E";
 
 export default function HomePage() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { auth } = useSession();
-
-  const displayName = useMemo(() => {
-    if (auth.status === "loggedInWithProfile" && auth.profile.displayName) {
-      return auth.profile.displayName;
-    }
-    return "there";
-  }, [auth]);
-
-  const greeting = `Hi ${displayName}`;
 
   const [visionEnabled, setVisionEnabled] = useState(true);
   const [visionPreviewOn, setVisionPreviewOn] = useState(false);
@@ -55,24 +48,20 @@ export default function HomePage() {
     return Math.min(max, Math.max(320, width - padding * 2));
   }, [width]);
 
+  const goToCamera = () => router.push("/camera");
+  const goToEmergency = () => router.push("/emergency" as any);
+  const goToProfile = () => router.push("/profile");
+
   const goToSavedPlaces = () => router.push("/places");
   const goToFavourites = () => router.push("/favourites" as any);
-  const goToProfile = () => router.push("/profile");
-  const goToEmergency = () => router.push("/emergency" as any);
+  const goToAudiobooks = () => router.push("/audiobooks" as any);
+  const goToPredictivePath = () => router.push("/predictive-path" as any);
 
   const goToCameraVoice = () =>
     router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
 
   const goToCameraOCR = () =>
     router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
-
-  const goToScreenReader = () => {
-    const title = "Coming soon";
-    const msg = "Screen Reader is not implemented yet.";
-    Platform.OS === "web"
-      ? (globalThis as any).alert?.(`${title}\n\n${msg}`)
-      : Alert.alert(title, msg);
-  };
 
   useEffect(() => {
     if (!visionEnabled) {
@@ -136,7 +125,7 @@ export default function HomePage() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <ScrollView
           style={styles.pageScroll}
@@ -144,64 +133,88 @@ export default function HomePage() {
           showsVerticalScrollIndicator={false}
         >
           <HomeHeader
-            greeting={greeting}
             appTitle="WalkBuddy"
+            onPressProfile={goToProfile}
             showDivider
             showLocation
           />
 
-          <View style={styles.mainArea}>
-            <BounceButton label="SEARCH" onPress={openSearch} search />
+          <PrimaryButton label="Search Location" icon="search" iconSize={24} onPress={openSearch} />
 
-            <View style={styles.grid}>
-              <ActionTile
-                icon="volume-up"
-                label="SCREEN READER"
-                onPress={goToScreenReader}
-              />
-              <ActionTile
-                icon="file-text"
-                label="TEXT READER"
-                onPress={goToCameraOCR}
-              />
-              <ActionTile
-                icon="microphone"
-                label="VOICE ASSIST"
-                onPress={goToCameraVoice}
-              />
-              <ActionTile
-                icon="map-marker"
-                label="PLACES"
-                onPress={goToSavedPlaces}
-              />
-              <ActionTile
-                icon="exclamation-triangle"
-                label="EMERGENCY"
-                onPress={goToEmergency}
-              />
-            </View>
+          {/* ─── Primary actions ─── */}
+          <View style={styles.heroStack}>
+            <HeroButton
+              tone="accent"
+              icon="camera-outline"
+              title="Open Camera"
+              subtitle="Scan objects, read text, and ask questions"
+              onPress={goToCamera}
+            />
+            <HeroButton
+              tone="danger"
+              icon="warning-outline"
+              title="Emergency"
+              subtitle="Get help immediately"
+              onPress={goToEmergency}
+            />
           </View>
 
-          {/* VISION */}
+          {/* ─── Quick actions ─── */}
+          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>QUICK ACTIONS</Text>
+          <View style={styles.grid}>
+            <IconTile
+              icon="document-text-outline"
+              label="TEXT READER"
+              onPress={goToCameraOCR}
+            />
+            <IconTile
+              icon="mic-outline"
+              label="VOICE ASSIST"
+              onPress={goToCameraVoice}
+            />
+            <IconTile
+              icon="location-outline"
+              label="PLACES"
+              onPress={goToSavedPlaces}
+            />
+            <IconTile
+              icon="book-outline"
+              label="AUDIOBOOKS"
+              onPress={goToAudiobooks}
+            />
+            <IconTile
+              icon="trending-up-outline"
+              label="PREDICTIVE PATH"
+              onPress={goToPredictivePath}
+            />
+            <IconTile
+              icon="star-outline"
+              label="FAVOURITES"
+              onPress={goToFavourites}
+            />
+          </View>
+
+          {/* ─── Vision preview ─── */}
           <View
             style={[
               styles.visionWrapper,
-              visionPreviewOn && styles.visionActive,
+              { backgroundColor: colors.surface },
+              visionPreviewOn && { borderWidth: 1, borderColor: colors.accent },
             ]}
           >
             <View style={styles.visionRow}>
-              <Text style={styles.visionTitle}>VISION ASSIST</Text>
+              <Text style={[styles.visionTitle, { color: colors.text }]}>VISION ASSIST PREVIEW</Text>
 
               <View style={styles.visionToggle}>
-                <Text style={styles.visionToggleText}>
+                <Text style={[styles.visionToggleText, { color: colors.textMuted }]}>
                   {visionEnabled ? "On" : "Off"}
                 </Text>
 
                 <Switch
                   value={visionEnabled}
                   onValueChange={setVisionEnabled}
-                  trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                  thumbColor={visionEnabled ? tokens.gold : "#9aa8b6"}
+                  trackColor={{ false: colors.border, true: colors.surfaceElevated }}
+                  thumbColor={visionEnabled ? colors.accent : colors.textMuted}
                 />
               </View>
             </View>
@@ -210,19 +223,20 @@ export default function HomePage() {
               onPress={toggleVisionPreview}
               style={({ pressed }) => [
                 styles.visionCard,
+                { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" },
                 pressed && styles.pressed,
               ]}
             >
-              <View style={styles.visionInner}>
+              <View style={[styles.visionInner, { backgroundColor: colors.background }]}>
                 {visionEnabled && visionPreviewOn ? (
                   <ModelWebView url={visionUrl} loading={loading} />
                 ) : (
                   <View style={styles.previewPlaceholder}>
-                    <Icon name="eye" size={28} color={tokens.muted} />
-                    <Text style={styles.previewText}>
+                    <Ionicons name="eye-outline" size={24} color={colors.textMuted} />
+                    <Text style={[styles.previewText, { color: colors.text }]}>
                       {visionEnabled ? "Tap to start camera" : "Vision disabled"}
                     </Text>
-                    <Text style={styles.previewSubtext}>
+                    <Text style={[styles.previewSubtext, { color: colors.textMuted }]}>
                       Starting camera gives live surroundings
                     </Text>
                   </View>
@@ -241,22 +255,22 @@ export default function HomePage() {
         onRequestClose={closeSearch}
       >
         <Pressable style={styles.modalOverlay} onPress={closeSearch}>
-          <Pressable onPress={() => {}} style={styles.modalCard}>
+          <Pressable onPress={() => {}} style={[styles.modalCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Icon name="search" size={18} color={tokens.gold} />
-              <Text style={styles.modalTitle}>Where to?</Text>
+              <Ionicons name="search-outline" size={18} color={colors.accent} />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Where to?</Text>
               <Pressable onPress={closeSearch} hitSlop={12}>
-                <Icon name="times" size={20} color={tokens.muted} />
+                <Ionicons name="close-outline" size={20} color={colors.textMuted} />
               </Pressable>
             </View>
 
-            <View style={styles.modalDivider} />
+            <View style={[styles.modalDivider, { backgroundColor: colors.accent + "33" }]} />
 
             {/* Search input */}
-            <View style={styles.searchBar}>
-              <Icon name="search" size={16} color={tokens.muted} />
+            <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.accent + "59" }]}>
+              <Ionicons name="search-outline" size={16} color={colors.textMuted} />
               <TextInput
                 value={query}
                 onChangeText={(text) => {
@@ -264,8 +278,8 @@ export default function HomePage() {
                   setDestinationType(null);
                 }}
                 placeholder="Enter a destination"
-                placeholderTextColor={tokens.muted}
-                style={styles.searchInput}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.searchInput, { color: colors.text }]}
                 autoCapitalize="words"
                 autoCorrect={false}
                 returnKeyType="search"
@@ -273,53 +287,67 @@ export default function HomePage() {
               />
               {query.length > 0 && (
                 <Pressable onPress={() => setQuery("")} hitSlop={10}>
-                  <Icon name="times-circle" size={16} color={tokens.muted} />
+                  <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
                 </Pressable>
               )}
             </View>
 
             {/* Result preview */}
             {hasDestination && (
-              <View style={styles.resultCard}>
-                <Icon name="map-marker" size={20} color={tokens.gold} />
-                <Text style={styles.resultTitle} numberOfLines={2}>
+              <View style={[styles.resultCard, { backgroundColor: colors.surface, borderColor: colors.accent + "40" }]}>
+                <Ionicons name="location-outline" size={20} color={colors.accent} />
+                <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={2}>
                   {query}
                 </Text>
-                <Text style={styles.resultSub}>Tap a mode below to navigate</Text>
+                <Text style={[styles.resultSub, { color: colors.textMuted }]}>Tap a mode below to navigate</Text>
               </View>
             )}
 
             {!hasDestination && (
               <View style={styles.emptyState}>
-                <Icon name="location-arrow" size={28} color={tokens.muted} />
-                <Text style={styles.emptyStateText}>
+                <Ionicons name="navigate-outline" size={28} color={colors.textMuted} />
+                <Text style={[styles.emptyStateText, { color: colors.textMuted }]}>
                   Type a destination to get started
                 </Text>
               </View>
             )}
 
-            <View style={styles.modalDivider} />
+            <View style={[styles.modalDivider, { backgroundColor: colors.accent + "33" }]} />
 
             {/* Mode buttons */}
             <View style={styles.buttonRow}>
               <Pressable
-                style={[styles.modeBtn, !hasDestination && styles.modeBtnDisabled]}
+                style={[
+                  styles.modeBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.accent + "59" },
+                  !hasDestination && styles.modeBtnDisabled,
+                ]}
                 onPress={onPressInterior}
                 disabled={!hasDestination}
               >
-                <Icon name="building" size={18} color={hasDestination ? tokens.gold : tokens.muted} />
-                <Text style={[styles.modeBtnText, !hasDestination && styles.modeBtnTextDisabled]}>
+                <Ionicons name="business-outline" size={18} color={hasDestination ? colors.accent : colors.textMuted} />
+                <Text style={[styles.modeBtnText, { color: colors.text }, !hasDestination && styles.modeBtnTextDisabled]}>
                   INTERIOR
                 </Text>
               </Pressable>
 
               <Pressable
-                style={[styles.modeBtn, styles.modeBtnGold, !hasDestination && styles.modeBtnDisabled]}
+                style={[
+                  styles.modeBtn,
+                  { backgroundColor: colors.accent, borderColor: colors.accent },
+                  !hasDestination && styles.modeBtnDisabled,
+                ]}
                 onPress={onPressMaps}
                 disabled={!hasDestination}
               >
-                <Icon name="map" size={18} color={hasDestination ? "#071a2a" : tokens.muted} />
-                <Text style={[styles.modeBtnText, hasDestination && styles.modeBtnTextDark, !hasDestination && styles.modeBtnTextDisabled]}>
+                <Ionicons name="map-outline" size={18} color={hasDestination ? colors.accentText : colors.textMuted} />
+                <Text
+                  style={[
+                    styles.modeBtnText,
+                    { color: hasDestination ? colors.accentText : colors.text },
+                    !hasDestination && styles.modeBtnTextDisabled,
+                  ]}
+                >
                   MAPS
                 </Text>
               </Pressable>
@@ -327,175 +355,22 @@ export default function HomePage() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
-  );
-}
-
-/* COMPONENTS */
-
-// Search button component with press animation
-function BounceButton({ label, onPress, search }: { label: string; onPress: () => void; search?: boolean }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-
-  const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 0.96,
-        useNativeDriver: true,
-        speed: 28,
-        bounciness: 6,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 22,
-        bounciness: 10,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
-      <Animated.View
-        style={[styles.searchButton, { transform: [{ scale }] }]}
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.searchPressOverlay, { opacity: overlayOpacity }]}
-        />
-        <Icon
-          name="search"
-          size={18}
-          color={tokens.text}
-          style={styles.searchIcon}
-        />
-        <Text style={styles.searchText}>SEARCH</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-// Feature card component with press animation
-function ActionTile({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: string;
-  label: string;
-  onPress: () => void;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
-
-  const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 0.96,
-        useNativeDriver: true,
-        speed: 28,
-        bounciness: 6,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 1,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 22,
-        bounciness: 10,
-      }),
-      Animated.timing(overlayOpacity, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  return (
-    <View style={styles.tile}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        android_ripple={{ color: "#f2a90022" }}
-      >
-        <Animated.View
-          style={[styles.tileOuter, { transform: [{ scale }] }]}
-        >
-          <View style={styles.tileInner}>
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.tilePressOverlay, { opacity: overlayOpacity }]}
-            />
-
-            <Icon
-              name={icon}
-              size={28}
-              color="#071a2a"
-              style={styles.tileIcon}
-            />
-
-            <Text style={styles.tileText}>{label}</Text>
-          </View>
-        </Animated.View>
-      </Pressable>
     </View>
   );
 }
 
-/* TOKENS */
-
-const tokens = {
-  bg: "#071a2a",
-  tile: "#0b0f14",
-  card: "#0d141c",
-  text: "#e8eef6",
-  muted: "#b8c6d4",
-  gold: "#f2a900",
-  green: "#2ecc71",
-};
-
-/* STYLES */
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
   },
 
   content: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
   },
 
   pressed: {
@@ -509,187 +384,62 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    gap: 18,
+    gap: Spacing.lg,
     paddingBottom: 120,
   },
 
-  mainArea: {
-    gap: 0,
-    width: "100%",
-    paddingTop: 10,
-  },
-
-  // Search button styling
-  searchButton: {
-   width: "100%",
-  backgroundColor: "#12314a",
-  borderWidth: 2,
-  borderColor: tokens.gold,
-  borderRadius: 18,
-  paddingVertical: 18,
-  paddingHorizontal: 20,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 10,
-  marginBottom: 12,
-  overflow: "hidden",
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 3 },
-  shadowOpacity: 0.18,
-  shadowRadius: 8,
-  elevation: 5,
-  },
-
-  // Search button icon
-  searchIcon: {
-    marginRight: 2,
-  },
-
-  // Press animation overlay
-  searchPressOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.10)",
-  },
-
-  // Search button text
-  searchText: {
-    color: tokens.text,
-    fontSize: 17,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-
-  sectionCard: {
-    backgroundColor: tokens.card,
-    borderRadius: 16,
-    padding: 12,
+  heroStack: {
+    gap: Spacing.md,
   },
 
   sectionLabel: {
-    color: tokens.muted,
-    fontSize: 11,
+    fontSize: Typography.size.xs,
     fontWeight: "800",
     letterSpacing: 1,
-    marginBottom: 6,
+    marginTop: Spacing.sm,
   },
 
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginBottom: 22,
-    gap: 10,
+    gap: Spacing.sm,
   },
 
-  // Feature card container
-  tile: {
-    width: "48%",
-    marginBottom:8,
+  visionWrapper: {
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
   },
 
-  // Feature card outer border
-  tileOuter: {
-    borderWidth: 2,
-    borderColor: tokens.gold,
-    borderRadius: 20,
-    shadowColor: tokens.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-
-  // Feature card content
-  tileInner: {
-    width: "100%",
-    backgroundColor: tokens.gold,
-    borderRadius: 20,
-    minHeight: 120,
-    paddingVertical: 20,
-    paddingHorizontal: 12,
+  visionRow: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    overflow: "hidden",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
   },
 
-  tilePressOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.15)",
-  },
-
-  // Feature card icon
-  tileIcon: {},
-
-  // Feature card title
-  tileText: {
-    color: "#071a2a",
-    fontSize: 13,
-    fontWeight: "800",
-    textAlign: "center",
+  visionTitle: {
+    fontSize: Typography.size.sm,
+    fontWeight: "900",
     letterSpacing: 0.5,
   },
 
-// Vision Assist section container
- visionWrapper: {
-  backgroundColor: "#0b1520",
-  borderRadius: 20,
-  padding: 16,
-  marginTop: 8,
-  marginBottom: 12,
+  visionToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
 
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.25,
-  shadowRadius: 8,
-  elevation: 5,
-},
-
-  // Highlight Vision Assist when active
-visionActive: {
-  borderWidth: 2,
-  borderColor: tokens.gold,
-},
-
- // Vision header layout
-visionRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 14,
-},
-
-  // Vision Assist heading
-visionTitle: {
-  color: tokens.text,
-  fontSize: 22,
-  fontWeight: "900",
-  letterSpacing: 0.8,
-},
-
-  // Vision toggle layout
-visionToggle: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
-
-  // Toggle status text
-visionToggleText: {
-  color: tokens.text,
-  fontSize: 15,
-  fontWeight: "700",
-},
+  visionToggleText: {
+    fontSize: Typography.size.xs,
+    fontWeight: "700",
+  },
 
   visionCard: {
     width: "100%",
-    minHeight: 220,
-    flex: 1,
-    backgroundColor: "#0d1f32",
+    minHeight: 180,
     borderWidth: 1.5,
-    borderColor: "rgba(242,169,0,0.4)",
-    borderRadius: 18,
-    padding: 10,
-    marginBottom: 6,
+    borderRadius: Radius.lg,
+    padding: Spacing.sm,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -699,28 +449,26 @@ visionToggleText: {
 
   visionInner: {
     flex: 1,
-    borderRadius: 14,
+    minHeight: 160,
+    borderRadius: Radius.md,
     overflow: "hidden",
-    backgroundColor: "#0a121a",
   },
 
   previewPlaceholder: {
-    minHeight: 190,
+    minHeight: 160,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 20,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
   },
 
   previewText: {
-    color: tokens.text,
     fontWeight: "900",
     textAlign: "center",
   },
 
   previewSubtext: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     textAlign: "center",
   },
 
@@ -730,103 +478,90 @@ visionToggleText: {
     backgroundColor: "rgba(0,0,0,0.75)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.xl,
   },
 
   modalCard: {
     width: "100%",
     maxWidth: 420,
-    backgroundColor: "#0f1e2e",
-    borderRadius: 28,
+    borderRadius: Radius.xl + 6,
     borderWidth: 1.5,
-    borderColor: "rgba(242,169,0,0.4)",
     overflow: "hidden",
-    shadowColor: tokens.gold,
     shadowOpacity: 0.2,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
     elevation: 16,
-    padding: 20,
-    gap: 16,
+    padding: Spacing.xl,
+    gap: Spacing.lg,
   },
 
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: Spacing.md,
   },
 
   modalTitle: {
-    color: tokens.text,
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "900",
     flex: 1,
   },
 
   modalDivider: {
     height: 1,
-    backgroundColor: "rgba(242,169,0,0.2)",
   },
 
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#162233",
     borderWidth: 1.5,
-    borderColor: "rgba(242,169,0,0.35)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    gap: 10,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 1,
+    gap: Spacing.md,
   },
 
   searchInput: {
     flex: 1,
-    color: tokens.text,
-    fontSize: 15,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
 
   resultCard: {
-    backgroundColor: "#162233",
-    borderRadius: 14,
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(242,169,0,0.25)",
-    padding: 16,
+    padding: Spacing.lg,
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
   },
 
   resultTitle: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900",
     textAlign: "center",
   },
 
   resultSub: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "600",
     textAlign: "center",
   },
 
   emptyState: {
     alignItems: "center",
-    paddingVertical: 20,
-    gap: 10,
+    paddingVertical: Spacing.xl,
+    gap: Spacing.md,
   },
 
   emptyStateText: {
-    color: tokens.muted,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
     textAlign: "center",
   },
 
   buttonRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: Spacing.md,
   },
 
   modeBtn: {
@@ -834,17 +569,10 @@ visionToggleText: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#162233",
+    gap: Spacing.sm,
     borderWidth: 1.5,
-    borderColor: "rgba(242,169,0,0.35)",
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-
-  modeBtnGold: {
-    backgroundColor: tokens.gold,
-    borderColor: tokens.gold,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
   },
 
   modeBtnDisabled: {
@@ -852,14 +580,9 @@ visionToggleText: {
   },
 
   modeBtnText: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "900",
     letterSpacing: 0.6,
-  },
-
-  modeBtnTextDark: {
-    color: "#071a2a",
   },
 
   modeBtnTextDisabled: {
