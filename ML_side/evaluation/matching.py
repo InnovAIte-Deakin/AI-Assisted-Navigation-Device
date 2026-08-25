@@ -49,7 +49,24 @@ def match_class_detections(
       matches: list of (gt_index, pred_index, iou)
       fp_indices: pred indices with no acceptable match (false detections)
       fn_indices: gt indices never matched (missed hazards)
+
+    Raises ValueError, with the offending index, if a ground truth box is
+    missing "bbox" or a prediction box is missing "bbox" or "score", rather
+    than letting a malformed box raise a raw KeyError partway through
+    matching.
     """
+    for gi, gt in enumerate(gt_boxes):
+        if "bbox" not in gt:
+            raise ValueError(f"Ground truth box at index {gi} is missing a 'bbox' field.")
+    for pi, pred in enumerate(pred_boxes):
+        if "bbox" not in pred:
+            raise ValueError(f"Prediction box at index {pi} is missing a 'bbox' field.")
+        if "score" not in pred:
+            raise ValueError(
+                f"Prediction box at index {pi} is missing a 'score' field, "
+                "required to rank predictions by confidence before matching."
+            )
+
     pred_order = sorted(
         range(len(pred_boxes)),
         key=lambda i: (-pred_boxes[i]["score"], i),

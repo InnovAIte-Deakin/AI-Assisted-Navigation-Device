@@ -1,33 +1,58 @@
 """Shared taxonomy constants for the evaluation pipeline.
 
-Canonical class order matches the approved eight-class MVP taxonomy agreed
-with the team (person, stairs, door, chair, table, pole, bicycle, vehicle).
-Using a fixed order (rather than alphabetical) everywhere keeps reports
-deterministic and easy to compare across runs.
+Pulls the eight-class taxonomy and severities directly from the backend's
+ml_contract.navigation_semantics module rather than keeping a second, hand
+maintained copy. That module is the single source of truth the rest of the
+app already uses for class identity and base severity, this pipeline
+follows it, not a parallel definition.
+
+Per review feedback, this uses a normal package import (sys.path.append +
+`from ml_contract.navigation_semantics import ...`), matching the pattern
+ML_side/main.py already uses for this exact cross-boundary case, instead of
+loading the file directly via importlib. ml_contract/__init__.py only
+imports from navigation_semantics.py, and navigation_semantics.py itself
+only imports the standard library (dataclasses, enum), so a normal import
+here doesn't pull in backend dependencies like FastAPI.
 """
 
-TAXONOMY_CLASSES = [
-    "person",
-    "stairs",
-    "door",
-    "chair",
-    "table",
-    "pole",
-    "bicycle",
-    "vehicle",
-]
+import os
+import sys
 
-# Proposed base severity per class, from Ben's post-processing proposal
-# (Teams, ML stream group chat). Not yet formally confirmed/finalised.
-# Used here only to flag missed hazards by severity in the human-readable
-# report; it has no effect on the metric calculations themselves.
-DEFAULT_SEVERITY = {
-    "person": "HIGH",
-    "stairs": "CRITICAL",
-    "door": "MEDIUM",
-    "chair": "MEDIUM",
-    "table": "MEDIUM",
-    "pole": "HIGH",
-    "bicycle": "HIGH",
-    "vehicle": "CRITICAL",
-}
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+_BACKEND_PATH = os.path.normpath(
+    os.path.join(
+        _CURRENT_DIR, "..", "..", "software_side", "walkbuddy_reactNative", "backend"
+    )
+)
+
+if os.path.exists(_BACKEND_PATH) and _BACKEND_PATH not in sys.path:
+    sys.path.append(_BACKEND_PATH)
+
+from ml_contract.navigation_semantics import (  # noqa: E402
+    NAVIGATION_CLASSES,
+    BaseSeverity,
+    canonicalize_class_name,
+    get_base_severity,
+    is_potential_hazard,
+    severity_rank,
+)
+
+# Canonical class order, taken directly from the contract (already ordered
+# by class_id 0..7) rather than re-typed by hand here.
+TAXONOMY_CLASSES = [item.name for item in NAVIGATION_CLASSES]
+
+# Base severity per class as a plain string ("HIGH", "CRITICAL", ...), taken
+# from the contract's BaseSeverity enum. Kept as a simple dict here since
+# the rest of this pipeline (report sorting/labelling) only needs the name.
+DEFAULT_SEVERITY = {item.name: item.base_severity.name for item in NAVIGATION_CLASSES}
+
+__all__ = [
+    "NAVIGATION_CLASSES",
+    "BaseSeverity",
+    "TAXONOMY_CLASSES",
+    "DEFAULT_SEVERITY",
+    "canonicalize_class_name",
+    "get_base_severity",
+    "is_potential_hazard",
+    "severity_rank",
+]

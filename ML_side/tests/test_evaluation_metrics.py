@@ -1,10 +1,13 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # ML_side, so `evaluation` is importable
+
 from evaluation.matching import iou, match_class_detections
-from evaluation.metrics import evaluate
+from evaluation.metrics import TaxonomyMismatchError, evaluate
 from evaluation.taxonomy import TAXONOMY_CLASSES
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "eval"
@@ -74,6 +77,20 @@ def test_match_class_detections_prefers_higher_confidence_on_conflict():
 def test_match_class_detections_empty_inputs():
     matches, fp, fn = match_class_detections([], [], iou_threshold=0.5)
     assert (matches, fp, fn) == ([], [], [])
+
+
+def test_match_class_detections_missing_bbox_raises_value_error():
+    with pytest.raises(ValueError, match="bbox"):
+        match_class_detections([{"not_bbox": []}], [], iou_threshold=0.5)
+    with pytest.raises(ValueError, match="bbox"):
+        match_class_detections([], [{"not_bbox": [], "score": 0.9}], iou_threshold=0.5)
+
+
+def test_match_class_detections_missing_score_raises_value_error():
+    # a bbox with no score can't be ranked by confidence, this should raise
+    # a clear ValueError rather than a raw KeyError partway through matching
+    with pytest.raises(ValueError, match="score"):
+        match_class_detections([], [{"bbox": [0, 0, 1, 1]}], iou_threshold=0.5)
 
 
 # ---- evaluate() on the small fixture ----
@@ -166,10 +183,83 @@ def test_evaluate_handles_no_ground_truth_or_predictions():
         assert result["per_class"][cls]["support"] == 0
 
 
-def test_evaluate_ignores_out_of_taxonomy_classes():
+def test_evaluate_num_images_counts_images_with_zero_boxes():
+    # An image with zero ground-truth boxes and zero predictions must
+    # still be counted, not silently dropped, since it is a legitimate
+    # "nothing to detect here" case, not a missing image. Uses its own
+    # small input rather than the shared fixture, since that fixture does
+    # not include a zero-box image.
+    gt = [
+        {"image_id": "img001", "boxes": [{"class": "person", "bbox": [0, 0, 10, 10]}]},
+        {"image_id": "img002", "boxes": []},
+    ]
+    preds = [
+        {"image_id": "img001", "boxes": [{"class": "person", "bbox": [1, 1, 11, 11], "score": 0.9}]},
+    ]
+    result = evaluate(gt, preds, classes=TAXONOMY_CLASSES, iou_threshold=0.5)
+    assert result["num_images"] == 2
+
+
+def test_evaluate_raises_on_unknown_class_by_default():
     gt = [{"image_id": "imgX", "boxes": [{"class": "unknown_thing", "bbox": [0, 0, 5, 5]}]}]
     preds = [{"image_id": "imgX", "boxes": [{"class": "unknown_thing", "bbox": [0, 0, 5, 5], "score": 0.9}]}]
-    result = evaluate(gt, preds, classes=TAXONOMY_CLASSES, iou_threshold=0.5)
+    with pytest.raises(TaxonomyMismatchError, match="unknown_thing"):
+        evaluate(gt, preds, classes=TAXONOMY_CLASSES, iou_threshold=0.5)
+
+
+def test_evaluate_strict_false_surfaces_unknown_classes_instead_of_raising():
+    gt = [{"image_id": "imgX", "boxes": [{"class": "unknown_thing", "bbox": [0, 0, 5, 5]}]}]
+    preds = [{"image_id": "imgX", "boxes": [{"class": "unknown_thing", "bbox": [0, 0, 5, 5], "score": 0.9}]}]
+    result = evaluate(gt, preds, classes=TAXONOMY_CLASSES, iou_threshold=0.5, strict=False)
     assert "unknown_thing" not in result["per_class"]
     assert result["missed_hazards"] == []
     assert result["false_detections"] == []
+    assert len(result["unknown_classes"]) == 2  # one from ground truth, one from predictions
+    sources = {u["source"] for u in result["unknown_classes"]}
+    assert sources == {"ground_truth", "prediction"}
+
+
+def test_evaluate_canonicalizes_known_alias():
+    # "office-chair" is a documented alias for "chair" in the navigation
+    # semantics contract, it should match against a plain "chair" box
+    # rather than being treated as a separate/unknown class.
+    gt = [{"image_id": "imgX", "boxes": [{"class": "chair", "bbox": [0, 0, 10, 10]}]}]
+    preds = [{"image_id": "imgX", "boxes": [{"class": "office-chair", "bbox": [1, 1, 11, 11], "score": 0.9}]}]
+    result = evaluate(gt, preds, classes=TAXONOMY_CLASSES, iou_threshold=0.5)
+    assert result["unknown_classes"] == []
+    assert result["per_class"]["chair"]["tp"] == 1
+
+
+def test_evaluate_classes_subset_excludes_other_taxonomy_classes_without_erroring():
+    # "door" is a valid taxonomy class but isn't part of the requested
+    # subset here. It must be excluded from scoring, not treated as
+    # unknown, previously this raised TaxonomyMismatchError under
+    # strict=True even though "door" is a perfectly valid class overall.
+    gt = [{"image_id": "imgX", "boxes": [
+        {"class": "person", "bbox": [0, 0, 10, 10]},
+        {"class": "door", "bbox": [20, 20, 30, 30]},
+    ]}]
+    preds = [{"image_id": "imgX", "boxes": [
+        {"class": "person", "bbox": [1, 1, 11, 11], "score": 0.9},
+    ]}]
+    result = evaluate(gt, preds, classes=["person"], iou_threshold=0.5, strict=True)
+    assert result["unknown_classes"] == []
+    assert "door" not in result["per_class"]
+    assert result["per_class"]["person"]["tp"] == 1
+
+
+def test_evaluate_prediction_only_image_id_is_surfaced_not_fabricated():
+    # A prediction for an image_id absent from ground truth (typo'd or
+    # mismatched id) must not be scored as a false detection against an
+    # image that was never actually part of this evaluation, it should be
+    # excluded and surfaced separately instead.
+    gt = [{"image_id": "img001", "boxes": [{"class": "person", "bbox": [0, 0, 10, 10]}]}]
+    preds = [
+        {"image_id": "img001", "boxes": [{"class": "person", "bbox": [1, 1, 11, 11], "score": 0.9}]},
+        {"image_id": "img999", "boxes": [{"class": "person", "bbox": [0, 0, 10, 10], "score": 0.9}]},
+    ]
+    result = evaluate(gt, preds, classes=TAXONOMY_CLASSES, iou_threshold=0.5)
+    assert result["num_images"] == 1  # only the ground-truth image is scored
+    assert result["unmatched_image_ids"]["predictions_without_ground_truth"] == ["img999"]
+    assert result["false_detections"] == []  # img999's prediction isn't fabricated as an FP
+    assert result["overall"]["micro"]["fp"] == 0

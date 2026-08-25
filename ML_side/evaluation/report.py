@@ -26,9 +26,17 @@ def build_json_report(
     latency: Optional[dict] = None,
     generated_at: Optional[str] = None,
     extra_meta: Optional[dict] = None,
+    model_lineage: Optional[dict] = None,
 ) -> dict:
-    """Assembles the full report dict. Deterministic given fixed inputs."""
+    """Assembles the full report dict. Deterministic given fixed inputs.
+
+    model_lineage identifies the exact model file this report was
+    generated against (filename, size, sha256, classes, see
+    predictors.compute_model_lineage()), it's None in mock-prediction mode
+    where there is no real model file to fingerprint.
+    """
     meta = {
+        "artifact_type": "supplementary_error_analysis",
         "iou_threshold": result["config"]["iou_threshold"],
         "classes": result["config"]["classes"],
         "num_images": result["num_images"],
@@ -40,6 +48,7 @@ def build_json_report(
 
     report = {
         "meta": meta,
+        "model": model_lineage,
         "overall": result["overall"],
         "per_class": result["per_class"],
         "missed_hazards": result["missed_hazards"],
