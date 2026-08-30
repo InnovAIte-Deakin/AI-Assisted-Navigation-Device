@@ -70,3 +70,18 @@ def test_invalid_sha256_fails(tmp_path):
         json.dump(record, file)
 
     assert validate_model(test_file) is False
+
+def test_invalid_training_date_fails(tmp_path):
+    source = RECORDS_DIR / "navigation_candidate.json"
+
+    with open(source, "r", encoding="utf-8") as file:
+        record = json.load(file)
+
+    record["training"]["training_date"] = "banana"
+
+    test_file = tmp_path / "invalid_date.json"
+
+    with open(test_file, "w", encoding="utf-8") as file:
+        json.dump(record, file)
+
+    assert validate_model(test_file) is False

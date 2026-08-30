@@ -25,3 +25,9 @@ ML_side/artifacts/
 software_side/walkbuddy_reactNative/frontend_reactNative/package-lock.json
 software_side.zip
 *.pdf
+
+# ML model artifacts
+*.pt
+*.pth
+*.onnx
+*.tflite
