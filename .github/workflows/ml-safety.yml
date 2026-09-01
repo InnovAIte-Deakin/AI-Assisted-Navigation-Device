@@ -1,0 +1,41 @@
+name: ML safety
+
+on:
+  pull_request:
+    branches:
+      - t2-2026-development
+  push:
+    branches:
+      - t2-2026-development
+
+permissions:
+  contents: read
+
+jobs:
+  ml-safety:
+    name: Fast ML safety contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight test dependencies
+        run: python -m pip install -r ML_side/requirements-ci.txt
+
+      - name: Run model-free ML safety contracts
+        run: >
+          python -m pytest -q
+          ML_side/tests/test_dataset_manifest_validation.py
+          ML_side/tests/test_build_navigation_dataset_release.py
+          ML_side/tests/test_train_navigation_model.py
+          ML_side/tests/test_validate_candidate_model.py
+          ML_side/tests/test_compare_model_evaluations.py
+          ML_side/tests/test_detection_stabilizer.py
+          ML_side/tests/test_navigation_scenario_regression.py
+          software_side/walkbuddy_reactNative/backend/tests/test_navigation_semantics.py
+          software_side/walkbuddy_reactNative/backend/tests/test_model_taxonomy_compatibility.py

@@ -93,6 +93,29 @@ def make_image_folder(tmp_path: Path) -> Path:
     return images
 
 
+def make_dataset_yaml(tmp_path: Path) -> Path:
+    dataset_yaml = tmp_path / "dataset.yaml"
+    dataset_yaml.write_text(
+        "path: local-data\ntrain: images\nval: images\ntest: images\n", encoding="utf-8"
+    )
+    return dataset_yaml
+
+
+def run_labelled_evaluation(
+    tmp_path: Path, model: FakeModel, **kwargs: object
+) -> tuple[dict[str, object], Path]:
+    """Evaluate a labelled dataset through the production entry point with a fake model."""
+    output = tmp_path / "results"
+    summary = evaluator.evaluate(
+        model_path=make_model_file(tmp_path),
+        dataset_yaml=make_dataset_yaml(tmp_path),
+        output_path=output,
+        yolo_loader=lambda _: model,
+        **kwargs,
+    )
+    return summary, output
+
+
 def test_discovers_supported_images_and_skips_unsupported_files(tmp_path: Path) -> None:
     images = make_image_folder(tmp_path)
 
@@ -296,3 +319,200 @@ def test_main_reports_a_readable_error(tmp_path: Path, capsys: pytest.CaptureFix
 
     assert result == 1
     assert "Evaluation failed: Model file is missing" in capsys.readouterr().err
+
+
+def test_labelled_evaluation_defaults_to_the_validation_split(tmp_path: Path) -> None:
+    model = FakeModel()
+
+    summary, _ = run_labelled_evaluation(tmp_path, model)
+
+    assert model.validation_arguments is not None
+    assert model.validation_arguments["split"] == "val"
+    assert summary["dataset_split"] == "val"
+    assert summary["evaluation_settings"]["validation_ap"]["dataset_split"] == "val"
+
+
+def test_omitted_split_preserves_existing_validation_settings(tmp_path: Path) -> None:
+    model = FakeModel()
+
+    summary, _ = run_labelled_evaluation(tmp_path, model)
+
+    arguments = model.validation_arguments
+    assert arguments is not None
+    assert arguments["plots"] is False
+    assert arguments["save_json"] is False
+    assert arguments["verbose"] is False
+    assert arguments["exist_ok"] is True
+    assert arguments["name"] == "ultralytics_validation"
+    assert "conf" not in arguments
+    assert "iou" not in arguments
+    assert summary["mode"] == "labelled_validation"
+
+
+@pytest.mark.parametrize("split", ["val", "test"])
+def test_selected_split_is_forwarded_and_recorded(tmp_path: Path, split: str) -> None:
+    model = FakeModel()
+
+    summary, output = run_labelled_evaluation(tmp_path, model, dataset_split=split)
+
+    assert model.validation_arguments is not None
+    assert model.validation_arguments["split"] == split
+    assert summary["dataset_split"] == split
+    assert summary["mode"] == "labelled_validation"
+
+    metrics_artifact = json.loads(
+        (output / "validation_metrics.json").read_text(encoding="utf-8")
+    )
+    assert metrics_artifact["evaluation_settings"]["validation_ap"]["dataset_split"] == split
+    summary_artifact = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    assert summary_artifact["dataset_split"] == split
+    assert summary_artifact["evaluation_settings"]["validation_ap"]["dataset_split"] == split
+
+
+def test_held_out_split_preserves_labelled_metric_extraction(tmp_path: Path) -> None:
+    model = FakeModel()
+
+    summary, output = run_labelled_evaluation(tmp_path, model, dataset_split="test")
+
+    metrics = json.loads(
+        (output / "validation_metrics.json").read_text(encoding="utf-8")
+    )["validation_metrics"]
+    assert metrics["precision"] == 0.625
+    assert metrics["recall"] == 0.5
+    assert metrics["mAP50"] == 0.575
+    assert metrics["mAP50_95"] == 0.425
+    assert metrics["validation_image_count"] == 3
+    assert summary["metric_semantics"] == evaluator.LABELLED_VALIDATION_METRIC_SEMANTICS
+
+
+@pytest.mark.parametrize("split", ["train", "TEST", "", "validation"])
+def test_unsupported_python_api_split_is_rejected(tmp_path: Path, split: str) -> None:
+    with pytest.raises(evaluator.EvaluationError, match="Dataset split must be one of"):
+        evaluator.evaluate(
+            model_path=make_model_file(tmp_path),
+            dataset_yaml=make_dataset_yaml(tmp_path),
+            dataset_split=split,
+            output_path=tmp_path / "results",
+            yolo_loader=lambda _: pytest.fail("loader must not be called"),
+        )
+
+
+def test_split_is_rejected_for_unlabelled_image_evaluation(tmp_path: Path) -> None:
+    with pytest.raises(evaluator.EvaluationError, match="only to labelled dataset evaluation"):
+        evaluator.evaluate(
+            model_path=make_model_file(tmp_path),
+            images_path=make_image_folder(tmp_path),
+            dataset_split="test",
+            output_path=tmp_path / "results",
+            yolo_loader=lambda _: pytest.fail("loader must not be called"),
+        )
+
+
+def test_unlabelled_evaluation_is_unchanged_and_records_no_split(tmp_path: Path) -> None:
+    model = FakeModel()
+    output = tmp_path / "results"
+
+    summary = evaluator.evaluate(
+        model_path=make_model_file(tmp_path),
+        images_path=make_image_folder(tmp_path),
+        output_path=output,
+        yolo_loader=lambda _: model,
+    )
+
+    assert summary["mode"] == "unlabelled_inference_audit"
+    assert summary["evaluation_settings"]["validation_ap"] is None
+    assert "dataset_split" not in summary
+    assert model.validation_arguments is None
+    predictions = json.loads((output / "predictions.json").read_text(encoding="utf-8"))
+    assert predictions["evaluation_settings"]["validation_ap"] is None
+
+
+@pytest.mark.parametrize("split", ["val", "test"])
+def test_argparse_accepts_supported_splits(split: str) -> None:
+    arguments = evaluator.parse_args(
+        ["--model", "m.pt", "--dataset-yaml", "d.yaml", "--split", split, "--output", "out"]
+    )
+
+    assert arguments.split == split
+
+
+def test_argparse_defaults_split_to_none_for_backward_compatibility() -> None:
+    arguments = evaluator.parse_args(
+        ["--model", "m.pt", "--dataset-yaml", "d.yaml", "--output", "out"]
+    )
+
+    assert arguments.split is None
+
+
+@pytest.mark.parametrize("split", ["train", "TEST", "holdout"])
+def test_argparse_rejects_unsupported_splits(split: str) -> None:
+    with pytest.raises(SystemExit):
+        evaluator.parse_args(
+            ["--model", "m.pt", "--dataset-yaml", "d.yaml", "--split", split, "--output", "out"]
+        )
+
+
+def test_cli_forwards_the_selected_split_without_real_weights(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = FakeModel()
+    monkeypatch.setattr(
+        evaluator.model_inspector, "_get_yolo_loader", lambda: (lambda _: model)
+    )
+    output = tmp_path / "results"
+
+    exit_code = evaluator.main(
+        [
+            "--model",
+            str(make_model_file(tmp_path)),
+            "--dataset-yaml",
+            str(make_dataset_yaml(tmp_path)),
+            "--split",
+            "test",
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert exit_code == 0
+    assert model.validation_arguments is not None
+    assert model.validation_arguments["split"] == "test"
+    summary_artifact = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    assert summary_artifact["dataset_split"] == "test"
+
+
+def test_cli_rejects_split_with_images_before_loading_a_model(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    exit_code = evaluator.main(
+        [
+            "--model",
+            str(make_model_file(tmp_path)),
+            "--images",
+            str(make_image_folder(tmp_path)),
+            "--split",
+            "test",
+            "--output",
+            str(tmp_path / "results"),
+        ]
+    )
+
+    assert exit_code == 1
+    assert "only to labelled dataset evaluation" in capsys.readouterr().err
+    assert not (tmp_path / "results").exists()
+
+
+@pytest.mark.parametrize("split", ["val", "test"])
+def test_artifacts_do_not_expose_absolute_dataset_paths(tmp_path: Path, split: str) -> None:
+    model = FakeModel()
+
+    _, output = run_labelled_evaluation(tmp_path, model, dataset_split=split)
+
+    dataset_yaml = tmp_path / "dataset.yaml"
+    for artifact in ("summary.json", "validation_metrics.json", "model_metadata.json"):
+        text = (output / artifact).read_text(encoding="utf-8")
+        assert str(dataset_yaml) not in text
+        assert dataset_yaml.as_posix() not in text
+        assert str(tmp_path) not in text
+    summary_artifact = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+    assert summary_artifact["dataset_yaml_filename"] == "dataset.yaml"

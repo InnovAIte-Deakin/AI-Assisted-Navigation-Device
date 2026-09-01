@@ -13,6 +13,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FilterOptions, ActiveFilters } from "./FilterBar";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 interface FilterModalProps {
   visible: boolean;
@@ -31,6 +33,7 @@ export default function FilterModal({
   onSelect,
   onClose,
 }: FilterModalProps) {
+  const colors = useThemeColors();
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -65,21 +68,21 @@ export default function FilterModal({
           style={styles.modalContainer}
         >
           <Pressable style={styles.backdrop} onPress={onClose} />
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <SafeAreaView edges={["bottom"]} style={styles.safeArea}>
-              <View style={styles.header}>
-                <Text style={styles.headerTitle}>Loading filters...</Text>
+              <View style={[styles.header, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Loading filters...</Text>
                 <Pressable
                   onPress={onClose}
                   style={styles.closeButton}
                   accessibilityRole="button"
                   accessibilityLabel="Close filter"
                 >
-                  <Ionicons name="close" size={24} color="#FFF" />
+                  <Ionicons name="close" size={24} color={colors.text} />
                 </Pressable>
               </View>
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Please wait while filters are loading...</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Please wait while filters are loading...</Text>
               </View>
             </SafeAreaView>
           </View>
@@ -170,16 +173,16 @@ export default function FilterModal({
 
     return (
       <Pressable
-        style={[styles.option, isSelected && styles.optionSelected]}
+        style={[styles.option, { borderBottomColor: colors.border }, isSelected && { backgroundColor: colors.surfaceElevated }]}
         onPress={() => handleSelect(item)}
         accessibilityRole="button"
         accessibilityLabel={`${displayLabel}${isSelected ? ", selected" : ""}`}
         accessibilityState={{ selected: isSelected }}
       >
-        <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+        <Text style={[styles.optionText, { color: colors.text }, isSelected && { color: colors.accent, fontWeight: "600" }]}>
           {displayLabel}
         </Text>
-        {isSelected && <Ionicons name="checkmark-circle" size={20} color="#F9A826" />}
+        {isSelected && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
       </Pressable>
     );
   };
@@ -197,13 +200,13 @@ export default function FilterModal({
         style={styles.modalContainer}
       >
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           <SafeAreaView edges={["bottom"]} style={styles.safeArea}>
-            <View style={styles.header}>
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
               <View style={styles.headerTitleContainer}>
-                <Text style={styles.headerTitle}>{getTitle()}</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>{getTitle()}</Text>
                 {filteredOptions.length > 0 && (
-                  <Text style={styles.headerSubtitle}>
+                  <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>
                     {filteredOptions.length} {filterType === "language" ? "languages" : filterType === "genre" ? "genres" : "options"} available
                   </Text>
                 )}
@@ -214,25 +217,25 @@ export default function FilterModal({
                 accessibilityRole="button"
                 accessibilityLabel="Close filter"
               >
-                <Ionicons name="close" size={24} color="#FFF" />
+                <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
             </View>
 
             {/* Search bar - shown for all filter types */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={18} color="#F9A826" style={styles.searchIcon} />
+            <View style={[styles.searchContainer, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent, shadowColor: colors.accent }]}>
+              <Ionicons name="search" size={18} color={colors.accent} style={styles.searchIcon} />
               <TextInput
-                style={styles.searchInput}
+                style={[styles.searchInput, { color: colors.text }]}
                 placeholder={
-                  filterType === "language" 
-                    ? "Search languages..." 
+                  filterType === "language"
+                    ? "Search languages..."
                     : filterType === "genre"
                     ? "Search genres..."
                     : filterType === "duration"
                     ? "Search duration options..."
                     : "Search sort options..."
                 }
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 accessibilityLabel={`Search ${filterType}`}
@@ -246,7 +249,7 @@ export default function FilterModal({
                   accessibilityRole="button"
                   accessibilityLabel="Clear search"
                 >
-                  <Ionicons name="close-circle" size={20} color="#888" />
+                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
                 </Pressable>
               )}
             </View>
@@ -264,8 +267,8 @@ export default function FilterModal({
               removeClippedSubviews={true}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
-                  <Ionicons name="search-outline" size={48} color="#666" />
-                  <Text style={styles.emptyText}>No {filterType} found matching "{searchQuery}"</Text>
+                  <Ionicons name="search-outline" size={48} color={colors.textMuted} />
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>No {filterType} found matching "{searchQuery}"</Text>
                 </View>
               }
             />
@@ -286,9 +289,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    backgroundColor: "#1B263B",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: Radius.xl - 2,
+    borderTopRightRadius: Radius.xl - 2,
     maxHeight: "80%",
     minHeight: "40%",
   },
@@ -299,23 +301,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   headerTitleContainer: {
     flex: 1,
-    marginRight: 16,
+    marginRight: Spacing.lg,
   },
   headerTitle: {
-    color: "#FFF",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "700",
   },
   headerSubtitle: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     marginTop: 2,
   },
   closeButton: {
@@ -327,69 +326,55 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 10,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: Radius.md - 2,
     borderWidth: 1.5,
-    borderColor: "#F9A826",
-    shadowColor: "#F9A826",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: Spacing.sm + 2,
   },
   searchInput: {
     flex: 1,
-    color: "#FFF",
     fontSize: 15,
     fontWeight: "500",
   },
   clearSearchButton: {
-    marginLeft: 8,
+    marginLeft: Spacing.sm,
   },
   optionsList: {
     flex: 1,
   },
   optionsListContent: {
-    paddingBottom: 16,
+    paddingBottom: Spacing.lg,
   },
   option: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
-  },
-  optionSelected: {
-    backgroundColor: "#2A2A2A",
   },
   optionText: {
-    color: "#FFF",
     fontSize: 15,
-  },
-  optionTextSelected: {
-    color: "#F9A826",
-    fontWeight: "600",
   },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+    paddingVertical: Spacing.xxl * 2,
+    paddingHorizontal: Spacing.xxl,
   },
   emptyText: {
-    color: "#888",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
-    marginTop: 16,
+    marginTop: Spacing.lg,
   },
 });

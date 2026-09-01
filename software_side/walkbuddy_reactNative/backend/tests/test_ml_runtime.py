@@ -24,10 +24,12 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from ml_runtime.metrics import InferenceMetrics
+from ml_contract import NAVIGATION_CLASSES
 from ml_runtime.model_info import (
     ModelMetadataError,
     calculate_sha256,
     capture_model_lineage,
+    is_taxonomy_compatible,
     normalise_class_names,
     runtime_details,
 )
@@ -45,6 +47,17 @@ class FakeModel:
         5: "table",
         6: "tv",
     }
+
+
+def canonical_class_names() -> list[str]:
+    """Derive the approved ordered names from the single canonical contract."""
+    return [navigation_class.name for navigation_class in NAVIGATION_CLASSES]
+
+
+class CanonicalTaxonomyModel:
+    """A model whose names exactly match the approved navigation taxonomy."""
+
+    names = {index: name for index, name in enumerate(canonical_class_names())}
 
 
 def _app_with_runtime(*, yolo: object | None, ocr_reader: object | None) -> FastAPI:
@@ -772,3 +785,128 @@ def test_successful_websocket_detection_result_shape_is_preserved(
         "inference_time_ms", "server_timestamp_ms",
     }
     assert app.state.ml_runtime.metrics.snapshot()["successful_inferences"] == 1
+
+
+def test_model_info_before_startup_reports_unknown_taxonomy_compatibility() -> None:
+    runtime = MLRuntimeState()
+
+    model_info = runtime.model_info()
+
+    assert model_info["loaded"] is False
+    assert model_info["failure_category"] == "not_initialized"
+    assert model_info["taxonomy_compatible"] is None
+
+
+def test_model_info_endpoint_serialises_compatible_taxonomy(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/model-info")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["taxonomy_compatible"] is True
+    assert payload["num_classes"] == len(NAVIGATION_CLASSES)
+    assert payload["classes"] == canonical_class_names()
+    assert payload["loaded"] is True
+    assert payload["failure_category"] is None
+
+
+def test_model_info_endpoint_serialises_incompatible_taxonomy(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/model-info")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["taxonomy_compatible"] is False
+    # A taxonomy mismatch must never be reported as a load or metadata failure.
+    assert payload["loaded"] is True
+    assert payload["failure_category"] is None
+    assert payload["num_classes"] == 7
+
+
+def test_model_info_endpoint_preserves_existing_lineage_fields(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        payload = client.get("/ml/model-info").json()
+
+    assert set(payload) == {
+        "loaded",
+        "filename",
+        "sha256",
+        "size_bytes",
+        "num_classes",
+        "classes",
+        "taxonomy_compatible",
+        "load_duration_ms",
+        "loaded_at",
+        "runtime",
+        "failure_category",
+    }
+    assert payload["filename"] == "best.pt"
+    assert payload["sha256"] == calculate_sha256(artifact)
+    assert payload["size_bytes"] == artifact.stat().st_size
+    assert payload["load_duration_ms"] == 3.5
+    assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_incompatible_taxonomy_does_not_change_readiness(tmp_path: Path) -> None:
+    """Scope guard: this PR reports compatibility and must not enforce it."""
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=object())
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        ready = client.get("/ml/ready")
+        health = client.get("/ml/health")
+        model_info = client.get("/ml/model-info").json()
+
+    assert model_info["taxonomy_compatible"] is False
+    assert ready.status_code == 200
+    assert ready.json() == {"ready": True}
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+    assert app.state.yolo is not None
+
+
+def test_readiness_still_depends_only_on_the_loaded_model(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=None, ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        ready = client.get("/ml/ready")
+        model_info = client.get("/ml/model-info").json()
+
+    assert model_info["taxonomy_compatible"] is True
+    assert ready.status_code == 503
+    assert ready.json() == {"ready": False}
+
+
+def test_taxonomy_compatibility_helper_matches_the_canonical_contract() -> None:
+    assert is_taxonomy_compatible(canonical_class_names()) is True
+    assert is_taxonomy_compatible(list(FakeModel.names.values())) is False

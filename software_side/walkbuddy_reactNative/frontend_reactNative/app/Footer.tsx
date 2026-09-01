@@ -1,22 +1,61 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, Animated, Easing } from "react-native";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useSegments } from "expo-router";
 
-const TABS = [
-  { icon: "home", route: "index" },
-  { icon: "camera", route: "camera" },
-  { icon: "building", route: "indoor" },
-  { icon: "road", route: "exterior" },
-  { icon: "book", route: "audiobooks" },
-  { icon: "question-circle", route: "ask-a-friend-web" },
-  { icon: "map", route: "places" },
-  { icon: "location-arrow", route: "predictive-path" },
+import { Radius, Spacing } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+
+// Darker than colors.accent (#0E7C86) — the camera tab uses this instead of
+// the shared accent so it reads as a deliberately deeper turquoise, not
+// theme-reactive since the app is light-mode-only for now (see theme.ts).
+const DARK_TURQUOISE = "#0A575E";
+// Camera icon color specifically while the camera tab is active.
+const DARK_BLUE = "#1B3A66";
+
+// Trimmed from 7 to 5 icons — the core "get guided somewhere" + "see/hear
+// my surroundings" actions, plus Ask a Friend. Audiobooks, Places, and
+// Favourites moved to the home screen's quick-actions grid instead of
+// living in the tab bar.
+const TABS: {
+  icon: keyof typeof Ionicons.glyphMap;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  route: string;
+  size?: number;
+  color?: string;
+  activeColor?: string;
+}[] = [
+  { icon: "home-outline", activeIcon: "home", route: "index" },
+  { icon: "walk-outline", activeIcon: "walk", route: "exterior" },
+  {
+    // Solid regardless of active state — the other tabs switch between
+    // outline/solid via activeIcon, this one is always the solid variant.
+    icon: "camera",
+    activeIcon: "camera",
+    route: "camera",
+    size: 38,
+    color: DARK_TURQUOISE,
+    activeColor: DARK_BLUE,
+  },
+  { icon: "business-outline", activeIcon: "business", route: "indoor" },
+  { icon: "people-outline", activeIcon: "people", route: "ask-a-friend-web" },
 ];
 
-const BAR_SIDE_PADDING = 8;
+// Shared on all 4 sides: bottomBar's own icon-row padding, the highlight's
+// horizontal track inset, AND its vertical top/bottom inset. Using one
+// constant for all of these keeps the highlight's track locked to the same
+// coordinates as the actual icon row (so it stays centered on every icon,
+// not just approximately near it) while also giving equal spacing from
+// bottomBar's border on every side.
+const BAR_SIDE_PADDING = 16;
+const ICON_SIZE = 25;
+// Vertical-only inset for the highlight, separate from BAR_SIDE_PADDING —
+// lets the highlight's height be tuned without touching the pill's own
+// size or the horizontal alignment/track math above.
+const PILL_VERTICAL_INSET = 8;
 
-export default function Footer({ navigation }: any) {
+export default function Footer({ navigation, insets }: any) {
+  const colors = useThemeColors();
   const segments = useSegments();
   const [barWidth, setBarWidth] = useState(0);
 
@@ -24,35 +63,37 @@ export default function Footer({ navigation }: any) {
   const currentRoute =
     usable.length === 0 ? "index" : usable[usable.length - 1];
 
+  // -1 when the current route isn't one of the footer tabs (e.g. Audiobooks,
+  // opened from the home screen's quick actions) — the pill hides instead of
+  // defaulting to Home.
   const activeIndex = useMemo(() => {
-    const idx = TABS.findIndex((tab) => tab.route === currentRoute);
-    return idx === -1 ? 0 : idx;
+    return TABS.findIndex((tab) => tab.route === currentRoute);
   }, [currentRoute]);
 
   const translateX = useRef(new Animated.Value(0)).current;
 
-  const innerWidth = useMemo(() => {
+  // The highlight's track uses the exact same inset as bottomBar's own
+  // paddingHorizontal, so each slot lines up precisely with where that same
+  // icon actually sits (both are BAR_SIDE_PADDING from the border).
+  const trackWidth = useMemo(() => {
     if (!barWidth) return 0;
     return barWidth - BAR_SIDE_PADDING * 2;
   }, [barWidth]);
 
   const slotWidth = useMemo(() => {
-    if (!innerWidth) return 0;
-    return innerWidth / TABS.length;
-  }, [innerWidth]);
+    if (!trackWidth) return 0;
+    return trackWidth / TABS.length;
+  }, [trackWidth]);
 
-  // wider pill so it feels more flush at the edges
-  const pillWidth = useMemo(() => {
-    if (!slotWidth) return 0;
-    return slotWidth + 6;
-  }, [slotWidth]);
+  const pillWidth = slotWidth;
 
   const getIndicatorX = (index: number) => {
-    if (!slotWidth || !pillWidth) return 0;
-    return BAR_SIDE_PADDING + index * slotWidth + (slotWidth - pillWidth) / 2;
+    if (!slotWidth) return 0;
+    return BAR_SIDE_PADDING + index * slotWidth;
   };
 
   useEffect(() => {
+    if (activeIndex === -1) return;
     const targetX = getIndicatorX(activeIndex);
 
     Animated.timing(translateX, {
@@ -66,9 +107,12 @@ export default function Footer({ navigation }: any) {
   const isActive = (routeName: string) => currentRoute === routeName;
 
   return (
-    <View style={styles.footWrap}>
+    <View
+      style={[styles.footWrap, { paddingBottom: insets?.bottom ?? 0 }]}
+      pointerEvents="box-none"
+    >
       <View
-        style={styles.bottomBar}
+        style={[styles.bottomBar, { backgroundColor: colors.background, borderColor: colors.accent }]}
         onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
       >
         {barWidth > 0 && (
@@ -78,7 +122,10 @@ export default function Footer({ navigation }: any) {
               styles.activePill,
               {
                 width: pillWidth,
+                opacity: activeIndex === -1 ? 0 : 1,
                 transform: [{ translateX }],
+                backgroundColor: colors.accent + "2E",
+                shadowColor: colors.accent,
               },
             ]}
           />
@@ -93,10 +140,14 @@ export default function Footer({ navigation }: any) {
             ]}
             onPress={() => navigation.navigate(tab.route)}
           >
-            <Icon
-              name={tab.icon}
-              size={26}
-              color={isActive(tab.route) ? "#FFFFFF" : "#FCA311"}
+            <Ionicons
+              name={isActive(tab.route) ? tab.activeIcon : tab.icon}
+              size={tab.size ?? ICON_SIZE}
+              color={
+                isActive(tab.route)
+                  ? tab.activeColor ?? tab.color ?? colors.accent
+                  : tab.color ?? colors.accent
+              }
             />
           </Pressable>
         ))}
@@ -107,9 +158,11 @@ export default function Footer({ navigation }: any) {
 
 const styles = StyleSheet.create({
   footWrap: {
-    width: "100%",
-    paddingHorizontal: 14,
-    backgroundColor: "#0D1B2A",
+    position: "absolute",
+    left: 10,
+    right: 10,
+    bottom: 0,
+    paddingHorizontal: Spacing.lg,
   },
 
   bottomBar: {
@@ -117,40 +170,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: "#0D1B2A",
-    borderColor: "#FCA311",
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     borderWidth: 2,
-    paddingVertical: 14,
+    paddingVertical: Spacing.md,
     paddingHorizontal: BAR_SIDE_PADDING,
-    marginVertical: 20,
+    marginTop: Spacing.xxl,
+    marginBottom: Spacing.sm,
     overflow: "hidden",
   },
 
   bottomItem: {
     flex: 1,
+    // Fixed height (not intrinsic) so a larger per-tab icon size (e.g. the
+    // camera tab) can't grow bottomBar's overall height or shift the other
+    // icons — it just renders bigger, centered, within this same box.
+    height: ICON_SIZE + Spacing.sm * 2,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
-    paddingVertical: 12,
   },
 
   activePill: {
     position: "absolute",
     left: 0,
-    top: 3,
-    bottom: 3,
-    borderRadius: 999,
-    backgroundColor: "rgba(252, 163, 17, 0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(252, 163, 17, 0.55)",
+    top: PILL_VERTICAL_INSET,
+    bottom: PILL_VERTICAL_INSET,
+    borderRadius: Radius.pill,
 
-    // stronger soft glow
-    shadowColor: "#FCA311",
+    // soft glow — radius kept within PILL_VERTICAL_INSET so it fades before
+    // bottomBar's overflow:hidden clips it (avoids a hard-edged cutoff)
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.65,
-    shadowRadius: 12,
-    elevation: 10,
+    shadowRadius: 6,
+    elevation: 6,
   },
 
   pressedItem: {
