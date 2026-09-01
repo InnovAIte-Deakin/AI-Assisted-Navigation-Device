@@ -22,7 +22,7 @@ Closes #206
 - Vision transport: WebSocket `/ws/vision`
 - Deployed model: `ML_side/models/best.pt`
 - Network: phone and development computer connected to the same local network
-- Source recording: `74a669fecdf72cc551c3f670445feb9b.mp4` (attach the video directly to the PR because it is not stored in the repository)
+- Source recording: `evidence/23_issue206_chair_test_video.mp4`
 
 ## Test procedure
 
@@ -52,7 +52,7 @@ The chair test recording contains the following spoken guidance:
 - “Chair on your left.”
 - “Chair moving.”
 
-The source video should be attached to this PR as the primary audio evidence. The transcription and Chinese translation are documented in `evidence/18_issue206_new_chair_test_analysis.md`.
+The source video is included in this PR as `evidence/23_issue206_chair_test_video.mp4` and is the primary audio evidence. The transcription and Chinese translation are documented in `evidence/18_issue206_new_chair_test_analysis.md`.
 
 ## Evidence
 
@@ -61,7 +61,7 @@ The source video should be attached to this PR as the primary audio evidence. Th
 - `evidence/18_issue206_new_chair_test_analysis.md` — analysis of the successful chair test and recognised voice feedback.
 - `evidence/19_issue206_second_chair_backend_log.txt` — backend WebSocket connection evidence from the second chair test.
 - `evidence/17_issue206_audio_transcription.md` — supplementary transcription from the earlier hazard-feedback recording.
-- Attached video `74a669fecdf72cc551c3f670445feb9b.mp4` — primary mobile screen and audio evidence for the new chair test.
+- `evidence/23_issue206_chair_test_video.mp4` — primary mobile screen and audio evidence for the new chair test.
 
 ## Backend log notes
 
