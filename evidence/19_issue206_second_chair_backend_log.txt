@@ -1,0 +1,19 @@
+Issue #206 — second chair test backend log observation
+
+Captured from the running backend terminal during the second chair test:
+
+INFO:     ('192.168.5.171', 61665) - "WebSocket /ws/vision" [accepted]
+INFO:routers.ai_service:[WS Vision] Connected: 192.168.5.171
+INFO:     connection open
+
+The session later reported:
+
+ERROR:routers.ai_service:[WS Vision] Unexpected error (192.168.5.171): Unexpected ASGI message 'websocket.send', after sending 'websocket.close' or response already completed.
+INFO:     connection closed
+
+Interpretation:
+
+- The mobile client reached and opened the live vision WebSocket successfully.
+- The log does not print individual `detection_result` or `guidance_message` payloads, so it cannot independently show the spoken chair warning.
+- The send-after-close message appears during connection teardown/reconnect and should be tracked as a separate robustness issue if it is user-visible.
+- The phone video/audio remains the primary evidence for the chair detection and “Not safe to move forward / Hazard ahead: chair” feedback.
