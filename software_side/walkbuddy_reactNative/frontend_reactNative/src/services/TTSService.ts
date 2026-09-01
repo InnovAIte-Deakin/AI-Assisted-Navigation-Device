@@ -10,6 +10,8 @@
 import { Platform } from "react-native";
 import * as Speech from "expo-speech";
 
+const NATIVE_SPEECH_TIMEOUT_MS = 15_000;
+
 export enum RiskLevel {
   CLEAR = 0,
   LOW = 1,
@@ -117,14 +119,13 @@ class TTSService {
   }
 
   private shouldSpeak(
-    message: string,
+    messageId: string,
     riskLevel: RiskLevel,
     force: boolean = false,
   ): boolean {
     if (force) return true;
 
     const currentTime = Date.now() / 1000;
-    const messageId = this.generateMessageId(message);
 
     // Vision results can arrive faster than a sentence can be spoken. Do not
     // continually restart the active sentence for duplicate or equal/lower
@@ -155,9 +156,9 @@ class TTSService {
     force: boolean = false,
   ): Promise<boolean> {
     if (!message || !message.trim()) return false;
-    if (!this.shouldSpeak(message, riskLevel, force)) return false;
-
     const messageId = this.generateMessageId(message);
+    if (!this.shouldSpeak(messageId, riskLevel, force)) return false;
+
     const token = ++this.speechToken;
     this.isSpeaking = true;
     this.activeMessageId = messageId;
@@ -168,7 +169,7 @@ class TTSService {
         await this.speakWeb(message);
       } else {
         Speech.stop();
-        await new Promise<void>((resolve, reject) => {
+        const speechPromise = new Promise<void>((resolve, reject) => {
           Speech.speak(message, {
             language: this.config.language,
             pitch: this.config.pitch,
@@ -179,6 +180,20 @@ class TTSService {
             onError: (error) => reject(error),
           });
         });
+
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<void>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            Speech.stop();
+            reject(new Error("Native speech timed out before a completion callback."));
+          }, NATIVE_SPEECH_TIMEOUT_MS);
+        });
+
+        try {
+          await Promise.race([speechPromise, timeoutPromise]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
       }
 
       // An urgent message may have interrupted this one while it was waiting
@@ -194,7 +209,7 @@ class TTSService {
         message,
         riskLevel,
         timestamp: currentTime,
-        messageId: this.generateMessageId(message),
+        messageId,
       };
       this.messageHistory.push(context);
       if (this.messageHistory.length > this.maxHistory)
