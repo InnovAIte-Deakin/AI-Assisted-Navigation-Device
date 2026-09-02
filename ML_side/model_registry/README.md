@@ -322,10 +322,15 @@ Example:
 ```json
 {
   "evaluation": {
-    "evidence_reference": "evaluation/navigation-v1/summary.json"
+    "evidence_reference": "ML_side/evaluation/navigation-v1/summary.json"
   }
 }
 ```
+
+References are resolved against the repository root (the `ML_side/...` form
+shown above and used for `dataset.manifest_reference` and
+`training.configuration_reference`). A reference written relative to the ML
+side, such as `evaluation/navigation-v1/summary.json`, also resolves.
 
 The model registry does not calculate evaluation metrics itself.
 

@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema.exceptions import SchemaError
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -10,19 +11,35 @@ SCHEMA_PATH = BASE_DIR / "schema" / "model.schema.json"
 
 FORMAT_CHECKER = FormatChecker()
 
+# The schema file and its compiled validator do not change at runtime, so
+# build the validator once and reuse it. validate_record() is called many
+# times per test run and once per record in any bulk validation, and a
+# fresh file read plus JSON parse plus validator construction each call is
+# pure overhead.
+_VALIDATOR = None
+
 
 def load_json(path):
     with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
-def validate_record(record):
-    schema = load_json(SCHEMA_PATH)
+def get_validator():
+    global _VALIDATOR
 
-    validator = Draft202012Validator(
-        schema,
-        format_checker=FORMAT_CHECKER
-    )
+    if _VALIDATOR is None:
+        schema = load_json(SCHEMA_PATH)
+        Draft202012Validator.check_schema(schema)
+        _VALIDATOR = Draft202012Validator(
+            schema,
+            format_checker=FORMAT_CHECKER
+        )
+
+    return _VALIDATOR
+
+
+def validate_record(record):
+    validator = get_validator()
 
     errors = sorted(
         validator.iter_errors(record),
@@ -74,8 +91,14 @@ def main():
         print(f"Invalid JSON: {error}")
         sys.exit(1)
 
-    except Exception as error:
-        print(f"Validation error: {error}")
+    except SchemaError as error:
+        # The schema file itself is malformed. This is a tooling bug,
+        # not an invalid record, so report it distinctly.
+        print(f"Model schema is invalid: {error}")
+        sys.exit(2)
+
+    except OSError as error:
+        print(f"Could not read file: {error}")
         sys.exit(1)
 
     if not valid:
