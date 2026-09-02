@@ -26,8 +26,8 @@ software_side/walkbuddy_reactNative/frontend_reactNative/package-lock.json
 software_side.zip
 *.pdf
 
-# ML model artifacts
-*.pt
-*.pth
-*.onnx
-*.tflite
+# ML model artifacts (training outputs; force-add an intentional fixture with `git add -f`)
+ML_side/**/*.pt
+ML_side/**/*.pth
+ML_side/**/*.onnx
+ML_side/**/*.tflite

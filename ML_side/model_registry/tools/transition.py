@@ -6,6 +6,7 @@ from pathlib import Path
 
 # Make the existing ML tooling available to the registry.
 ML_SIDE_DIR = Path(__file__).resolve().parents[2]
+REPO_ROOT = ML_SIDE_DIR.parent
 ML_TOOLS_DIR = ML_SIDE_DIR / "tools"
 
 if str(ML_TOOLS_DIR) not in sys.path:
@@ -59,6 +60,38 @@ def save_json(path, record):
     with open(path, "w", encoding="utf-8") as file:
         json.dump(record, file, indent=2)
         file.write("\n")
+
+
+def resolve_reference_path(reference):
+    """
+    Resolve a lineage reference string to a filesystem path.
+
+    Absolute references are used as-is. Relative references are resolved
+    against the repository root first (matching the ``ML_side/...`` style
+    used for ``manifest_reference`` and ``configuration_reference`` in the
+    registry README), and fall back to ``ML_side/`` so that a reference
+    written relative to the ML side (for example ``evaluation/...``) also
+    resolves. This keeps both documented reference styles working instead
+    of silently blocking a valid promotion.
+    """
+    candidate_path = Path(reference)
+
+    if candidate_path.is_absolute():
+        return candidate_path
+
+    repo_relative = REPO_ROOT / candidate_path
+
+    if repo_relative.exists():
+        return repo_relative
+
+    ml_side_relative = ML_SIDE_DIR / candidate_path
+
+    if ml_side_relative.exists():
+        return ml_side_relative
+
+    # Neither location exists. Return the repo-root form so the caller's
+    # existing "evidence is invalid" handling reports a stable path.
+    return repo_relative
 
 
 def get_nested_value(record, field_path):
@@ -232,13 +265,10 @@ def validate_production_evidence(record, promotion_report):
         print("- Candidate taxonomy does not match the registry.")
         return False
 
-    if registry_classes != APPROVED_CLASS_NAMES:
-        print("Production promotion blocked.")
-        print(
-            "- Registry taxonomy does not match the canonical "
-            "WalkBuddy taxonomy."
-        )
-        return False
+    # The registry taxonomy is already guaranteed to equal
+    # APPROVED_CLASS_NAMES here: transition_model() runs
+    # uses_approved_taxonomy() for the production target before it
+    # calls this function, so re-checking it would be dead code.
 
     if candidate.get("class_count") != len(APPROVED_CLASS_NAMES):
         print("Production promotion blocked.")
@@ -255,11 +285,7 @@ def validate_production_evidence(record, promotion_report):
         print("- Evaluation evidence reference is missing.")
         return False
 
-    evaluation_path = Path(evaluation_reference)
-
-    if not evaluation_path.is_absolute():
-        repo_root = ML_SIDE_DIR.parent
-        evaluation_path = repo_root / evaluation_path
+    evaluation_path = resolve_reference_path(evaluation_reference)
 
     try:
         evaluation_source, evaluation_artifact = (
