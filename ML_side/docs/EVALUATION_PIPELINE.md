@@ -84,9 +84,10 @@ python -m evaluation.run_eval \
 a real Ultralytics model, it reads the model's own class list at runtime
 (same pattern used elsewhere in the project, e.g. the `/ml/model-info`
 endpoint from PR #179) rather than hardcoding class order, so it works
-whether the model was trained on 7 or 8 classes. This path isn't covered
-by automated tests, since no model weights are committed to the repo,
-it should be exercised manually once a real `.pt` file exists.
+whether the model was trained on 7 or 8 classes. Its logic is covered by
+tests through a stubbed `ultralytics` module; only a run against a real
+`.pt` file and the real Ultralytics package is left to do manually once a
+trained model exists.
 
 ## Tests
 
@@ -95,8 +96,8 @@ cd ML_side
 pytest tests/ -v
 ```
 
-30 tests, all against `MockPredictor` and the small JSON fixtures in
-`tests/fixtures/eval/`. The fixtures are deliberately constructed to
+43 tests, against `MockPredictor`, a stubbed model, and the small JSON
+fixtures in `tests/fixtures/eval/`. The fixtures are deliberately constructed to
 exercise every code path: clean matches (true positives), a missed
 CRITICAL-severity hazard for both `stairs` and `vehicle`, and false
 detections for two classes (`chair`, `bicycle`) that have zero ground
