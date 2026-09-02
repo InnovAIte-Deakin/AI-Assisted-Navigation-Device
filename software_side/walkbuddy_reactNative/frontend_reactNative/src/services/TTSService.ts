@@ -127,16 +127,19 @@ class TTSService {
 
     const currentTime = Date.now() / 1000;
 
-    // Vision results can arrive faster than a sentence can be spoken. Do not
-    // continually restart the active sentence for duplicate or equal/lower
-    // priority guidance. A higher-risk warning may still interrupt it.
     if (this.isSpeaking) {
+      // Never restart the exact same sentence.
       if (messageId === this.activeMessageId) return false;
-      if (riskLevel <= this.activeRiskLevel) return false;
+      // A distinct hazard at HIGH or above must still be announced even when the
+      // sentence already playing is the same priority. Only equal/lower-priority
+      // guidance below HIGH is treated as interruptible chatter.
+      if (riskLevel < RiskLevel.HIGH && riskLevel <= this.activeRiskLevel) {
+        return false;
+      }
     }
 
     const timeSinceLast = currentTime - this.lastSpokenTime;
-    if (timeSinceLast < this.cooldownSeconds) {
+    if (timeSinceLast < this.cooldownSeconds && riskLevel < RiskLevel.HIGH) {
       if (riskLevel <= this.lastRiskLevel) return false;
     }
 
