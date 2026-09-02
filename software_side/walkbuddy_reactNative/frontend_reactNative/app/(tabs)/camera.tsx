@@ -161,7 +161,6 @@ export default function CameraAssistScreen() {
   const [ocrResult, setOcrResult] = useState("");
   const [isOcrCapturing, setIsOcrCapturing] = useState(false);
   const ocrDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSpokenOcrTextRef = useRef("");
 
   useEffect(() => {
     detectionsRef.current = detections;
@@ -527,11 +526,11 @@ export default function CameraAssistScreen() {
       const imgW = photo?.width ?? 1000;
       const imgH = photo?.height ?? 1000;
 
-      // OCR speech is independent of object-detection state. Only suppress an
-      // exact repeat of the previous OCR result.
-      if (text && text !== lastSpokenOcrTextRef.current) {
-        const spoken = await tts.speak(text, RiskLevel.LOW, true);
-        if (spoken) lastSpokenOcrTextRef.current = text;
+      // "Read text" is an explicit user action, so always read the result
+      // aloud. force=true lets it take over the audio channel from navigation
+      // guidance for the duration of the scan.
+      if (text) {
+        await tts.speak(text, RiskLevel.LOW, true);
       }
 
       // ── Feature 3: Social Awareness ─────────────────────────────────────
