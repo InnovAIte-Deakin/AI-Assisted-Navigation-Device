@@ -105,10 +105,6 @@ export default function CameraAssistScreen() {
   const isListeningRef = useRef(false);
   const micLockRef = useRef(false);
 
-  // Feature 1: What Changed
-  const prevDetectionCategoriesRef = useRef<Set<string>>(new Set());
-  const hasScannedOnceRef = useRef(false);
-
   // Feature 2: Lost & Recovery
   const lastPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
@@ -203,10 +199,8 @@ export default function CameraAssistScreen() {
     return () => clearTimeout(id);
   }, [perm?.granted]);
 
-  // Reset "What Changed" and social state when mode switches
+  // Reset social state when mode switches
   useEffect(() => {
-    prevDetectionCategoriesRef.current = new Set();
-    hasScannedOnceRef.current = false;
     prevPersonCountRef.current = 0;
   }, [camMode]);
 
@@ -397,6 +391,7 @@ export default function CameraAssistScreen() {
         const ws = wsRef.current;
         wsRef.current = null;
         ws?.close(1000, "blur");
+        tts.stop();
       };
     // connectWebSocket is stable; perm.granted is the only meaningful dep here
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -521,9 +516,8 @@ export default function CameraAssistScreen() {
 
       if (!res.ok) throw new Error(`OCR HTTP ${res.status}`);
       const data = await res.json();
-      const text = data.guidance_message || "No text detected.";
+      const text = (data.guidance_message || "No text detected.").trim();
       setOcrResult(text);
-      tts.speakAsync(text, RiskLevel.LOW);
 
       if (ocrDismissTimer.current) clearTimeout(ocrDismissTimer.current);
       ocrDismissTimer.current = setTimeout(() => setOcrResult(""), 8000);
@@ -532,22 +526,11 @@ export default function CameraAssistScreen() {
       const imgW = photo?.width ?? 1000;
       const imgH = photo?.height ?? 1000;
 
-      // ── Feature 1: What Changed ─────────────────────────────────────────
-      const currentCategories = new Set(
-        allDetections.filter((d: Detection) => d.confidence >= 0.5).map((d: Detection) => d.category)
-      );
-      const prev = prevDetectionCategoriesRef.current;
-      const newItems = [...currentCategories].filter(c => !prev.has(c));
-      const allCleared = currentCategories.size === 0 && prev.size > 0;
-      const isFirst = !hasScannedOnceRef.current;
-
-      hasScannedOnceRef.current = true;
-      prevDetectionCategoriesRef.current = currentCategories;
-
-      if ((isFirst || newItems.length > 0) && data.guidance_message) {
-        await maybeSpeak(data.guidance_message, RiskLevel.LOW);
-      } else if (allCleared) {
-        await maybeSpeak("Path looks clear.", RiskLevel.LOW);
+      // "Read text" is an explicit user action, so always read the result
+      // aloud. force=true lets it take over the audio channel from navigation
+      // guidance for the duration of the scan.
+      if (text) {
+        await tts.speak(text, RiskLevel.LOW, true);
       }
 
       // ── Feature 3: Social Awareness ─────────────────────────────────────
@@ -870,6 +853,9 @@ export default function CameraAssistScreen() {
             { backgroundColor: colors.background + "D9", borderColor: colors.accent },
             isListening && { backgroundColor: colors.accent },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel="Voice assistant"
+          accessibilityHint="Press and hold to speak a question"
         >
           <MaterialIcons
             name={isListening ? "mic" : "mic-none"}
@@ -886,6 +872,9 @@ export default function CameraAssistScreen() {
             { backgroundColor: colors.background + "D9", borderColor: colors.accent },
             isOcrCapturing && { backgroundColor: colors.accent },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel="Read text"
+          accessibilityHint="Captures an image and reads detected text aloud"
         >
           <MaterialIcons
             name="camera-alt"
