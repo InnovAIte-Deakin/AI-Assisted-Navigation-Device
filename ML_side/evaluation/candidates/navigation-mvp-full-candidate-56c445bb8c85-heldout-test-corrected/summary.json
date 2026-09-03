@@ -1,0 +1,213 @@
+{
+  "baseline_type": "evaluation",
+  "created_at_utc": "2026-09-02T07:44:09Z",
+  "dataset_split": "test",
+  "dataset_yaml_filename": "walkbuddy-heldout-dataset-56c445bb8c85.yaml",
+  "evaluation_settings": {
+    "operating_point_inference": null,
+    "validation_ap": {
+      "confidence": "ultralytics_default_sweep",
+      "dataset_split": "test",
+      "engine": "ultralytics_model_val",
+      "iou": "ultralytics_default",
+      "plots": false,
+      "save_json": false,
+      "verbose": false
+    }
+  },
+  "metric_semantics": {
+    "aggregate_metrics": [
+      "precision",
+      "recall",
+      "mAP50",
+      "mAP50_95"
+    ],
+    "latency": "milliseconds_per_image",
+    "metric_unit": "fraction_0_to_1",
+    "per_class_metrics": [
+      "precision",
+      "recall",
+      "mAP50",
+      "mAP50_95"
+    ],
+    "source": "ultralytics_model_val"
+  },
+  "mode": "labelled_validation",
+  "model": {
+    "class_count": 8,
+    "class_id_to_name": {
+      "0": "person",
+      "1": "stairs",
+      "2": "door",
+      "3": "chair",
+      "4": "table",
+      "5": "pole",
+      "6": "bicycle",
+      "7": "vehicle"
+    },
+    "file_size_bytes": 5364741,
+    "filename": "best.pt",
+    "ordered_class_names": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ],
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f"
+  },
+  "results": {
+    "validation_metrics": {
+      "inference_timing_ms": {
+        "inference": 4.1700296825782575,
+        "loss": 0.0006561338024859471,
+        "postprocess": 0.24190157274591761,
+        "preprocess": 3.5566503002428753
+      },
+      "mAP50": 0.6685228522547324,
+      "mAP50_95": 0.43567024908867424,
+      "metric_notes": [],
+      "per_class_results": {
+        "0": {
+          "class_name": "person",
+          "mAP50": 0.6966511422147185,
+          "mAP50_95": 0.2045417110546674,
+          "precision": 0.8913696479581575,
+          "recall": 0.37730968464192277
+        },
+        "1": {
+          "class_name": "stairs",
+          "mAP50": 0.6979979584952999,
+          "mAP50_95": 0.4636492289371731,
+          "precision": 0.7446857530833727,
+          "recall": 0.6067961165048543
+        },
+        "2": {
+          "class_name": "door",
+          "mAP50": 0.7546172752084193,
+          "mAP50_95": 0.4805960272020123,
+          "precision": 0.7842625553947875,
+          "recall": 0.6553497942386831
+        },
+        "3": {
+          "class_name": "chair",
+          "mAP50": 0.8377175449886045,
+          "mAP50_95": 0.6571289922896953,
+          "precision": 0.8470344532528719,
+          "recall": 0.7727272727272727
+        },
+        "4": {
+          "class_name": "table",
+          "mAP50": 0.6737955875857491,
+          "mAP50_95": 0.38223381800121514,
+          "precision": 0.7886297732835261,
+          "recall": 0.5381735884445873
+        },
+        "5": {
+          "class_name": "pole",
+          "mAP50": 0.1755032227582662,
+          "mAP50_95": 0.14760744539687995,
+          "precision": 0.05481791322931422,
+          "recall": 0.5184049079754601
+        },
+        "6": {
+          "class_name": "bicycle",
+          "mAP50": 0.7043285646762873,
+          "mAP50_95": 0.5217241579275919,
+          "precision": 0.6780920678235393,
+          "recall": 0.662303664921466
+        },
+        "7": {
+          "class_name": "vehicle",
+          "mAP50": 0.8075715221105139,
+          "mAP50_95": 0.6278806119001585,
+          "precision": 0.7793573340787976,
+          "recall": 0.7661424837510473
+        }
+      },
+      "precision": 0.6960311872630458,
+      "recall": 0.6121509391506618,
+      "validation_image_count": 3497
+    }
+  },
+  "schema_version": "1.0.0",
+  "tool": {
+    "name": "evaluate_current_model",
+    "version": "2.1.0"
+  },
+  "validation_metrics": {
+    "inference_timing_ms": {
+      "inference": 4.1700296825782575,
+      "loss": 0.0006561338024859471,
+      "postprocess": 0.24190157274591761,
+      "preprocess": 3.5566503002428753
+    },
+    "mAP50": 0.6685228522547324,
+    "mAP50_95": 0.43567024908867424,
+    "metric_notes": [],
+    "per_class_results": {
+      "0": {
+        "class_name": "person",
+        "mAP50": 0.6966511422147185,
+        "mAP50_95": 0.2045417110546674,
+        "precision": 0.8913696479581575,
+        "recall": 0.37730968464192277
+      },
+      "1": {
+        "class_name": "stairs",
+        "mAP50": 0.6979979584952999,
+        "mAP50_95": 0.4636492289371731,
+        "precision": 0.7446857530833727,
+        "recall": 0.6067961165048543
+      },
+      "2": {
+        "class_name": "door",
+        "mAP50": 0.7546172752084193,
+        "mAP50_95": 0.4805960272020123,
+        "precision": 0.7842625553947875,
+        "recall": 0.6553497942386831
+      },
+      "3": {
+        "class_name": "chair",
+        "mAP50": 0.8377175449886045,
+        "mAP50_95": 0.6571289922896953,
+        "precision": 0.8470344532528719,
+        "recall": 0.7727272727272727
+      },
+      "4": {
+        "class_name": "table",
+        "mAP50": 0.6737955875857491,
+        "mAP50_95": 0.38223381800121514,
+        "precision": 0.7886297732835261,
+        "recall": 0.5381735884445873
+      },
+      "5": {
+        "class_name": "pole",
+        "mAP50": 0.1755032227582662,
+        "mAP50_95": 0.14760744539687995,
+        "precision": 0.05481791322931422,
+        "recall": 0.5184049079754601
+      },
+      "6": {
+        "class_name": "bicycle",
+        "mAP50": 0.7043285646762873,
+        "mAP50_95": 0.5217241579275919,
+        "precision": 0.6780920678235393,
+        "recall": 0.662303664921466
+      },
+      "7": {
+        "class_name": "vehicle",
+        "mAP50": 0.8075715221105139,
+        "mAP50_95": 0.6278806119001585,
+        "precision": 0.7793573340787976,
+        "recall": 0.7661424837510473
+      }
+    },
+    "precision": 0.6960311872630458,
+    "recall": 0.6121509391506618,
+    "validation_image_count": 3497
+  }
+}
