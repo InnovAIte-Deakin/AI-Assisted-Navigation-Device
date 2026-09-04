@@ -9,7 +9,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "setup:android": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-android-windows.ps1",
+    "dev:call": "node scripts/start-dev.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -24,6 +26,7 @@
     "expo-camera": "~17.0.8",
     "expo-constants": "~18.0.9",
     "expo-crypto": "~15.0.8",
+    "expo-dev-client": "~6.0.21",
     "expo-file-system": "~19.0.14",
     "expo-font": "~14.0.8",
     "expo-haptics": "~15.0.7",
@@ -43,6 +46,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.4",
+    "react-native-agora": "^4.6.2",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-reanimated": "~4.1.0",
     "react-native-safe-area-context": "~5.6.0",
