@@ -1,15 +1,18 @@
 import json
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from PIL import Image
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # ML_side, so `data` is importable
 
-from ML_side.data.validate_cvat_yolo_export import validate_export, APPROVED_CLASSES
+from data.validate_cvat_yolo_export import validate_export, APPROVED_CLASSES
 
 
-def create_image(path: Path, size=(640, 480)):
+def create_image(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", size, color=(128, 128, 128)).save(path)
+    # The validator classifies images by file extension only and never opens them,
+    # so a stub byte is enough and keeps Pillow out of the CI dependency set.
+    path.write_bytes(b"\x00")
 
 
 def write_label(path: Path, lines):

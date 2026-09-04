@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter, defaultdict
-from dataclasses import dataclass, asdict
+import math
+from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from PIL import Image
-
+# Canonical navigation taxonomy. Class id is the list index (0=person ... 7=vehicle).
+# Source of truth: software_side/walkbuddy_reactNative/backend/ml_contract/
+# navigation_semantics.py (NAVIGATION_CLASSES), mirrored by
+# ML_side/evaluation/taxonomy.py (TAXONOMY_CLASSES). Keep this in sync if the
+# contract changes; a mismatch here silently mislabels or rejects valid classes.
 APPROVED_CLASSES = [
     "person",
     "stairs",
@@ -70,14 +74,25 @@ def parse_annotation_row(row: str, line_number: int, label_path: Path) -> tuple[
         )
 
     try:
-        class_id = int(float(parts[0]))
+        raw_class_id = float(parts[0])
     except ValueError:
         return None, Issue(
             type="invalid_class_id",
             file=str(label_path.name),
             line=line_number,
-            description=f"Class id is not an integer: {parts[0]}",
+            description=f"Class id is not a valid number: {parts[0]}",
         )
+
+    # Reject non-finite (inf/nan) and non-integer class ids explicitly. int(float(...))
+    # on its own raises OverflowError for "inf"/"1e400" and silently truncates "1.5" to 1.
+    if not math.isfinite(raw_class_id) or raw_class_id != int(raw_class_id):
+        return None, Issue(
+            type="invalid_class_id",
+            file=str(label_path.name),
+            line=line_number,
+            description=f"Class id must be a whole number: {parts[0]}",
+        )
+    class_id = int(raw_class_id)
 
     try:
         bbox = tuple(float(value) for value in parts[1:5])
@@ -174,6 +189,10 @@ def inspect_annotations(label_path: Path) -> tuple[list[Issue], Counter[str]]:
             continue
 
         class_name = APPROVED_CLASSES[class_id]
+        # Heuristic area bounds (fraction of the normalized frame): below 0.1% is
+        # almost always a stray click during annotation, above 50% usually means the
+        # box was dragged across most of the image. Both are flagged for human
+        # review, not auto-rejected.
         area = bbox[2] * bbox[3]
         if area < 0.001:
             issues.append(Issue(
@@ -209,18 +228,6 @@ def inspect_annotations(label_path: Path) -> tuple[list[Issue], Counter[str]]:
 
 def format_annotation_row(class_id: int, bbox: tuple[float, float, float, float]) -> str:
     return f"{class_id} {' '.join(f'{coord:.6f}' for coord in bbox)}"
-
-
-def collect_image_label_pairs(images_dir: Path, labels_dir: Path) -> tuple[dict[str, Path], dict[str, Path], list[str], list[str]]:
-    images = scan_files(images_dir, "*")
-    labels = scan_files(labels_dir, "*.txt")
-
-    image_names = set(images)
-    label_names = set(labels)
-
-    missing_labels = sorted(name for name in image_names if name not in label_names)
-    orphaned_labels = sorted(name for name in label_names if name not in image_names)
-    return images, labels, missing_labels, orphaned_labels
 
 
 def build_report(images: dict[str, Path], labels: dict[str, Path], missing_labels: list[str], orphaned_labels: list[str], issues: list[Issue]) -> dict[str, Any]:
@@ -271,7 +278,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append("## Missing Label Files")
         lines.append("")
         for name in report["missing_labels"]:
-            lines.append(f"- {name}")
+            lines.append(f"- {name}.txt")
         lines.append("")
 
     if orphaned_count:
@@ -382,7 +389,9 @@ def main() -> int:
     report = validate_export(args.export_root, args.images, args.labels, report_dir)
     print(f"Validation complete. Reports written to: {report_dir}")
     print(f"Summary: {report['issue_count']} issues, {len(report['missing_labels'])} missing labels, {len(report['orphaned_labels'])} orphaned labels")
-    return 0
+    # Non-zero exit lets CI and pre-ingestion scripts gate on a failed validation.
+    # issue_count already includes the missing_label and orphaned_label issues.
+    return 1 if report["issue_count"] else 0
 
 
 if __name__ == "__main__":
