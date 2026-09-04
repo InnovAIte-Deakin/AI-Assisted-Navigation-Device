@@ -1,0 +1,7 @@
+# Jupyter checkpoint folders
+.ipynb_checkpoints/
+
+# Keep the 8 top-level datasets/ subfolders, ignore everything inside them
+datasets/*/*
+!datasets/*/.gitkeep
+*.pt

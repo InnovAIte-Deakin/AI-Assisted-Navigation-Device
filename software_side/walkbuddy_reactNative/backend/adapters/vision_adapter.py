@@ -3,44 +3,20 @@ import cv2
 from ultralytics import YOLO
 from opentelemetry import trace
 from tts_service.message_reasoning import calculate_spatial_position # reuse existing direction logic
+from ml_contract.navigation_semantics import BaseSeverity, get_base_severity, severity_rank
 
 tracer = trace.get_tracer("vision.adapter")
 
-# ============================================================================
-# PRIORITY MAPPING - Priority Assignment to Detected Objects
-# ============================================================================
-# Priority tiers for navigation safety (per task requirements):
-# 🔴 HIGH — moving vehicles, stairs, open doors, wet floors, people in path
-# 🟡 MEDIUM — furniture, poles, bins, parked bikes
-# 🟢 LOW — walls, background objects, decorations
-#
-# Note: Our YOLO model only detects indoor objects:
-# book, books, monitor, office-chair, whiteboard, table, tv
-# We map these to the closest priority tier based on physical danger.
+# Canonical MVP labels use their centralized base severities. Unknown legacy
+# labels retain the existing LOW fallback without acquiring MVP semantics.
 
-PRIORITY_MAP = {
-    # HIGH - Potential fall hazards / high risk for visually impaired
-    "chair": "HIGH",
-    "office-chair": "HIGH",
-    "table": "HIGH",
-    "monitor": "HIGH",
-    "tv": "HIGH",
-    
-    # MEDIUM - Notable but less immediately dangerous
-    "whiteboard": "MEDIUM",
-    
-    # LOW - Minimal hazard
-    "book": "LOW",
-    "books": "LOW",
-}
-
-# Default priority for unknown classes
-DEFAULT_PRIORITY = "LOW"
+DEFAULT_PRIORITY = BaseSeverity.LOW.name
 
 
 def get_priority(category: str) -> str:
-    """Get priority level for a detected category."""
-    return PRIORITY_MAP.get(category.lower(), DEFAULT_PRIORITY)
+    """Get the contract base severity, preserving ``LOW`` for unknown labels."""
+    severity = get_base_severity(category)
+    return severity.name if severity is not None else DEFAULT_PRIORITY
 
 
 def vision_adapter(model: YOLO, image_path: str) -> dict:
@@ -93,9 +69,11 @@ def vision_adapter(model: YOLO, image_path: str) -> dict:
                 "priority": priority,  # NEW: Priority field
             })
 
-    # Sort by priority first (HIGH > MEDIUM > LOW), then by confidence
-    priority_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-    detections.sort(key=lambda x: (priority_order.get(x["priority"], 3), -x["confidence"]))
+    # Sort by deliberate base-severity ranking, then by confidence.
+    priority_order = {
+        severity.name: -severity_rank(severity) for severity in BaseSeverity
+    }
+    detections.sort(key=lambda x: (priority_order.get(x["priority"], 0), -x["confidence"]))
 
     return {
         "image_id": Path(image_path).stem,

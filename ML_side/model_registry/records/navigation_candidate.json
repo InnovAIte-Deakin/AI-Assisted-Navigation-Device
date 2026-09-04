@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "model_id": "WB-OD-NAV-001",
+  "model_version": "0.1.0",
+  "identity": {
+    "name": "WalkBuddy Navigation Object Detection Model",
+    "architecture": "YOLO",
+    "framework": "Ultralytics",
+    "task": "object_detection"
+  },
+  "taxonomy": {
+    "taxonomy_id": "walkbuddy-mvp-8-v1",
+    "classes": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ]
+  },
+  "dataset": {
+    "release_id": "walkbuddy-navigation-v5",
+    "manifest_reference": "C:\\Users\\lorenzodario\\Documents\\WalkBuddy-Controlled-Releases\\walkbuddy-navigation-v5\\v5-sequence-aware-20260820\\release_manifest.json"
+  },
+  "training": {
+    "training_date": "2026-09-01",
+    "configuration_reference": "ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml"
+  },
+  "artifact": {
+    "filename": "best.pt",
+    "location": "Teams SharePoint/AIAND_REPO/ML_side/T2_2026/Models/navigation/WB-OD-NAV-001/0.1.0/best.pt",
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f"
+  },
+  "evaluation": {
+    "evidence_reference": null
+  },
+  "lifecycle": {
+    "status": "candidate"
+  },
+  "limitations": [
+    "Validation-only development evidence identifies pole as the weakest class and as recall-limited.",
+    "Validation-only pole recall is particularly limited for small normalized-area boxes and extreme height-to-width geometry buckets; this is observational evidence, not a causal diagnosis.",
+    "This candidate is not production approved.",
+    "No canonical eight-class baseline and no approved automatic promotion policy currently exist.",
+    "Production promotion remains blocked until matching durable evaluation evidence, a compatible canonical eight-class baseline, an approved promotion policy, and a PASS comparison are available."
+  ]
+}

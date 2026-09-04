@@ -8,6 +8,8 @@ import {
   Text,
   View,
 } from "react-native";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 interface UserGuideModalProps {
   visible: boolean;
@@ -20,6 +22,7 @@ export default function UserGuideModal({
   onClose,
   showAsFirstTime = false,
 }: UserGuideModalProps) {
+  const colors = useThemeColors();
   const [activeTab, setActiveTab] = useState<"guide" | "faq">("guide");
 
   return (
@@ -30,10 +33,10 @@ export default function UserGuideModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface }]}>
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
               {showAsFirstTime ? "Welcome to Audiobooks!" : "User Guide & FAQs"}
             </Text>
             <Pressable
@@ -41,20 +44,21 @@ export default function UserGuideModal({
               style={styles.closeButton}
               accessibilityLabel="Close guide"
             >
-              <Ionicons name="close" size={24} color="#FFF" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
           {/* Tabs */}
-          <View style={styles.tabContainer}>
+          <View style={[styles.tabContainer, { borderBottomColor: colors.border }]}>
             <Pressable
               onPress={() => setActiveTab("guide")}
-              style={[styles.tab, activeTab === "guide" && styles.tabActive]}
+              style={[styles.tab, activeTab === "guide" && { borderBottomColor: colors.accent }]}
             >
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === "guide" && styles.tabTextActive,
+                  { color: colors.textMuted },
+                  activeTab === "guide" && { color: colors.accent, fontWeight: "600" },
                 ]}
               >
                 User Guide
@@ -62,12 +66,13 @@ export default function UserGuideModal({
             </Pressable>
             <Pressable
               onPress={() => setActiveTab("faq")}
-              style={[styles.tab, activeTab === "faq" && styles.tabActive]}
+              style={[styles.tab, activeTab === "faq" && { borderBottomColor: colors.accent }]}
             >
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === "faq" && styles.tabTextActive,
+                  { color: colors.textMuted },
+                  activeTab === "faq" && { color: colors.accent, fontWeight: "600" },
                 ]}
               >
                 FAQs
@@ -82,13 +87,13 @@ export default function UserGuideModal({
 
           {/* Footer for first-time users */}
           {showAsFirstTime && (
-            <View style={styles.footer}>
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
               <Pressable
                 onPress={onClose}
-                style={styles.getStartedButton}
+                style={[styles.getStartedButton, { backgroundColor: colors.accent }]}
                 accessibilityLabel="Get started"
               >
-                <Text style={styles.getStartedText}>Get Started</Text>
+                <Text style={[styles.getStartedText, { color: colors.accentText }]}>Get Started</Text>
               </Pressable>
             </View>
           )}
@@ -185,6 +190,7 @@ function UserGuideContent() {
 }
 
 function FAQContent() {
+  const colors = useThemeColors();
   const faqs = [
     {
       question: "How do I search for audiobooks?",
@@ -251,12 +257,12 @@ function FAQContent() {
   return (
     <View style={styles.faqContent}>
       {faqs.map((faq, index) => (
-        <View key={index} style={styles.faqItem}>
+        <View key={index} style={[styles.faqItem, { borderBottomColor: colors.border }]}>
           <View style={styles.faqQuestion}>
-            <Ionicons name="help-circle" size={20} color="#F9A826" />
-            <Text style={styles.faqQuestionText}>{faq.question}</Text>
+            <Ionicons name="help-circle" size={20} color={colors.accent} />
+            <Text style={[styles.faqQuestionText, { color: colors.text }]}>{faq.question}</Text>
           </View>
-          <Text style={styles.faqAnswer}>{faq.answer}</Text>
+          <Text style={[styles.faqAnswer, { color: colors.textMuted }]}>{faq.answer}</Text>
         </View>
       ))}
     </View>
@@ -272,14 +278,15 @@ function Section({
   title: string;
   content: string[];
 }) {
+  const colors = useThemeColors();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Ionicons name={icon as any} size={24} color="#F9A826" />
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Ionicons name={icon as any} size={24} color={colors.accent} />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
       </View>
       {content.map((item, index) => (
-        <Text key={index} style={styles.sectionItem}>
+        <Text key={index} style={[styles.sectionItem, { color: colors.textMuted }]}>
           {item}
         </Text>
       ))}
@@ -294,9 +301,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   container: {
-    backgroundColor: "#1B263B",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: Radius.xl - 2,
+    borderTopRightRadius: Radius.xl - 2,
     maxHeight: "90%",
     minHeight: "70%",
   },
@@ -304,114 +310,94 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    padding: Spacing.xxl - 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "bold",
-    color: "#FFF",
     flex: 1,
   },
   closeButton: {
-    padding: 4,
+    padding: Spacing.xs,
   },
   tabContainer: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   tab: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
     alignItems: "center",
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabActive: {
-    borderBottomColor: "#F9A826",
-  },
   tabText: {
-    fontSize: 16,
-    color: "#888",
-    fontWeight: "500",
-  },
-  tabTextActive: {
-    color: "#F9A826",
-    fontWeight: "600",
+    fontSize: Typography.size.base,
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: Spacing.xxl - 4,
   },
   guideContent: {
-    gap: 24,
+    gap: Spacing.xxl,
   },
   section: {
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "600",
-    color: "#FFF",
   },
   sectionItem: {
-    fontSize: 14,
-    color: "#CCC",
+    fontSize: Typography.size.sm,
     lineHeight: 22,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
     marginLeft: 36,
   },
   faqContent: {
-    gap: 20,
+    gap: Spacing.xl,
   },
   faqItem: {
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: Spacing.lg,
+    paddingBottom: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
   },
   faqQuestion: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 10,
-    marginBottom: 8,
+    gap: Spacing.sm + 2,
+    marginBottom: Spacing.sm,
   },
   faqQuestionText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
-    color: "#FFF",
     lineHeight: 22,
   },
   faqAnswer: {
-    fontSize: 14,
-    color: "#CCC",
+    fontSize: Typography.size.sm,
     lineHeight: 20,
     marginLeft: 30,
   },
   footer: {
-    padding: 20,
+    padding: Spacing.xxl - 4,
     borderTopWidth: 1,
-    borderTopColor: "#2A2A2A",
   },
   getStartedButton: {
-    backgroundColor: "#F9A826",
-    paddingVertical: 14,
-    paddingHorizontal: 32,
+    paddingVertical: Spacing.md + 2,
+    paddingHorizontal: Spacing.xxl + 8,
     borderRadius: 25,
     alignItems: "center",
   },
   getStartedText: {
-    color: "#1B263B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
 });
