@@ -35,7 +35,7 @@
     "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f"
   },
   "evaluation": {
-    "evidence_reference": null
+    "evidence_reference": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json"
   },
   "lifecycle": {
     "status": "candidate"
