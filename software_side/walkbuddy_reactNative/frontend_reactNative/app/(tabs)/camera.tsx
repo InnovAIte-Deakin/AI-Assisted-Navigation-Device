@@ -44,7 +44,7 @@ type CamMode = "vision" | "ocr";
 const WS_VISION_URL = API_BASE.replace(/^http/, "ws") + "/ws/vision";
 
 type BBox = { x_min: number; y_min: number; x_max: number; y_max: number };
-type Detection = { category: string; confidence: number; bbox: BBox; direction?: string };
+type Detection = { category: string; confidence: number; bbox: BBox; direction?: string; priority?: string };
 
 // Module-level frame ID counter (no import needed)
 let _frameCounter = 0;
@@ -81,6 +81,16 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 
 export default function CameraAssistScreen() {
   const colors = useThemeColors();
+  // Bounding-box colour per detection, keyed off the same RiskLevel scale
+  // TTSService already uses. Reuses the semantic theme tokens (see
+  // constants/theme.ts) rather than introducing a parallel colour scheme.
+  const RISK_COLOR: Record<RiskLevel, string> = {
+    [RiskLevel.CRITICAL]: colors.danger,
+    [RiskLevel.HIGH]: colors.warning,
+    [RiskLevel.MEDIUM]: colors.info,
+    [RiskLevel.LOW]: colors.success,
+    [RiskLevel.CLEAR]: colors.accent,
+  };
   const router = useRouter();
   // No SafeAreaView here (full-bleed camera preview must ignore the safe
   // area), so the back button needs the real device inset instead of a
@@ -808,13 +818,15 @@ export default function CameraAssistScreen() {
         {detections.slice(0, 20).map((d, idx) => {
           const mapped = mapBBoxToPreview(d.bbox);
           if (!mapped || mapped.width <= 1 || mapped.height <= 1) return null;
+          const risk = riskLevelFromString(d.priority ?? "LOW");
+          const boxColor = RISK_COLOR[risk];
           return (
             <View
               key={`${idx}-${d.category}`}
-              style={[styles.box, { borderColor: colors.accent, left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
+              style={[styles.box, { borderColor: boxColor, left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
             >
               <Text
-                style={[styles.boxLabel, { color: colors.accentText, backgroundColor: colors.accent }, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
+                style={[styles.boxLabel, { color: colors.accentText, backgroundColor: boxColor }, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
                 numberOfLines={1}
               >
                 {d.category} {Math.round(d.confidence * 100)}%
