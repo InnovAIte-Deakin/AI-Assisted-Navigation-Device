@@ -84,6 +84,74 @@ environment because unrelated optional dependencies `easyocr`, `llama_cpp`, and
 `email-validator` were absent. This did not block the real model/router
 acceptance boundary exercised above.
 
+## Real-candidate WebSocket acceptance
+
+Verdict: **PASS**
+
+The candidate SHA-256 was verified as
+`3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f` and its
+size as `5364741` bytes. The verified ordered taxonomy was `person`, `stairs`,
+`door`, `chair`, `table`, `pole`, `bicycle`, `vehicle`. ML mock mode was
+explicitly disabled.
+
+Tested boundary:
+
+```text
+YOLO(best.pt) -> actual /ws/vision handler -> actual vision_adapter
+-> actual MotionTracker -> navigation-memory event creation
+-> actual safety/guidance generation -> WebSocket detection_result
+```
+
+A narrow FastAPI app mounted the repository's actual `routers.ai_service.router`
+and supplied the real candidate as `app.state.yolo`, plus real runtime metrics
+and capacity limiters. Only unavailable, unrelated `easyocr` and `llama_cpp`
+imports were process-locally stubbed. Neither is used by `/ws/vision`.
+
+For each validation-only frame, the protocol was:
+
+1. JSON `frame_meta` containing `frame_id`, dimensions, and timestamp.
+2. Raw image bytes.
+3. A `detection_result` containing `frame_id`, `detections`, `guidance_message`,
+   `risk_level`, `inference_time_ms`, and `server_timestamp_ms`.
+
+Three successful frame transmissions were used. No held-out/test split was
+accessed. Observed detections were:
+
+- Frame 1: `chair`, confidence `0.683`, ahead, `MEDIUM`.
+- Repeated frame 1: the same chair with the same tracker ID; `is_moving` was
+  false and motion state progressed from `unknown` to `stable`.
+- Frame 3: a chair, confidence `0.923`, ahead; and three door detections with
+  confidences `0.759`, `0.738`, and `0.593`, left.
+
+All detections had canonical categories, valid confidences, valid integer
+bounding boxes, populated directions, contract-derived priorities, and populated
+MotionTracker fields. All successful frames returned populated guidance and
+`CRITICAL` risk. Observed guidance included: "Not safe to move forward. Hazard
+ahead: chair ahead. Stop and reassess or change direction."
+
+These are smoke observations from one development machine, not benchmark
+guarantees:
+
+- Model load: `301.7 ms`.
+- WebSocket inference: `4140 ms` cold; subsequent runs `110 ms` and `109 ms`.
+- Runtime metrics: `3` attempted, `3` successful, and `0` failed real-frame
+  inferences.
+
+Failure behavior was also exercised without modifying the candidate:
+
+- Model unavailable returned a stable `model_unavailable` WebSocket error.
+- Malformed image bytes returned a stable `inference_failed` error.
+
+A receive-after-disconnect diagnostic occurred after TestClient socket closure.
+It did not affect accepted responses or assertions.
+
+Fresh pytest count for this WebSocket acceptance: `0`. The requested pytest
+selection did not execute because the supplied virtual environment's base Python
+interpreter failed to launch with "Access is denied" before test collection. This
+was an environment limitation. This record does not claim that the regression
+suite passed on this run. The real WebSocket harness itself completed all
+assertions: three successful frame checks and two safe failure-path checks.
+
 ## Production status
 
 This runtime acceptance does **not** promote the model to production, designate
