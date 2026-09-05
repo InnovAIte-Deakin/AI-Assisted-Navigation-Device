@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+"""Integration coverage for the WalkBuddy ML pipeline.
+
+Checkpoints:
+1. Inspect a synthetic dataset and generate a valid candidate manifest.
+2. Build a controlled release from the generated manifest.
+3. Run training preflight and mocked training against the released dataset.
+4. Validate and evaluate a mocked candidate model using the real pipeline code.
+5. Confirm invalid source data is blocked before release and training.
+
+All data is synthetic and local. Model inference/training/evaluation objects are
+mocked where required; no model weights or network access are used.
+"""
+
+
 import base64
 import json
 import sys
@@ -50,9 +64,7 @@ def write_json(path: Path, value: object) -> Path:
     return path
 
 
-def create_fictional_dataset(
-    tmp_path: Path,
-) -> tuple[Path, Path]:
+def create_fictional_dataset(tmp_path: Path) -> tuple[Path, Path]:
     """Create a tiny local YOLO-format dataset."""
 
     dataset_root = tmp_path / "fictional_dataset"
@@ -352,16 +364,13 @@ def training_config() -> dict[str, object]:
 # Mock model/evaluation objects used by Checkpoint 4.
 # ---------------------------------------------------------------------------
 
-APPROVED_NAMES = [
-    name
-    for _, name in manifest_validator.APPROVED_TAXONOMY
-]
+APPROVED_NAMES = [name for _, name in manifest_validator.APPROVED_TAXONOMY]
 
 
 class FakeMetricsBox:
     """Mock per-class validation metrics."""
 
-    ap_class_index = list(range(8))
+    ap_class_index = list(range(len(APPROVED_NAMES)))
 
     p = [
         0.90,
@@ -418,8 +427,6 @@ class FakeEvaluationMetrics:
         "metrics/mAP50-95(B)": 0.68,
     }
 
-    nt_per_image = [1, 1]
-
     speed = {
         "preprocess": 1.0,
         "inference": 5.0,
@@ -439,17 +446,11 @@ class FakeIntegratedModel:
         self.predict_calls: list[dict[str, object]] = []
         self.validation_arguments: dict[str, object] | None = None
 
-    def predict(
-        self,
-        **kwargs: object,
-    ) -> list[object]:
+    def predict(self, **kwargs: object) -> list[object]:
         self.predict_calls.append(kwargs)
         return [object()]
 
-    def val(
-        self,
-        **kwargs: object,
-    ) -> FakeEvaluationMetrics:
+    def val(self, **kwargs: object) -> FakeEvaluationMetrics:
         self.validation_arguments = kwargs
         return FakeEvaluationMetrics()
 
@@ -825,6 +826,7 @@ def test_released_dataset_reaches_mocked_training(
 
 def test_mocked_candidate_reaches_validation_and_evaluation(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
 
     dataset_root, dataset_yaml = (
@@ -1016,6 +1018,8 @@ def test_mocked_candidate_reaches_validation_and_evaluation(
         tmp_path / "evaluation"
     )
 
+    monkeypatch.chdir(release_root)
+
     evaluation_summary = evaluator.evaluate(
         model_path=candidate_path,
         dataset_yaml=(
@@ -1041,10 +1045,7 @@ def test_mocked_candidate_reaches_validation_and_evaluation(
     assert metrics["mAP50"] == 0.85
     assert metrics["mAP50_95"] == 0.68
 
-    assert (
-        metrics["validation_image_count"]
-        == 2
-    )
+    assert metrics["validation_image_count"] == 1
 
     assert (
         metrics[
