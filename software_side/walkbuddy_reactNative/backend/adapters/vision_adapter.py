@@ -1,4 +1,5 @@
 from pathlib import Path
+from adapters.depth_adapter import enrich_detections_with_depth
 import cv2
 from ultralytics import YOLO
 from opentelemetry import trace
@@ -68,7 +69,7 @@ def vision_adapter(model: YOLO, image_path: str) -> dict:
                 "direction": direction, # store computed direction instead of hardcoded value
                 "priority": priority,  # NEW: Priority field
             })
-
+    detections = enrich_detections_with_depth(image_path, detections)
     # Sort by deliberate base-severity ranking, then by confidence.
     priority_order = {
         severity.name: -severity_rank(severity) for severity in BaseSeverity

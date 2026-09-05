@@ -59,6 +59,7 @@ def _fake_result():
                 "bbox": {"x_min": 100, "y_min": 120, "x_max": 400, "y_max": 460},
                 "direction": "ahead",
                 "priority": "MEDIUM",
+                "relative_depth": 0.625,
             }
         ],
         "metadata": {"image_shape": [480, 640]},
@@ -219,6 +220,7 @@ def test_navigate_mock_mode_reports_approved_navigation_classes(monkeypatch):
             "bbox": {"x_min": 220, "y_min": 180, "x_max": 420, "y_max": 400},
             "direction": "ahead",
             "priority": "MEDIUM",
+            "relative_depth": None,
         }
     ]
     assert body["image_id"] == "mock"
