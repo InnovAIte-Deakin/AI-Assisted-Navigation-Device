@@ -27,6 +27,7 @@ export default ({ config }) => ({
     },
   },
   android: {
+    package: "com.innovaite.walkbuddy",
     adaptiveIcon: {
       foregroundImage: "./assets/images/icon.png",
       backgroundColor: "#ffffff",

@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>WalkBuddy Helper</title>
+
+  <script
+    src="https://download.agora.io/sdk/release/AgoraRTC_N-4.23.4.js"
+  ></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      margin: 0;
+      background: #0d0d0d;
+      color: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+    }
+    header {
+      height: 70px;
+      padding: 14px 22px;
+      border-bottom: 1px solid #2a2a2a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0d0d0d;
+    }
+    h1 { margin: 0; font-size: 24px; }
+    .status {
+      padding: 8px 14px;
+      border-radius: 18px;
+      background: #242424;
+      font-size: 14px;
+    }
+    .status.connected { color: #66e38a; }
+    .status.error { color: #ff6b6b; }
+
+    main {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 70px);
+      padding: 16px;
+    }
+    .call-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      overflow: hidden;
+      border-radius: 18px;
+      background: #111;
+    }
+    .remote-card {
+      position: absolute;
+      inset: 0;
+      background: #111;
+    }
+    #remote-player {
+      width: 100%;
+      height: 100%;
+      background: #111;
+    }
+    #remote-player > div:not(.waiting),
+    #remote-player video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+    .video-title {
+      position: absolute;
+      z-index: 20;
+      top: 14px;
+      left: 14px;
+      background: rgba(0, 0, 0, 0.68);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .waiting {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a7a7a7;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .local-card {
+      position: absolute;
+      z-index: 30;
+      top: 16px;
+      right: 16px;
+      width: min(24vw, 300px);
+      aspect-ratio: 4 / 3;
+      min-width: 180px;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 2px solid rgba(255,255,255,0.8);
+      background: #171717;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+    }
+    .local-card .video-title { top: 8px; left: 8px; padding: 6px 9px; }
+    #local-player { width: 100%; height: 100%; background: #171717; }
+    #local-player > div,
+    #local-player video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+
+    .controls {
+      position: absolute;
+      z-index: 40;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 10px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.58);
+      backdrop-filter: blur(8px);
+    }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .normal-button { background: #f0f0f0; color: #111111; }
+    .danger-button { background: #d73f3f; color: #ffffff; }
+    .message {
+      position: absolute;
+      z-index: 35;
+      left: 18px;
+      right: 18px;
+      bottom: 92px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(0,0,0,0.62);
+      color: #e0e0e0;
+      line-height: 1.4;
+      pointer-events: none;
+    }
+
+    @media (max-width: 800px) {
+      header { height: 62px; padding: 12px 14px; }
+      h1 { font-size: 19px; }
+      main { height: calc(100vh - 62px); padding: 8px; }
+      .call-stage { border-radius: 12px; min-height: 360px; }
+      .local-card { width: 32vw; min-width: 120px; top: 10px; right: 10px; }
+      .controls { bottom: 12px; width: calc(100% - 24px); }
+      .message { bottom: 86px; left: 12px; right: 12px; font-size: 13px; }
+      button { padding: 12px 14px; font-size: 14px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <h1>
+      WalkBuddy Helper
+    </h1>
+  </div>
+
+  <div
+    id="status"
+    class="status"
+  >
+    Preparing...
+  </div>
+</header>
+
+<main>
+  <div class="call-stage">
+    <section class="remote-card">
+      <div class="video-title">WalkBuddy User</div>
+      <div id="remote-player">
+        <div class="waiting" id="remote-waiting">Waiting for WalkBuddy video...</div>
+      </div>
+    </section>
+
+    <section class="local-card">
+      <div class="video-title">You</div>
+      <div id="local-player"></div>
+    </section>
+
+    <div id="message" class="message">
+      Connecting to the WalkBuddy assistance session...
+    </div>
+
+    <div class="controls">
+      <button id="mute-button" class="normal-button" disabled>Mute</button>
+      <button id="camera-button" class="normal-button" disabled>Camera Off</button>
+      <button id="leave-button" class="danger-button" disabled>Leave Call</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  /*
+    ==================================================
+    PAGE PARAMETERS
+    ==================================================
+  */
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const inviteId =
+    params.get(
+      "invite"
+    );
+
+  const apiUrlRaw =
+    params.get(
+      "api"
+    );
+
+  const apiUrl =
+    apiUrlRaw
+      ? apiUrlRaw.replace(
+          /\/+$/,
+          ""
+        )
+      : null;
+
+
+  /*
+    ==================================================
+    UI
+    ==================================================
+  */
+
+  const statusElement =
+    document.getElementById(
+      "status"
+    );
+
+  const messageElement =
+    document.getElementById(
+      "message"
+    );
+
+  const muteButton =
+    document.getElementById(
+      "mute-button"
+    );
+
+  const cameraButton =
+    document.getElementById(
+      "camera-button"
+    );
+
+  const leaveButton =
+    document.getElementById(
+      "leave-button"
+    );
+
+  const remoteWaiting =
+    document.getElementById(
+      "remote-waiting"
+    );
+
+
+  function setStatus(
+    message,
+    type = ""
+  ) {
+    statusElement.textContent =
+      message;
+
+    statusElement.className =
+      `status ${type}`;
+  }
+
+
+  function setMessage(
+    message
+  ) {
+    messageElement.textContent =
+      message;
+  }
+
+
+  /*
+    ==================================================
+    AGORA STATE
+    ==================================================
+  */
+
+  let client =
+    null;
+
+  let microphoneTrack =
+    null;
+
+  let cameraTrack =
+    null;
+
+  let sessionId =
+    null;
+
+  let joined =
+    false;
+
+  let leaving =
+    false;
+
+  let statusInterval =
+    null;
+
+  let microphoneMuted =
+    false;
+
+  let cameraDisabled =
+    false;
+
+
+  /*
+    ==================================================
+    VALIDATE INVITATION
+    ==================================================
+  */
+
+  async function checkInvitation() {
+    if (
+      !inviteId ||
+      !apiUrl
+    ) {
+      throw new Error(
+        "This WalkBuddy invitation is incomplete."
+      );
+    }
+
+
+    const response =
+      await fetch(
+        `${apiUrl}/api/sessions/invite/${encodeURIComponent(
+          inviteId
+        )}`
+      );
+
+
+    if (!response.ok) {
+      const data =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      throw new Error(
+        data.error ||
+        "This WalkBuddy invitation is no longer valid."
+      );
+    }
+
+
+    return await response.json();
+  }
+
+
+  /*
+    ==================================================
+    CLAIM HELPER PLACE
+    ==================================================
+  */
+
+  async function claimInvitation() {
+    const response =
+      await fetch(
+        `${apiUrl}/api/sessions/invite/${encodeURIComponent(
+          inviteId
+        )}/claim`,
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+
+
+    if (!response.ok) {
+      const data =
+        await response
+          .json()
+          .catch(
+            () => ({})
+          );
+
+      throw new Error(
+        data.error ||
+        "Unable to join this WalkBuddy session."
+      );
+    }
+
+
+    return await response.json();
+  }
+
+
+  /*
+    ==================================================
+    SESSION STATUS WATCH
+    ==================================================
+
+    If the WalkBuddy user ends the session,
+    the helper gets disconnected too.
+  */
+
+  function startSessionWatch() {
+    if (
+      statusInterval
+    ) {
+      clearInterval(
+        statusInterval
+      );
+    }
+
+
+    statusInterval =
+      setInterval(
+        async () => {
+          if (
+            !sessionId ||
+            leaving
+          ) {
+            return;
+          }
+
+
+          try {
+            const response =
+              await fetch(
+                `${apiUrl}/api/sessions/${encodeURIComponent(
+                  sessionId
+                )}/status`
+              );
+
+
+            if (
+              !response.ok
+            ) {
+              return;
+            }
+
+
+            const data =
+              await response.json();
+
+
+            if (
+              !data.active
+            ) {
+              setMessage(
+                "The WalkBuddy user ended the assistance call."
+              );
+
+              setStatus(
+                "Call ended",
+                "error"
+              );
+
+
+              await leaveAgora(
+                false
+              );
+            }
+
+          } catch (
+            error
+          ) {
+            console.log(
+              "[Helper] Status check error:",
+              error
+            );
+          }
+        },
+        2000
+      );
+  }
+
+
+  /*
+    ==================================================
+    AGORA EVENTS
+    ==================================================
+  */
+
+  function registerAgoraEvents() {
+
+    client.on(
+      "user-published",
+      async (
+        user,
+        mediaType
+      ) => {
+
+        await client.subscribe(
+          user,
+          mediaType
+        );
+
+
+        console.log(
+          "[Helper] User published:",
+          user.uid,
+          mediaType
+        );
+
+
+        if (
+          mediaType ===
+          "video"
+        ) {
+
+          if (
+            remoteWaiting
+          ) {
+            remoteWaiting.remove();
+          }
+
+
+          user.videoTrack.play(
+            "remote-player"
+          );
+        }
+
+
+        if (
+          mediaType ===
+          "audio"
+        ) {
+          user.audioTrack.play();
+        }
+      }
+    );
+
+
+    client.on(
+      "user-unpublished",
+      (
+        user,
+        mediaType
+      ) => {
+
+        console.log(
+          "[Helper] User unpublished:",
+          user.uid,
+          mediaType
+        );
+      }
+    );
+
+
+    client.on(
+      "user-left",
+      async (
+        user
+      ) => {
+
+        console.log(
+          "[Helper] WalkBuddy user left Agora:",
+          user.uid
+        );
+
+
+        setStatus(
+          "Call ended",
+          "error"
+        );
+
+
+        setMessage(
+          "The WalkBuddy user has left the assistance call."
+        );
+
+
+        await leaveAgora(
+          false
+        );
+      }
+    );
+  }
+
+
+  /*
+    ==================================================
+    JOIN
+    ==================================================
+  */
+
+  async function joinSession() {
+
+    setStatus(
+      "Checking invitation..."
+    );
+
+
+    await checkInvitation();
+
+
+    setStatus(
+      "Joining..."
+    );
+
+
+    const claim =
+      await claimInvitation();
+
+
+    sessionId =
+      claim.sessionId;
+
+
+    client =
+      AgoraRTC.createClient({
+        mode:
+          "rtc",
+
+        codec:
+          "vp8",
+      });
+
+
+    registerAgoraEvents();
+
+
+    /*
+      Ask helper for camera + microphone.
+    */
+
+    const tracks =
+      await AgoraRTC
+        .createMicrophoneAndCameraTracks();
+
+
+    microphoneTrack =
+      tracks[0];
+
+    cameraTrack =
+      tracks[1];
+
+
+    /*
+      Helper local preview.
+    */
+
+    cameraTrack.play(
+      "local-player"
+    );
+
+
+    /*
+      Join same Agora channel as WalkBuddy user.
+    */
+
+    await client.join(
+      claim.appId,
+      claim.channelName,
+      claim.token,
+      claim.uid
+    );
+
+
+    await client.publish([
+      microphoneTrack,
+      cameraTrack,
+    ]);
+
+
+    joined =
+      true;
+
+
+    muteButton.disabled =
+      false;
+
+    cameraButton.disabled =
+      false;
+
+    leaveButton.disabled =
+      false;
+
+
+    setStatus(
+      "Connected",
+      "connected"
+    );
+
+
+    setMessage(
+      "You are connected. You can now see and talk to the WalkBuddy user."
+    );
+
+
+    startSessionWatch();
+  }
+
+
+  /*
+    ==================================================
+    MICROPHONE
+    ==================================================
+  */
+
+  muteButton.addEventListener(
+    "click",
+    async () => {
+      if (
+        !microphoneTrack
+      ) {
+        return;
+      }
+
+
+      microphoneMuted =
+        !microphoneMuted;
+
+
+      await microphoneTrack
+        .setEnabled(
+          !microphoneMuted
+        );
+
+
+      muteButton.textContent =
+        microphoneMuted
+          ? "Unmute"
+          : "Mute";
+    }
+  );
+
+
+  /*
+    ==================================================
+    CAMERA
+    ==================================================
+  */
+
+  cameraButton.addEventListener(
+    "click",
+    async () => {
+      if (
+        !cameraTrack
+      ) {
+        return;
+      }
+
+
+      cameraDisabled =
+        !cameraDisabled;
+
+
+      await cameraTrack
+        .setEnabled(
+          !cameraDisabled
+        );
+
+
+      cameraButton.textContent =
+        cameraDisabled
+          ? "Camera On"
+          : "Camera Off";
+    }
+  );
+
+
+  /*
+    ==================================================
+    HELPER LEAVES
+    ==================================================
+  */
+
+  async function notifyHelperLeft() {
+    if (
+      !sessionId ||
+      !apiUrl
+    ) {
+      return;
+    }
+
+
+    try {
+      await fetch(
+        `${apiUrl}/api/sessions/${encodeURIComponent(
+          sessionId
+        )}/helper-left`,
+        {
+          method:
+            "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+        }
+      );
+
+    } catch (
+      error
+    ) {
+      console.log(
+        "[Helper] Unable to notify server:",
+        error
+      );
+    }
+  }
+
+
+  /*
+    ==================================================
+    LEAVE AGORA
+    ==================================================
+  */
+
+  async function leaveAgora(
+    notifyServer = true
+  ) {
+
+    if (
+      leaving
+    ) {
+      return;
+    }
+
+
+    leaving =
+      true;
+
+
+    if (
+      statusInterval
+    ) {
+      clearInterval(
+        statusInterval
+      );
+
+      statusInterval =
+        null;
+    }
+
+
+    try {
+
+      if (
+        microphoneTrack
+      ) {
+        microphoneTrack.stop();
+
+        microphoneTrack.close();
+
+        microphoneTrack =
+          null;
+      }
+
+
+      if (
+        cameraTrack
+      ) {
+        cameraTrack.stop();
+
+        cameraTrack.close();
+
+        cameraTrack =
+          null;
+      }
+
+
+      if (
+        client &&
+        joined
+      ) {
+        await client.leave();
+      }
+
+
+      joined =
+        false;
+
+
+      if (
+        notifyServer
+      ) {
+        await notifyHelperLeft();
+      }
+
+
+      muteButton.disabled =
+        true;
+
+      cameraButton.disabled =
+        true;
+
+      leaveButton.disabled =
+        true;
+
+
+      if (
+        notifyServer
+      ) {
+        setStatus(
+          "Left call"
+        );
+
+        setMessage(
+          "You left the WalkBuddy assistance call."
+        );
+      }
+
+    } catch (
+      error
+    ) {
+      console.log(
+        "[Helper] Leave error:",
+        error
+      );
+
+    } finally {
+      leaving =
+        false;
+    }
+  }
+
+
+  leaveButton.addEventListener(
+    "click",
+    async () => {
+      await leaveAgora(
+        true
+      );
+    }
+  );
+
+
+  /*
+    ==================================================
+    TAB CLOSED / PAGE NAVIGATION
+    ==================================================
+  */
+
+  window.addEventListener(
+    "beforeunload",
+    () => {
+      /*
+        sendBeacon works better during
+        browser shutdown than fetch().
+      */
+
+      if (
+        sessionId &&
+        joined
+      ) {
+
+        navigator.sendBeacon(
+          `${apiUrl}/api/sessions/${encodeURIComponent(
+            sessionId
+          )}/helper-left`
+        );
+      }
+    }
+  );
+
+
+  /*
+    ==================================================
+    START
+    ==================================================
+  */
+
+  joinSession()
+    .catch(
+      error => {
+
+        console.error(
+          "[Helper] Join failed:",
+          error
+        );
+
+
+        setStatus(
+          "Unable to join",
+          "error"
+        );
+
+
+        setMessage(
+          error.message ||
+          "Unable to join the WalkBuddy assistance session."
+        );
+      }
+    );
+</script>
+
+</body>
+</html>
