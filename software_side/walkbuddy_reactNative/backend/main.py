@@ -74,6 +74,7 @@ from routers import ml_inference as ml_router
 from routers import helpers as helpers_router
 from routers import auth as auth_router
 from predictive_path import router as pred_router
+from predictive_path import retrain_router
 from ml_runtime import (
     MLRuntimeState,
     ModelMetadataError,
@@ -384,6 +385,7 @@ app.include_router(helpers_router.router)
 app.include_router(stt.router)
 app.include_router(auth_router.router)
 app.include_router(pred_router.router)
+app.include_router(retrain_router.router)
 app.include_router(ml_runtime_router)
 
 # =========================
