@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://walkbuddy.local/schemas/model.schema.json",
+  "title": "WalkBuddy Object Detection Model Metadata",
+  "description": "Schema for registering WalkBuddy object-detection model metadata, lineage, evaluation evidence and lifecycle status.",
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "schema_version",
+    "model_id",
+    "model_version",
+    "identity",
+    "taxonomy",
+    "dataset",
+    "training",
+    "artifact",
+    "evaluation",
+    "lifecycle",
+    "limitations"
+  ],
+
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+
+    "model_version": {
+      "type": "string",
+      "minLength": 1
+    },
+
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "architecture",
+        "framework",
+        "task"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task": {
+          "type": "string",
+          "const": "object_detection"
+        }
+      }
+    },
+
+    "taxonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taxonomy_id",
+        "classes"
+      ],
+      "properties": {
+        "taxonomy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_id",
+        "manifest_reference"
+      ],
+      "properties": {
+        "release_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manifest_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+
+    "training": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "training_date",
+        "configuration_reference"
+      ],
+      "properties": {
+        "training_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "configuration_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename",
+        "location",
+        "sha256"
+      ],
+      "properties": {
+        "filename": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "location": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      }
+    },
+
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_reference"
+      ],
+      "properties": {
+        "evidence_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "experimental",
+            "candidate",
+            "production",
+            "rejected",
+            "deprecated",
+            "rolled_back"
+          ]
+        }
+      }
+    },
+
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

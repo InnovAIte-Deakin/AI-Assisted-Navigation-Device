@@ -1,0 +1,18 @@
+[
+  {
+    "image_id": "img001",
+    "boxes": [
+      { "class": "person", "bbox": [100, 150, 220, 450] },
+      { "class": "stairs", "bbox": [300, 350, 500, 470] },
+      { "class": "door", "bbox": [50, 50, 150, 400] }
+    ]
+  },
+  {
+    "image_id": "img002",
+    "boxes": [
+      { "class": "table", "bbox": [200, 300, 400, 420] },
+      { "class": "pole", "bbox": [500, 100, 520, 470] },
+      { "class": "vehicle", "bbox": [0, 200, 200, 400] }
+    ]
+  }
+]

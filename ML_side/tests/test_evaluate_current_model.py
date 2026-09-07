@@ -43,9 +43,13 @@ class FakeMetrics:
         "metrics/mAP50(B)": 0.575,
         "metrics/mAP50-95(B)": 0.425,
     }
-    nt_per_image = [1, 2, 1]
+    nt_per_image = [1, 2]
     speed = {"inference": 12.5}
     box = FakeMetricsBox()
+
+
+class EightClassMetrics(FakeMetrics):
+    nt_per_image = [1, 2, 3, 4, 5, 6, 7, 8]
 
 
 class FakeModel:
@@ -74,6 +78,14 @@ class FakeModel:
         return FakeMetrics()
 
 
+class EightClassMetricsModel(FakeModel):
+    names = {index: f"class-{index}" for index in range(8)}
+
+    def val(self, **kwargs: object) -> EightClassMetrics:
+        self.validation_arguments = kwargs
+        return EightClassMetrics()
+
+
 class MissingNamesModel:
     pass
 
@@ -94,9 +106,18 @@ def make_image_folder(tmp_path: Path) -> Path:
 
 
 def make_dataset_yaml(tmp_path: Path) -> Path:
+    dataset_root = tmp_path / "local-data"
+    split_counts = {"train": 1, "val": 3, "test": 5}
+    for split, count in split_counts.items():
+        images = dataset_root / split / "images"
+        images.mkdir(parents=True)
+        for index in range(count):
+            (images / f"{split}-{index}.jpg").write_bytes(b"image")
     dataset_yaml = tmp_path / "dataset.yaml"
     dataset_yaml.write_text(
-        "path: local-data\ntrain: images\nval: images\ntest: images\n", encoding="utf-8"
+        f"path: {dataset_root.resolve().as_posix()}\n"
+        "train: train/images\nval: val/images\ntest: test/images\n",
+        encoding="utf-8",
     )
     return dataset_yaml
 
@@ -268,8 +289,7 @@ def test_dataset_yaml_validation_rejects_missing_and_download_directives(tmp_pat
 
 def test_labelled_validation_extracts_available_metrics(tmp_path: Path) -> None:
     model_path = make_model_file(tmp_path)
-    dataset_yaml = tmp_path / "data.yaml"
-    dataset_yaml.write_text("path: local-data\ntrain: images\nval: images\n", encoding="utf-8")
+    dataset_yaml = make_dataset_yaml(tmp_path)
     output = tmp_path / "results"
     model = FakeModel()
 
@@ -364,6 +384,10 @@ def test_selected_split_is_forwarded_and_recorded(tmp_path: Path, split: str) ->
         (output / "validation_metrics.json").read_text(encoding="utf-8")
     )
     assert metrics_artifact["evaluation_settings"]["validation_ap"]["dataset_split"] == split
+    assert metrics_artifact["validation_metrics"]["validation_image_count"] == {
+        "val": 3,
+        "test": 5,
+    }[split]
     summary_artifact = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     assert summary_artifact["dataset_split"] == split
     assert summary_artifact["evaluation_settings"]["validation_ap"]["dataset_split"] == split
@@ -381,8 +405,198 @@ def test_held_out_split_preserves_labelled_metric_extraction(tmp_path: Path) -> 
     assert metrics["recall"] == 0.5
     assert metrics["mAP50"] == 0.575
     assert metrics["mAP50_95"] == 0.425
-    assert metrics["validation_image_count"] == 3
+    assert metrics["validation_image_count"] == 5
     assert summary["metric_semantics"] == evaluator.LABELLED_VALIDATION_METRIC_SEMANTICS
+
+
+def test_labelled_image_count_uses_selected_split_not_class_indexed_metrics(
+    tmp_path: Path,
+) -> None:
+    model = EightClassMetricsModel()
+
+    summary, output = run_labelled_evaluation(tmp_path, model, dataset_split="test")
+
+    metrics = json.loads(
+        (output / "validation_metrics.json").read_text(encoding="utf-8")
+    )["validation_metrics"]
+    assert len(EightClassMetrics.nt_per_image) == 8
+    assert metrics["validation_image_count"] == 5
+    assert summary["validation_metrics"]["validation_image_count"] == 5  # type: ignore[index]
+
+
+def test_unresolvable_selected_split_records_none_without_metric_array_fallback(
+    tmp_path: Path,
+) -> None:
+    model_path = make_model_file(tmp_path)
+    dataset_root = tmp_path / "local-data"
+    images = dataset_root / "val" / "images"
+    images.mkdir(parents=True)
+    (images / "val.jpg").write_bytes(b"image")
+    dataset_yaml = tmp_path / "dataset.yaml"
+    dataset_yaml.write_text(
+        f"path: {dataset_root.resolve().as_posix()}\nval: val/images\n",
+        encoding="utf-8",
+    )
+
+    summary = evaluator.evaluate(
+        model_path=model_path,
+        dataset_yaml=dataset_yaml,
+        dataset_split="test",
+        output_path=tmp_path / "results",
+        yolo_loader=lambda _: EightClassMetricsModel(),
+    )
+
+    metrics = summary["validation_metrics"]
+    assert metrics["validation_image_count"] is None  # type: ignore[index]
+    assert any("selected 'test' dataset split is not declared" in note for note in metrics["metric_notes"])  # type: ignore[index]
+
+
+def test_absolute_yaml_root_resolves_the_selected_split(tmp_path: Path) -> None:
+    dataset_root = tmp_path / "dataset-root"
+    test_images = dataset_root / "test-images"
+    test_images.mkdir(parents=True)
+    for index in range(4):
+        (test_images / f"test-{index}.jpg").write_bytes(b"image")
+    dataset_yaml = tmp_path / "descriptors" / "dataset.yaml"
+    dataset_yaml.parent.mkdir()
+    dataset_yaml.write_text(
+        f"path: {dataset_root.resolve().as_posix()}\ntest: test-images\n",
+        encoding="utf-8",
+    )
+
+    image_count, note = evaluator.count_selected_split_images(dataset_yaml, "test")
+
+    assert image_count == 4
+    assert note is None
+
+
+def test_omitted_yaml_path_uses_the_yaml_parent(tmp_path: Path) -> None:
+    dataset_yaml = tmp_path / "descriptors" / "dataset.yaml"
+    test_images = dataset_yaml.parent / "test-images"
+    test_images.mkdir(parents=True)
+    for index in range(3):
+        (test_images / f"test-{index}.jpg").write_bytes(b"image")
+    dataset_yaml.write_text("test: test-images\n", encoding="utf-8")
+
+    image_count, note = evaluator.count_selected_split_images(dataset_yaml, "test")
+
+    assert image_count == 3
+    assert note is None
+
+
+def test_explicit_dot_yaml_path_uses_process_working_directory_not_yaml_parent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    working_directory_images = tmp_path / "test-images"
+    working_directory_images.mkdir()
+    (working_directory_images / "runtime.jpg").write_bytes(b"image")
+    dataset_yaml = tmp_path / "descriptors" / "dataset.yaml"
+    dataset_yaml.parent.mkdir()
+    yaml_parent_images = dataset_yaml.parent / "test-images"
+    yaml_parent_images.mkdir()
+    for index in range(5):
+        (yaml_parent_images / f"wrong-{index}.jpg").write_bytes(b"image")
+    dataset_yaml.write_text("path: .\ntest: test-images\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    image_count, note = evaluator.count_selected_split_images(dataset_yaml, "test")
+
+    assert image_count == 1
+    assert note is None
+
+
+def test_missing_relative_yaml_path_uses_ultralytics_datasets_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    datasets_dir = tmp_path / "ultralytics-datasets"
+    test_images = datasets_dir / "candidate" / "test-images"
+    test_images.mkdir(parents=True)
+    for index in range(2):
+        (test_images / f"test-{index}.jpg").write_bytes(b"image")
+    dataset_yaml = tmp_path / "descriptors" / "dataset.yaml"
+    dataset_yaml.parent.mkdir()
+    dataset_yaml.write_text("path: candidate\ntest: test-images\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(evaluator, "_ultralytics_datasets_dir", lambda: datasets_dir)
+
+    image_count, note = evaluator.count_selected_split_images(dataset_yaml, "test")
+
+    assert image_count == 2
+    assert note is None
+
+
+def test_pinned_image_formats_match_ultralytics_8_4_7_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(evaluator, "_runtime_image_formats", lambda: None)
+
+    assert evaluator._image_formats() == {
+        "avif",
+        "bmp",
+        "dng",
+        "heic",
+        "jp2",
+        "jpeg",
+        "jpeg2000",
+        "jpg",
+        "mpo",
+        "png",
+        "tif",
+        "tiff",
+        "webp",
+    }
+
+
+def test_installed_runtime_image_formats_are_preferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(evaluator, "_runtime_image_formats", lambda: frozenset({"runtime"}))
+
+    assert evaluator._image_formats() == {"runtime"}
+
+
+def test_selected_split_counts_pinned_supported_image_formats(tmp_path: Path) -> None:
+    dataset_root = tmp_path / "dataset-root"
+    test_images = dataset_root / "test-images"
+    test_images.mkdir(parents=True)
+    for suffix in (".avif", ".heic", ".jp2", ".jpeg2000", ".pfm", ".txt"):
+        (test_images / f"sample{suffix}").write_bytes(b"image")
+    dataset_yaml = tmp_path / "dataset.yaml"
+    dataset_yaml.write_text(
+        f"path: {dataset_root.resolve().as_posix()}\ntest: test-images\n",
+        encoding="utf-8",
+    )
+
+    image_count, note = evaluator.count_selected_split_images(dataset_yaml, "test")
+
+    assert image_count == 4
+    assert note is None
+
+
+def test_image_list_matches_ultralytics_relative_entry_rules(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dataset_root = tmp_path / "dataset-root"
+    list_directory = dataset_root / "lists"
+    list_directory.mkdir(parents=True)
+    (list_directory / "list-local.jpg").write_bytes(b"image")
+    (tmp_path / "working-directory.jpg").write_bytes(b"image")
+    image_list = list_directory / "test.txt"
+    image_list.write_text(
+        "./list-local.jpg\nworking-directory.jpg\nnot-an-image.txt\n",
+        encoding="utf-8",
+    )
+    dataset_yaml = tmp_path / "dataset.yaml"
+    dataset_yaml.write_text(
+        f"path: {dataset_root.resolve().as_posix()}\ntest: lists/test.txt\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    image_count, note = evaluator.count_selected_split_images(dataset_yaml, "test")
+
+    assert image_count == 2
+    assert note is None
 
 
 @pytest.mark.parametrize("split", ["train", "TEST", "", "validation"])

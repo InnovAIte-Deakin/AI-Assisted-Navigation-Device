@@ -10,8 +10,6 @@
 import { Platform } from "react-native";
 import * as Speech from "expo-speech";
 
-const NATIVE_SPEECH_TIMEOUT_MS = 15_000;
-
 export enum RiskLevel {
   CLEAR = 0,
   LOW = 1,
@@ -118,6 +116,18 @@ class TTSService {
     return hash.toString();
   }
 
+    private nativeSpeechTimeoutMs(message: string): number {
+    const FLOOR_MS = 15_000;
+    const CEIL_MS = 180_000;
+    const BASE_WPM = 150; // approx expo-speech words/min at rate 1.0
+    const words = message.trim().split(/\s+/).filter(Boolean).length || 1;
+    const rate = this.config.rate && this.config.rate > 0 ? this.config.rate : 1;
+    const expectedMs = (words / (BASE_WPM * rate)) * 60_000;
+    // 50% margin plus a 10s pad covers rate estimate error and TTS engine warm-up.
+    const withMargin = expectedMs * 1.5 + 10_000;
+    return Math.min(CEIL_MS, Math.max(FLOOR_MS, withMargin));
+  }
+
   private shouldSpeak(
     messageId: string,
     riskLevel: RiskLevel,
@@ -127,16 +137,19 @@ class TTSService {
 
     const currentTime = Date.now() / 1000;
 
-    // Vision results can arrive faster than a sentence can be spoken. Do not
-    // continually restart the active sentence for duplicate or equal/lower
-    // priority guidance. A higher-risk warning may still interrupt it.
     if (this.isSpeaking) {
+      // Never restart the exact same sentence.
       if (messageId === this.activeMessageId) return false;
-      if (riskLevel <= this.activeRiskLevel) return false;
+      // A distinct hazard at HIGH or above must still be announced even when the
+      // sentence already playing is the same priority. Only equal/lower-priority
+      // guidance below HIGH is treated as interruptible chatter.
+      if (riskLevel < RiskLevel.HIGH && riskLevel <= this.activeRiskLevel) {
+        return false;
+      }
     }
 
     const timeSinceLast = currentTime - this.lastSpokenTime;
-    if (timeSinceLast < this.cooldownSeconds) {
+    if (timeSinceLast < this.cooldownSeconds && riskLevel < RiskLevel.HIGH) {
       if (riskLevel <= this.lastRiskLevel) return false;
     }
 
@@ -186,7 +199,7 @@ class TTSService {
           timeoutId = setTimeout(() => {
             Speech.stop();
             reject(new Error("Native speech timed out before a completion callback."));
-          }, NATIVE_SPEECH_TIMEOUT_MS);
+          }, this.nativeSpeechTimeoutMs(message));
         });
 
         try {

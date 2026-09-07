@@ -182,7 +182,16 @@ The only dataset artifact kept in the repo is `data/dataset_analyze.py`, used to
 python data/dataset_analyze.py
 ```
 
-Reports: class counts, train/val balance, orphaned image–label pairs, image resolution distribution.
+Validate new CVAT YOLO exports before ingestion:
+
+```bash
+python data/validate_cvat_yolo_export.py /path/to/cvat/export \
+  --images images \
+  --labels labels \
+  --report-dir ./validation_reports
+```
+
+Reports: class counts, train/val balance, orphaned image–label pairs, image resolution distribution, and CVAT YOLO export integrity checks.
 
 ---
 

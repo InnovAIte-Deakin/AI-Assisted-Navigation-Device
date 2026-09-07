@@ -22,6 +22,26 @@ import inspect_active_model as model_inspector
 
 DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "best.pt"
 SUPPORTED_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png"})
+# Ultralytics 8.4.7 ``IMG_FORMATS`` fallback, retained so model-free tests do
+# not import the runtime. Real evaluations load the installed runtime value
+# lazily below.
+PINNED_ULTRALYTICS_8_4_7_IMAGE_FORMATS = frozenset(
+    {
+        "avif",
+        "bmp",
+        "dng",
+        "heic",
+        "jp2",
+        "jpeg",
+        "jpeg2000",
+        "jpg",
+        "mpo",
+        "png",
+        "tif",
+        "tiff",
+        "webp",
+    }
+)
 EVALUATION_SCHEMA_VERSION = "1.0.0"
 TOOL_NAME = "evaluate_current_model"
 TOOL_VERSION = "2.1.0"
@@ -130,6 +150,177 @@ def validate_dataset_yaml_path(dataset_yaml: str | Path) -> Path:
             "Dataset YAML declares a download directive. Automatic dataset downloads are refused."
         )
     return path
+
+
+def _split_count_note(split: str, reason: str) -> str:
+    """Return a path-safe explanation for an unavailable labelled-image count."""
+    return (
+        "Validation image count was unavailable because the selected "
+        f"{split!r} dataset split {reason}."
+    )
+
+
+def _dataset_yaml_mapping(dataset_yaml: Path) -> tuple[Mapping[str, object] | None, str | None]:
+    """Load only the local YAML needed to resolve a selected dataset split."""
+    try:
+        import yaml
+    except ImportError:
+        return None, "could not be read because PyYAML is unavailable"
+
+    try:
+        loaded = yaml.safe_load(dataset_yaml.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None, "could not be read as a YAML mapping"
+    if not isinstance(loaded, Mapping):
+        return None, "is not a YAML mapping"
+    return loaded, None
+
+
+def _runtime_image_formats() -> frozenset[str] | None:
+    """Read the installed runtime's image formats without a module-level import."""
+    try:
+        from ultralytics.data.utils import IMG_FORMATS
+    except ImportError:
+        return None
+    if not isinstance(IMG_FORMATS, (set, frozenset, list, tuple)):
+        return None
+    formats = frozenset(value.lower() for value in IMG_FORMATS if isinstance(value, str))
+    return formats or None
+
+
+def _image_formats() -> frozenset[str]:
+    """Return installed Ultralytics formats, or the pinned model-free fallback."""
+    return _runtime_image_formats() or PINNED_ULTRALYTICS_8_4_7_IMAGE_FORMATS
+
+
+def _ultralytics_datasets_dir() -> Path | None:
+    """Get Ultralytics' configured dataset directory only when it is needed."""
+    try:
+        from ultralytics.utils import DATASETS_DIR
+    except ImportError:
+        return None
+    try:
+        return Path(DATASETS_DIR).resolve()
+    except (TypeError, OSError, RuntimeError):
+        return None
+
+
+def _resolve_dataset_root(
+    dataset_yaml: Path, raw_path: object, *, path_declared: bool
+) -> tuple[Path | None, str | None]:
+    """Mirror Ultralytics 8.4.7's dataset-root resolution for ``data['path']``."""
+    if not path_declared:
+        try:
+            return dataset_yaml.parent.resolve(), None
+        except (OSError, RuntimeError):
+            return None, "could not resolve the dataset YAML parent"
+    if not isinstance(raw_path, str) or not raw_path.strip():
+        return None, "has an invalid YAML path value"
+
+    configured = Path(raw_path)
+    try:
+        if configured.is_absolute() or configured.exists():
+            return configured.resolve(), None
+    except OSError:
+        return None, "could not resolve the configured YAML path"
+
+    datasets_dir = _ultralytics_datasets_dir()
+    if datasets_dir is None:
+        return None, "requires the Ultralytics DATASETS_DIR to resolve its relative YAML path"
+    try:
+        return (datasets_dir / configured).resolve(), None
+    except (OSError, RuntimeError):
+        return None, "could not resolve the relative YAML path under Ultralytics DATASETS_DIR"
+
+
+def _resolve_split_path(root: Path, raw_path: object, *, allow_parent_fallback: bool) -> Path | None:
+    """Resolve one split reference using Ultralytics 8.4.7's path rules."""
+    if not isinstance(raw_path, str) or not raw_path:
+        return None
+    try:
+        resolved = (root / raw_path).resolve()
+        if allow_parent_fallback and not resolved.exists() and raw_path.startswith("../"):
+            resolved = (root / raw_path[3:]).resolve()
+        return resolved
+    except (OSError, RuntimeError):
+        return None
+
+
+def _count_image_list(image_list: Path, image_formats: frozenset[str]) -> int | None:
+    """Count a list file using Ultralytics 8.4.7's ``get_img_files`` semantics."""
+    try:
+        lines = image_list.read_text(encoding="utf-8").strip().splitlines()
+    except (OSError, UnicodeError):
+        return None
+
+    image_count = 0
+    for line in lines:
+        if line.rpartition(".")[-1].lower() not in image_formats:
+            continue
+        candidate = image_list.parent / line[2:] if line.startswith("./") else Path(line)
+        try:
+            candidate = candidate.resolve()
+        except (OSError, RuntimeError):
+            return None
+        if not candidate.is_file():
+            return None
+        image_count += 1
+    return image_count
+
+
+def count_selected_split_images(dataset_yaml: Path, split: str) -> tuple[int | None, str | None]:
+    """Count images from the actual ``val`` or ``test`` dataset split declaration.
+
+    This intentionally does not inspect Ultralytics metric arrays: those arrays
+    are class-indexed and cannot establish how many images were evaluated.
+    """
+    dataset, error = _dataset_yaml_mapping(dataset_yaml)
+    if dataset is None:
+        return None, _split_count_note(split, error or "could not be resolved safely")
+
+    root, root_error = _resolve_dataset_root(
+        dataset_yaml, dataset.get("path"), path_declared="path" in dataset
+    )
+    if root is None or not root.is_dir():
+        return None, _split_count_note(
+            split, root_error or "does not resolve to a local directory"
+        )
+
+    raw_split = dataset.get(split)
+    if raw_split is None:
+        return None, _split_count_note(split, "is not declared in the dataset YAML")
+    split_references = raw_split if isinstance(raw_split, list) else [raw_split]
+    if not split_references:
+        return None, _split_count_note(split, "does not contain any image references")
+
+    image_count = 0
+    image_formats = _image_formats()
+    for reference_index, reference in enumerate(split_references):
+        resolved = _resolve_split_path(
+            root, reference, allow_parent_fallback=isinstance(raw_split, str)
+        )
+        if resolved is None or not resolved.exists():
+            return None, _split_count_note(split, "does not resolve to local image files")
+        if resolved.is_dir():
+            try:
+                image_count += sum(
+                    1
+                    for candidate in resolved.rglob("*.*")
+                    if candidate.is_file()
+                    and candidate.suffix.lower().lstrip(".") in image_formats
+                )
+            except OSError:
+                return None, _split_count_note(split, "could not be read safely")
+        elif resolved.is_file():
+            list_count = _count_image_list(resolved, image_formats)
+            if list_count is None:
+                return None, _split_count_note(split, "contains an unreadable image-list entry")
+            image_count += list_count
+        else:
+            return None, _split_count_note(
+                split, f"contains an unsupported split reference at index {reference_index}"
+            )
+    return image_count, None
 
 
 def prepare_output_directory(output_path: str | Path, overwrite: bool) -> Path:
@@ -326,7 +517,11 @@ def _sequence_value(value: object, index: int) -> float | None:
 
 
 def extract_validation_metrics(
-    metrics: Any, class_names: Mapping[int, str]
+    metrics: Any,
+    class_names: Mapping[int, str],
+    *,
+    validation_image_count: int | None = None,
+    validation_image_count_note: str | None = None,
 ) -> dict[str, object]:
     """Extract available Ultralytics validation metrics without inventing values."""
     metric_specs = {
@@ -345,10 +540,11 @@ def extract_validation_metrics(
         if value is None
     ]
 
-    image_counts = getattr(metrics, "nt_per_image", None)
-    validation_image_count = len(_as_list(image_counts)) if image_counts is not None else None
     if validation_image_count is None:
-        notes.append("Validation image count was unavailable from the Ultralytics result.")
+        notes.append(
+            validation_image_count_note
+            or "Validation image count was unavailable from the resolved dataset split."
+        )
 
     speed = getattr(metrics, "speed", None)
     inference_timing_ms = (
@@ -582,6 +778,9 @@ def evaluate(
         )
         _write_json(output / "summary.json", summary)
     else:
+        validation_image_count, validation_image_count_note = count_selected_split_images(
+            dataset, selected_split
+        )
         try:
             validation_result = yolo_model.val(
                 data=str(dataset),
@@ -596,7 +795,12 @@ def evaluate(
         except Exception as exc:
             raise EvaluationError("Labelled validation failed.") from exc
 
-        validation_metrics = extract_validation_metrics(validation_result, metadata.class_names)
+        validation_metrics = extract_validation_metrics(
+            validation_result,
+            metadata.class_names,
+            validation_image_count=validation_image_count,
+            validation_image_count_note=validation_image_count_note,
+        )
         settings = {
             "operating_point_inference": None,
             "validation_ap": {
