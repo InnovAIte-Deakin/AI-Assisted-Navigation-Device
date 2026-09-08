@@ -28,6 +28,11 @@ For offline candidate validation, versioned evaluation artifacts, and explicit
 promotion-gate review, see
 [`docs/candidate_model_promotion.md`](docs/candidate_model_promotion.md).
 
+For a read-only deployment preflight that records local CPU/CUDA state, model
+identity, and backend readiness before a physical-device run, see
+[`docs/runtime_preflight.md`](docs/runtime_preflight.md). It does not promote a
+candidate or replace formal model-quality evaluation.
+
 ### Unresolved Work
 
 The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.
