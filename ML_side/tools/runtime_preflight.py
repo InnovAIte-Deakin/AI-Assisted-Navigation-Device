@@ -10,8 +10,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
+import socket
 import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
@@ -21,6 +23,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
@@ -42,10 +45,24 @@ METRIC_LATENCIES = (
     "p95_latency_ms",
     "max_latency_ms",
 )
+ML_SIDE_DIR = Path(__file__).resolve().parents[1]
+KNOWN_MODEL_DIRECTORIES = (ML_SIDE_DIR / "models", ML_SIDE_DIR / "artifacts")
 
 
 class PreflightError(Exception):
     """Raised for invalid CLI configuration or unsafe report output."""
+
+
+class BackendTransportError(PreflightError):
+    """Raised when a backend cannot be contacted at the supplied URL."""
+
+
+class BackendHTTPError(PreflightError):
+    """Raised when a backend endpoint returns a non-success status."""
+
+
+class BackendResponseError(PreflightError):
+    """Raised when a successful backend response cannot be parsed as JSON."""
 
 
 @dataclass(frozen=True)
@@ -85,15 +102,21 @@ def _normalise_classes(names: object) -> list[str]:
     for raw_index, raw_name in raw_items:
         if isinstance(raw_index, bool):
             raise PreflightError("Model class metadata is missing or malformed.")
-        try:
+        if isinstance(raw_index, int):
+            index = raw_index
+        elif isinstance(raw_index, str) and raw_index.isascii() and raw_index.isdecimal():
             index = int(raw_index)
-        except (TypeError, ValueError) as exc:
-            raise PreflightError("Model class metadata is missing or malformed.") from exc
+            if raw_index != str(index):
+                raise PreflightError("Model class metadata is missing or malformed.")
+        else:
+            raise PreflightError("Model class metadata is missing or malformed.")
         if index < 0 or index in classes or not isinstance(raw_name, str) or not raw_name.strip():
             raise PreflightError("Model class metadata is missing or malformed.")
         classes[index] = raw_name.strip()
     if not classes:
         raise PreflightError("Model class metadata is missing or malformed.")
+    if tuple(sorted(classes)) != tuple(range(len(classes))):
+        raise PreflightError("Model class metadata IDs must be consecutive from zero.")
     return [classes[index] for index in sorted(classes)]
 
 
@@ -121,6 +144,7 @@ def _torch_runtime(torch_module: Any | None = None) -> tuple[dict[str, object], 
         "torch_version": None,
         "torchvision_version": None,
         "cuda_available": None,
+        "cuda_usable": None,
         "cuda_build": None,
         "selected_device": "unknown",
         "gpu_name": None,
@@ -158,15 +182,31 @@ def _torch_runtime(torch_module: Any | None = None) -> tuple[dict[str, object], 
         return runtime, checks
 
     runtime["selected_device"] = "cuda:0"
+    metadata_ok = True
     try:
         runtime["gpu_name"] = torch_module.cuda.get_device_name(0)
     except Exception:
         runtime["gpu_name"] = None
+        metadata_ok = False
     try:
         runtime["gpu_memory_bytes"] = int(torch_module.cuda.get_device_properties(0).total_memory)
     except Exception:
         runtime["gpu_memory_bytes"] = None
-    checks.append(_check("cuda_available", "pass", "CUDA is available for inference."))
+        metadata_ok = False
+    try:
+        tensor = torch_module.empty(1, device="cuda:0")
+        result = tensor + 1
+        if hasattr(result, "item"):
+            result.item()
+        torch_module.cuda.synchronize(0)
+    except Exception:
+        runtime["cuda_usable"] = False
+        checks.append(_check("cuda_available", "fail", "CUDA is reported available but allocation or execution is unusable."))
+        return runtime, checks
+    runtime["cuda_usable"] = True
+    checks.append(_check("cuda_available", "pass", "CUDA is available and passed a minimal execution check."))
+    if not metadata_ok:
+        checks.append(_check("cuda_metadata", "warning", "CUDA is usable, but GPU name or memory could not be read."))
     return runtime, checks
 
 
@@ -233,6 +273,24 @@ def _identity_checks(
     identity["filename"] = path.name
     identity["size_bytes"] = path.stat().st_size
     identity["sha256"] = calculate_sha256(path)
+    missing_identity_fields = [
+        label
+        for label, value in (
+            ("filename", expected.filename),
+            ("SHA-256", expected.sha256),
+            ("size", expected.size_bytes),
+            ("taxonomy", expected.taxonomy),
+        )
+        if value is None
+    ]
+    if missing_identity_fields:
+        checks.append(
+            _check(
+                "model_identity_configuration",
+                "warning",
+                "Expected identity is partial; not checked: " + ", ".join(missing_identity_fields) + ".",
+            )
+        )
     for field, actual, expected_value in (
         ("model_filename", identity["filename"], expected.filename),
         ("model_size_bytes", identity["size_bytes"], expected.size_bytes),
@@ -258,6 +316,9 @@ def _identity_checks(
 
 
 def _http_get(url: str, timeout_seconds: float, api_key: str | None) -> tuple[int, object]:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise BackendTransportError("Backend URL must be an absolute http:// or https:// URL.")
     headers = {"Accept": "application/json"}
     if api_key:
         headers["X-API-Key"] = api_key
@@ -265,16 +326,39 @@ def _http_get(url: str, timeout_seconds: float, api_key: str | None) -> tuple[in
     try:
         with urlopen(request, timeout=timeout_seconds) as response:  # nosec B310 - user-selected local backend URL
             status = int(response.status)
-            body = response.read().decode("utf-8")
+            raw_body = response.read()
     except HTTPError as exc:
-        status = int(exc.code)
-        body = exc.read().decode("utf-8", errors="replace")
-    except (URLError, TimeoutError, OSError) as exc:
-        raise PreflightError("Backend request failed.") from exc
+        raise BackendHTTPError(f"Backend returned HTTP {int(exc.code)}.") from exc
+    except (URLError, TimeoutError, socket.timeout, OSError, ValueError) as exc:
+        if isinstance(exc, (TimeoutError, socket.timeout)) or (
+            isinstance(exc, URLError) and isinstance(exc.reason, (TimeoutError, socket.timeout))
+        ):
+            raise BackendTransportError("Backend request timed out.") from exc
+        raise BackendTransportError("Backend request could not be completed.") from exc
+    try:
+        body = raw_body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise BackendResponseError("Backend response is not valid UTF-8 JSON.") from exc
     try:
         return status, json.loads(body)
     except json.JSONDecodeError as exc:
-        raise PreflightError("Backend returned malformed JSON.") from exc
+        raise BackendResponseError("Backend returned malformed JSON.") from exc
+
+
+def _backend_error_check(endpoint: str, error: PreflightError) -> dict[str, str]:
+    if isinstance(error, BackendTransportError):
+        category = "transport"
+    elif isinstance(error, BackendHTTPError):
+        category = "http"
+    elif isinstance(error, BackendResponseError):
+        category = "response"
+    else:
+        category = "request"
+    return _check(f"backend_{category}{endpoint}", "fail", str(error))
+
+
+def _is_finite_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
 
 
 def _backend_checks(
@@ -296,16 +380,32 @@ def _backend_checks(
         try:
             status, payload = http_get(root + endpoint, timeout_seconds, api_key)
         except PreflightError as exc:
-            checks.append(_check(f"backend{endpoint}", "fail", str(exc)))
+            checks.append(_backend_error_check(endpoint, exc))
             backend["endpoints"] = responses
             return backend, checks
         responses[endpoint] = {"http_status": status, "payload": payload}
     backend["endpoints"] = responses
+    for endpoint, response in responses.items():
+        if not isinstance(response, Mapping) or response.get("http_status") != 200:
+            status = response.get("http_status") if isinstance(response, Mapping) else None
+            checks.append(_check(f"backend_http_status{endpoint}", "fail", f"Backend endpoint returned HTTP {status}, expected HTTP 200."))
     info = responses["/ml/model-info"]
     info_payload = info["payload"] if isinstance(info, Mapping) else None
     if not isinstance(info_payload, Mapping):
         checks.append(_check("backend_model_info", "fail", "Model-info response is not a JSON object."))
     else:
+        required_fields = {"loaded"}
+        if expected.filename is not None:
+            required_fields.add("filename")
+        if expected.sha256 is not None:
+            required_fields.add("sha256")
+        if expected.size_bytes is not None:
+            required_fields.add("size_bytes")
+        if expected.taxonomy is not None:
+            required_fields.update({"classes", "taxonomy_compatible"})
+        missing_fields = sorted(field for field in required_fields if field not in info_payload)
+        if missing_fields:
+            checks.append(_check("backend_model_info_contract", "fail", "Model-info is missing required field(s): " + ", ".join(missing_fields) + "."))
         loaded = info_payload.get("loaded") is True
         checks.append(_check("backend_model_loaded", "pass" if loaded else "fail", "Backend model is loaded." if loaded else "Backend model is not loaded."))
         for field, expected_value in (("filename", expected.filename), ("sha256", expected.sha256), ("size_bytes", expected.size_bytes)):
@@ -327,14 +427,14 @@ def _backend_checks(
     metrics_payload = metrics["payload"] if isinstance(metrics, Mapping) else None
     metrics_ok = isinstance(metrics_payload, Mapping) and metrics["http_status"] == 200
     if metrics_ok:
-        metrics_ok = all(isinstance(metrics_payload.get(key), (int, float)) and not isinstance(metrics_payload.get(key), bool) for key in METRIC_COUNTERS)
-        metrics_ok = metrics_ok and all(metrics_payload.get(key) is None or isinstance(metrics_payload.get(key), (int, float)) for key in METRIC_LATENCIES)
+        metrics_ok = all(_is_finite_number(metrics_payload.get(key)) for key in METRIC_COUNTERS)
+        metrics_ok = metrics_ok and all(metrics_payload.get(key) is None or _is_finite_number(metrics_payload.get(key)) for key in METRIC_LATENCIES)
     checks.append(_check("backend_metrics", "pass" if metrics_ok else "fail", "Backend metrics are parseable." if metrics_ok else "Backend metrics response is malformed."))
     return backend, checks
 
 
 def _overall_result(checks: Sequence[Mapping[str, str]], require_cuda: bool, runtime: Mapping[str, object]) -> str:
-    if require_cuda and runtime.get("cuda_available") is not True:
+    if require_cuda and runtime.get("cuda_usable") is not True:
         return "FAIL"
     if any(check["status"] == "fail" for check in checks):
         return "FAIL"
@@ -359,8 +459,8 @@ def run_preflight(
         raise PreflightError("Timeout must be greater than zero.")
     expected = expected or ExpectedIdentity()
     runtime, runtime_checks = _torch_runtime(torch_module)
-    if require_cuda and runtime.get("cuda_available") is not True:
-        runtime_checks.append(_check("require_cuda", "fail", "CUDA is required but unavailable."))
+    if require_cuda and runtime.get("cuda_usable") is not True:
+        runtime_checks.append(_check("require_cuda", "fail", "CUDA is required but unavailable or unusable."))
     elif require_cuda:
         runtime_checks.append(_check("require_cuda", "pass", "CUDA requirement is satisfied."))
     identity, identity_checks = _identity_checks(Path(model_path) if model_path else None, expected, model_loader=model_loader)
@@ -402,6 +502,7 @@ def render_markdown(report: Mapping[str, object]) -> str:
         "",
         f"- Selected device: `{runtime.get('selected_device')}`",
         f"- CUDA available: `{runtime.get('cuda_available')}`",
+        f"- CUDA usable: `{runtime.get('cuda_usable')}`",
         f"- CUDA build: `{runtime.get('cuda_build')}`",
         f"- GPU: `{runtime.get('gpu_name')}`",
         f"- GPU memory bytes: `{runtime.get('gpu_memory_bytes')}`",
@@ -455,6 +556,36 @@ def _write_text(path: Path, content: str) -> None:
         raise PreflightError("Report output could not be written.") from exc
 
 
+def _is_within(path: Path, directory: Path) -> bool:
+    try:
+        path.relative_to(directory)
+        return True
+    except ValueError:
+        return False
+
+
+def validate_report_outputs(
+    model_path: str | Path | None,
+    json_out: str | Path | None,
+    markdown_out: str | Path | None,
+) -> None:
+    """Reject report destinations that could overwrite or sit beside model artifacts."""
+    outputs = [Path(value).expanduser().resolve() for value in (json_out, markdown_out) if value]
+    if len(outputs) == 2 and outputs[0] == outputs[1]:
+        raise PreflightError("JSON and Markdown report paths must be different.")
+
+    model = Path(model_path).expanduser().resolve() if model_path else None
+    protected_directories = [directory.resolve() for directory in KNOWN_MODEL_DIRECTORIES]
+    if model is not None:
+        protected_directories.append(model.parent)
+
+    for output in outputs:
+        if model is not None and output == model:
+            raise PreflightError("Report output cannot be the model artifact.")
+        if any(_is_within(output, directory) for directory in protected_directories):
+            raise PreflightError("Report output cannot be inside a model or artifact directory.")
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Read-only WalkBuddy ML runtime preflight.")
     parser.add_argument("--model", help="Local model artifact to inspect.")
@@ -475,6 +606,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        validate_report_outputs(args.model, args.json_out, args.markdown_out)
         expected = resolve_expected_identity(args)
         report = run_preflight(
             model_path=args.model,
