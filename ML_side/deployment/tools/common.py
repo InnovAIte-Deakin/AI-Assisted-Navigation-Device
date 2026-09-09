@@ -8,7 +8,7 @@ import os
 import tempfile
 from collections.abc import Mapping, Sequence
 from ipaddress import ip_address
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 from urllib.parse import urlparse
 
@@ -57,7 +57,8 @@ def resolve_portable_reference(reference: object, root: Path) -> Path:
     if not isinstance(reference, str) or not reference.strip():
         raise DeploymentError("Reference must be a non-empty relative path.")
     raw = Path(reference)
-    if raw.is_absolute() or ":" in raw.drive or "\\" in reference:
+    windows_path = PureWindowsPath(reference)
+    if raw.is_absolute() or windows_path.drive or "\\" in reference:
         raise DeploymentError("Reference must be a portable relative POSIX path.")
     resolved_root = root.resolve()
     resolved = (resolved_root / raw).resolve()
