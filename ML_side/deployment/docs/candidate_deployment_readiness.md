@@ -81,6 +81,15 @@ or `ML_side/artifacts` directories. Use an `evidence/` directory outside model
 stores. API keys are passed only to the request layer and are not written to
 evidence.
 
+The live verifier still receives the exact local model path and supplied backend
+URL. Durable JSON and Markdown evidence deliberately normalizes paths inside
+the repository to repository-relative POSIX form, replaces external local model
+paths with `external local path redacted`, and writes numeric LAN backend hosts
+as `http://<LAN_IP>:<port>`. Filename, SHA-256, byte size, taxonomy, candidate
+and run IDs, runtime/CUDA details, endpoint results, lifecycle, timestamps, and
+checks remain intact. This keeps committed evidence reproducible without
+embedding a developer home directory or ephemeral LAN address.
+
 Validate generated evidence:
 
 ```powershell

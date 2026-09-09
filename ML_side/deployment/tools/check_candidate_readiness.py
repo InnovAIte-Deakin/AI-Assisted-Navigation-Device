@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from common import DeploymentError, REPO_ROOT, check, result_for, write_json
+from common import DeploymentError, REPO_ROOT, check, durable_backend_url, durable_path_reference, result_for, write_json
 from evidence import render_markdown, validate_evidence
 from manifest import load_and_compare_registry, load_manifest, validate_manifest, validate_reference_existence
 
@@ -76,6 +76,21 @@ def _metrics_snapshot(runtime_report: Mapping[str, object]) -> dict[str, object]
     return dict(metrics.get("payload", {})) if isinstance(metrics, Mapping) and isinstance(metrics.get("payload"), Mapping) else {}
 
 
+def _durable_artifact_identity(identity: object, reference_root: Path) -> dict[str, object]:
+    """Keep verified identity while removing a machine-specific model location."""
+    durable = dict(identity) if isinstance(identity, Mapping) else {}
+    if "path" in durable:
+        durable["path"] = durable_path_reference(durable.get("path"), reference_root)
+    return durable
+
+
+def _durable_backend_status(status: object) -> dict[str, object]:
+    durable = dict(status) if isinstance(status, Mapping) else {}
+    if "base_url" in durable:
+        durable["base_url"] = durable_backend_url(durable.get("base_url"))
+    return durable
+
+
 def check_readiness(
     *,
     manifest_path: str | Path,
@@ -116,14 +131,14 @@ def check_readiness(
     warnings = [item["detail"] for item in checks if item["status"] == "warning"]
     failures = [item["detail"] for item in checks if item["status"] == "fail"]
     runtime_env = runtime_report.get("runtime_environment", {}) if runtime_report else {}
-    model_identity = runtime_report.get("model_identity", {}) if runtime_report else {}
-    backend = runtime_report.get("backend_status", {}) if runtime_report else {}
+    model_identity = _durable_artifact_identity(runtime_report.get("model_identity", {}), reference_root) if runtime_report else {}
+    backend = _durable_backend_status(runtime_report.get("backend_status", {})) if runtime_report else {}
     report: dict[str, object] = {
         "schema_version": "1.0.0",
         "tool": {"name": "walkbuddy_candidate_deployment_readiness", "version": TOOL_VERSION},
         "generated_at": _timestamp(),
         "candidate": {"candidate_id": manifest.get("candidate_id"), "run_id": manifest.get("run_id"), "expected_lifecycle": manifest.get("expected_lifecycle")},
-        "manifest": {"reference": str(resolved_manifest)},
+        "manifest": {"reference": durable_path_reference(resolved_manifest, reference_root)},
         "registry": {"reference": manifest.get("registry_record_reference"), "lifecycle": registry.get("lifecycle") if isinstance(registry, Mapping) else None},
         "local_artifact": model_identity,
         "runtime_environment": runtime_env,

@@ -12,6 +12,11 @@ sys.path.insert(0, str(DEPLOYMENT_TOOLS))
 from common import DeploymentError, validate_nonartifact_output
 
 
+RUNTIME_TOOLS = Path(__file__).resolve().parents[1] / "tools"
+sys.path.insert(0, str(RUNTIME_TOOLS))
+import runtime_preflight
+
+
 def test_standalone_evidence_cannot_be_written_in_model_or_artifact_stores():
     with pytest.raises(DeploymentError):
         validate_nonartifact_output("ML_side/models/environment.json")
@@ -29,3 +34,11 @@ def test_launch_helper_is_dry_run_first_and_uses_argument_arrays():
     assert "WALKBUDDY_MODEL_DIR" in helper
     assert "WALKBUDDY_ML_MOCK = \"0\"" in helper
     assert "Invoke-Expression" not in helper
+
+
+def test_runtime_preflight_output_safety_remains_in_force(tmp_path):
+    model = tmp_path / "weights" / "best.pt"
+    model.parent.mkdir()
+    model.write_bytes(b"candidate")
+    with pytest.raises(runtime_preflight.PreflightError):
+        runtime_preflight.validate_report_outputs(model, model, tmp_path / "evidence.md")

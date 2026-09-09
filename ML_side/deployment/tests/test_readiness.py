@@ -42,7 +42,7 @@ def fake_runtime(*, model_path, expected, base_url, require_cuda, timeout_second
     assert expected.filename == "best.pt"
     return {
         "runtime_environment": {"python_version": "3.11", "torch_version": "test", "cuda_available": True, "cuda_usable": True},
-        "model_identity": {"filename": "best.pt", "sha256": "a" * 64, "size_bytes": 4, "taxonomy_compatible": True},
+        "model_identity": {"path": str(model_path), "filename": "best.pt", "sha256": "a" * 64, "size_bytes": 4, "taxonomy_compatible": True},
         "backend_status": {"base_url": base_url, "endpoints": {"/ml/metrics": {"payload": {"total_attempts": 1, "mean_latency_ms": 1.0}}}},
         "checks": [{"name": "model_identity", "status": "pass", "detail": "ok"}],
     }
@@ -63,6 +63,35 @@ def test_full_readiness_pass_and_evidence_rendering(tmp_path):
     assert report["overall_result"] == "PASS"
     assert not validate_evidence(report)
     assert "# Candidate Deployment Readiness" in render_markdown(report)
+
+
+def test_durable_evidence_redacts_external_locations_and_lan_hosts(tmp_path):
+    manifest, _ = write_inputs(tmp_path)
+    external_model = r"C:\Users\example-user\models\candidate\weights\best.pt"
+    live_url = "http://10.152.154.49:8000"
+    captured = {}
+
+    def capture_runtime(**kwargs):
+        captured.update(kwargs)
+        return fake_runtime(**kwargs)
+
+    report = check_readiness(
+        manifest_path=manifest,
+        model_path=external_model,
+        base_url=live_url,
+        reference_root=tmp_path,
+        runtime_runner=capture_runtime,
+    )
+    assert captured["model_path"] == external_model
+    assert captured["base_url"] == live_url
+    assert report["manifest"]["reference"] == "manifest.json"
+    assert report["local_artifact"]["path"] == "external local path redacted"
+    assert report["backend"]["base_url"] == "http://<LAN_IP>:8000"
+    rendered = render_markdown(report)
+    encoded = json.dumps(report)
+    assert "example-user" not in encoded and "10.152.154.49" not in encoded
+    assert "example-user" not in rendered and "10.152.154.49" not in rendered
+    assert not validate_evidence(report)
 
 
 def test_cpu_preferred_and_required_policy_results(tmp_path):

@@ -7,8 +7,10 @@ import math
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
+from ipaddress import ip_address
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 
 DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
@@ -97,3 +99,33 @@ def validate_nonartifact_output(path: str | Path) -> Path:
     if any(is_within(resolved, directory) for directory in protected):
         raise DeploymentError("Evidence output cannot be inside a model or artifact directory.")
     return resolved
+
+
+def durable_path_reference(path: str | Path | None, repository_root: Path = REPO_ROOT) -> str | None:
+    """Return a portable path reference without exposing an external local path."""
+    if path is None:
+        return None
+    resolved = Path(path).expanduser().resolve()
+    root = repository_root.resolve()
+    if is_within(resolved, root):
+        return resolved.relative_to(root).as_posix()
+    return "external local path redacted"
+
+
+def durable_backend_url(base_url: object) -> object:
+    """Retain backend protocol/port while redacting ephemeral numeric LAN hosts."""
+    if not isinstance(base_url, str):
+        return base_url
+    parsed = urlparse(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return "backend URL redacted"
+    try:
+        ip_address(parsed.hostname)
+    except ValueError:
+        return base_url
+    try:
+        port_number = parsed.port
+    except ValueError:
+        return "backend URL redacted"
+    port = f":{port_number}" if port_number is not None else ""
+    return f"{parsed.scheme}://<LAN_IP>{port}"
