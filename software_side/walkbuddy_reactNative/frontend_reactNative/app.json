@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "walkbuddy",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "updates": {
       "fallbackToCacheTimeout": 0
     },
@@ -27,7 +26,6 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.frontend_reactNative"
     },
@@ -59,7 +57,10 @@
           "microphonePermission": "Allow WalkBuddy to use the microphone for voice commands."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-font",
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

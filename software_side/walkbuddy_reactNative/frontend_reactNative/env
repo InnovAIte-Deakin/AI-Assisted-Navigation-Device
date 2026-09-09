@@ -3,3 +3,8 @@
 # Run the tunnel with: cloudflared tunnel --url http://localhost:8000
 
 # EXPO_PUBLIC_API_BASE=https://your-tunnel.trycloudflare.com
+
+# From SDK 56, expo/fetch is the default global fetch. If multipart uploads
+# (/vision, /ocr, /stt/transcribe) regress, uncomment this to fall back to
+# React Native's fetch implementation.
+# EXPO_PUBLIC_USE_RN_FETCH=1
