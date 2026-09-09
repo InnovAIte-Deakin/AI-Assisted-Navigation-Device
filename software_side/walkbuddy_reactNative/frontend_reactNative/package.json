@@ -63,6 +63,7 @@
     "eas-cli": "^16.19.3",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "serve": "^14.2.6",
     "typescript": "~5.9.2"
   },
   "private": true

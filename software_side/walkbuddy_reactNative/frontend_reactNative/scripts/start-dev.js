@@ -27,8 +27,9 @@ const SERVER_DIRECTORY =
   );
 
 const HELPER_DIRECTORY =
-  path.join(
+  path.resolve(
     PROJECT_DIRECTORY,
+    '..',
     'helper_web'
   );
 
@@ -45,6 +46,11 @@ const LOCAL_CLOUDFLARED =
       ? 'cloudflared.exe'
       : 'cloudflared'
   );
+
+console.log('PROJECT_DIRECTORY:', PROJECT_DIRECTORY);
+console.log('SERVER_DIRECTORY:', SERVER_DIRECTORY);
+console.log('HELPER_DIRECTORY:', HELPER_DIRECTORY);
+console.log('Helper folder exists:', fs.existsSync(HELPER_DIRECTORY));
 
 /*
   ==================================================
@@ -107,12 +113,22 @@ function startProcess(
       command,
       args,
       {
-        shell: true,
+        shell: false,
         ...options,
       }
     );
 
   processes.push(child);
+
+  child.on(
+    'error',
+    error => {
+      console.error(
+        `[${name}] failed to start:`,
+        error.message
+      );
+    }
+  );
 
   child.on(
     'exit',
@@ -126,7 +142,6 @@ function startProcess(
   return child;
 }
 
-
 /*
   ==================================================
   SESSION SERVER
@@ -137,7 +152,7 @@ function startSessionServer() {
   return startProcess(
     'Session Server',
 
-    'node',
+    process.execPath,
 
     ['server.js'],
 
@@ -159,14 +174,35 @@ function startSessionServer() {
 */
 
 function startHelperServer() {
+  const serveScript =
+    path.join(
+      PROJECT_DIRECTORY,
+      'node_modules',
+      'serve',
+      'build',
+      'main.js'
+    );
+
+  if (!fs.existsSync(serveScript)) {
+    throw new Error(
+      'The "serve" package is missing. Run: npm install --save-dev serve'
+    );
+  }
+
+  if (!fs.existsSync(HELPER_DIRECTORY)) {
+    throw new Error(
+      `Helper folder not found: ${HELPER_DIRECTORY}`
+    );
+  }
+
   return startProcess(
     'Helper Web Server',
 
-    'npx',
+    process.execPath,
 
     [
-      'serve',
-      '.',
+      serveScript,
+      HELPER_DIRECTORY,
       '-l',
       String(HELPER_PORT),
     ],
@@ -464,7 +500,7 @@ function startCloudflareTunnel(
           ],
 
           {
-            shell: true,
+            shell: false,
 
             stdio: [
               'ignore',
@@ -618,14 +654,28 @@ function startExpo(
     '========================================\n'
   );
 
+  const expoScript =
+    path.join(
+      PROJECT_DIRECTORY,
+      'node_modules',
+      'expo',
+      'bin',
+      'cli'
+    );
+
+  if (!fs.existsSync(expoScript)) {
+    throw new Error(
+      'Expo CLI was not found. Run: npm install'
+    );
+  }
 
   startProcess(
     'Expo',
 
-    'npx',
+    process.execPath,
 
     [
-      'expo',
+      expoScript,
       'start',
       '--dev-client',
       '--clear',
