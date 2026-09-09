@@ -495,3 +495,4 @@ Set `EXPO_PUBLIC_API_BASE` in a `.env.local` file if the backend is not on the s
 |----------|---------|-------------|
 | `EXPO_PUBLIC_API_BASE` | (none) | Backend URL override. Takes precedence over all auto-detection. Set for any deployment beyond local LAN. |
 | `EXPO_PUBLIC_WALKBUDDY_API_KEY` | (none) | API key sent with requests to authenticate with backend |
+| `EXPO_PUBLIC_USE_RN_FETCH` | (unset) | Since Expo SDK 56, `expo/fetch` is installed as the global `fetch`. Set to `1` to fall back to React Native's `fetch` if a multipart upload (`/vision`, `/ocr`, `/stt/transcribe`) regresses. |

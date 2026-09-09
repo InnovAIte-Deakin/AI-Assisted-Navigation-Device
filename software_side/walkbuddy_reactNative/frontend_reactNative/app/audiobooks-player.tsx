@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -19,7 +19,6 @@ import {
 } from "expo-audio";
 import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
 import * as Speech from "expo-speech";
 import { API_BASE } from "@/src/config";
 import { addToHistory } from "@/src/utils/audiobookStorage";
