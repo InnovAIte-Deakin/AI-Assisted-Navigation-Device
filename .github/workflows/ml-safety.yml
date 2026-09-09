@@ -44,6 +44,10 @@ jobs:
           ML_side/tests/test_evaluation_report.py
           ML_side/tests/test_evaluation_latency.py
           ML_side/tests/test_ml_pipeline_integration.py
+          ML_side/deployment/tests/test_manifest.py
+          ML_side/deployment/tests/test_environment_doctor.py
+          ML_side/deployment/tests/test_readiness.py
+          ML_side/deployment/tests/test_security_and_helper.py
           ML_side/model_registry/tests/test_transitions.py
           ML_side/model_registry/tests/test_validation.py
           software_side/walkbuddy_reactNative/backend/tests/test_navigation_semantics.py

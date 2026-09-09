@@ -1,0 +1,361 @@
+{
+  "backend": {
+    "base_url": "http://<LAN_IP>:8000",
+    "endpoints": {
+      "/ml/health": {
+        "http_status": 200,
+        "payload": {
+          "ocr": {
+            "loaded": true
+          },
+          "status": "ok",
+          "vision": {
+            "loaded": true
+          }
+        }
+      },
+      "/ml/metrics": {
+        "http_status": 200,
+        "payload": {
+          "active_inferences": 0,
+          "dropped_frames": 0,
+          "failed_inferences": 0,
+          "last_inference_at": null,
+          "latency_window_capacity": 256,
+          "latency_window_size": 0,
+          "latest_latency_ms": null,
+          "max_latency_ms": null,
+          "mean_latency_ms": null,
+          "p50_latency_ms": null,
+          "p95_latency_ms": null,
+          "processed_frames": 0,
+          "successful_inferences": 0,
+          "total_attempts": 0
+        }
+      },
+      "/ml/model-info": {
+        "http_status": 200,
+        "payload": {
+          "classes": [
+            "person",
+            "stairs",
+            "door",
+            "chair",
+            "table",
+            "pole",
+            "bicycle",
+            "vehicle"
+          ],
+          "failure_category": null,
+          "filename": "best.pt",
+          "load_duration_ms": 104.144,
+          "loaded": true,
+          "loaded_at": "2026-09-09T06:14:22.179940+00:00",
+          "num_classes": 8,
+          "runtime": {
+            "cuda_available": true,
+            "device": "cuda:0 (NVIDIA GeForce RTX 3050 Laptop GPU)",
+            "torch": "2.9.1+cu130",
+            "ultralytics": "8.4.7"
+          },
+          "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+          "size_bytes": 5364741,
+          "taxonomy_compatible": true
+        }
+      },
+      "/ml/ready": {
+        "http_status": 200,
+        "payload": {
+          "ready": true
+        }
+      }
+    }
+  },
+  "candidate": {
+    "candidate_id": "WB-OD-NAV-001",
+    "expected_lifecycle": "candidate",
+    "run_id": "navigation-mvp-full-candidate-56c445bb8c85"
+  },
+  "checks": [
+    {
+      "detail": "candidate_id is present.",
+      "name": "manifest_candidate_id",
+      "status": "pass"
+    },
+    {
+      "detail": "run_id is present.",
+      "name": "manifest_run_id",
+      "status": "pass"
+    },
+    {
+      "detail": "expected_lifecycle is present.",
+      "name": "manifest_expected_lifecycle",
+      "status": "pass"
+    },
+    {
+      "detail": "expected_artifact_filename is present.",
+      "name": "manifest_expected_artifact_filename",
+      "status": "pass"
+    },
+    {
+      "detail": "expected_sha256 is present.",
+      "name": "manifest_expected_sha256",
+      "status": "pass"
+    },
+    {
+      "detail": "registry_record_reference is present.",
+      "name": "manifest_registry_record_reference",
+      "status": "pass"
+    },
+    {
+      "detail": "compute_policy is present.",
+      "name": "manifest_compute_policy",
+      "status": "pass"
+    },
+    {
+      "detail": "Supported manifest schema version.",
+      "name": "manifest_schema_version",
+      "status": "pass"
+    },
+    {
+      "detail": "Expected SHA-256 is well formed.",
+      "name": "manifest_sha256_format",
+      "status": "pass"
+    },
+    {
+      "detail": "Expected artifact size is positive.",
+      "name": "manifest_size",
+      "status": "pass"
+    },
+    {
+      "detail": "Ordered taxonomy is non-empty and unique.",
+      "name": "manifest_taxonomy",
+      "status": "pass"
+    },
+    {
+      "detail": "Lifecycle is supported.",
+      "name": "manifest_lifecycle",
+      "status": "pass"
+    },
+    {
+      "detail": "Compute policy is supported.",
+      "name": "manifest_compute_policy",
+      "status": "pass"
+    },
+    {
+      "detail": "Reference is portable and contained.",
+      "name": "manifest_registry_record_reference",
+      "status": "pass"
+    },
+    {
+      "detail": "Reference is portable and contained.",
+      "name": "manifest_training_configuration_reference",
+      "status": "pass"
+    },
+    {
+      "detail": "Reference is portable and contained.",
+      "name": "manifest_evaluation_evidence_reference",
+      "status": "pass"
+    },
+    {
+      "detail": "Registry record passed deterministic compatibility validation.",
+      "name": "registry_schema",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_candidate_id",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_expected_lifecycle",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_expected_artifact_filename",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_expected_sha256",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_ordered_taxonomy",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_training_configuration_reference",
+      "status": "pass"
+    },
+    {
+      "detail": "Manifest and registry agree.",
+      "name": "registry_evaluation_evidence_reference",
+      "status": "pass"
+    },
+    {
+      "detail": "Referenced lineage file exists.",
+      "name": "training_configuration_reference_exists",
+      "status": "pass"
+    },
+    {
+      "detail": "Referenced lineage file exists.",
+      "name": "evaluation_evidence_reference_exists",
+      "status": "pass"
+    },
+    {
+      "detail": "CUDA preference is satisfied.",
+      "name": "compute_policy",
+      "status": "pass"
+    },
+    {
+      "detail": "Python 3.11.9",
+      "name": "runtime_python_version",
+      "status": "pass"
+    },
+    {
+      "detail": "CUDA is available and passed a minimal execution check.",
+      "name": "runtime_cuda_available",
+      "status": "pass"
+    },
+    {
+      "detail": "CUDA requirement is satisfied.",
+      "name": "runtime_require_cuda",
+      "status": "pass"
+    },
+    {
+      "detail": "Actual value matches the expected identity.",
+      "name": "runtime_model_filename",
+      "status": "pass"
+    },
+    {
+      "detail": "Actual value matches the expected identity.",
+      "name": "runtime_model_size_bytes",
+      "status": "pass"
+    },
+    {
+      "detail": "Actual value matches the expected identity.",
+      "name": "runtime_model_sha256",
+      "status": "pass"
+    },
+    {
+      "detail": "Model taxonomy matches expected order.",
+      "name": "runtime_model_taxonomy",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend model is loaded.",
+      "name": "runtime_backend_model_loaded",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend value matches expected identity.",
+      "name": "runtime_backend_model_filename",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend value matches expected identity.",
+      "name": "runtime_backend_model_sha256",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend value matches expected identity.",
+      "name": "runtime_backend_model_size_bytes",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend taxonomy is compatible.",
+      "name": "runtime_backend_model_taxonomy",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend is ready.",
+      "name": "runtime_backend_ready",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend health is ok.",
+      "name": "runtime_backend_health",
+      "status": "pass"
+    },
+    {
+      "detail": "Backend metrics are parseable.",
+      "name": "runtime_backend_metrics",
+      "status": "pass"
+    }
+  ],
+  "cuda": {
+    "available": true,
+    "usable": true
+  },
+  "failures": [],
+  "generated_at": "2026-09-09T06:41:39Z",
+  "governance_note": "This read-only deployment-readiness evidence is not a held-out model-quality evaluation, not production authorization, does not change lifecycle, and does not replace human review or physical-device acceptance testing.",
+  "local_artifact": {
+    "exists": true,
+    "filename": "best.pt",
+    "path": "external local path redacted",
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+    "size_bytes": 5364741,
+    "taxonomy": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ],
+    "taxonomy_compatible": true
+  },
+  "manifest": {
+    "reference": "ML_side/deployment/manifests/navigation_candidate_56c445bb8c85.json"
+  },
+  "metrics_snapshot": {
+    "active_inferences": 0,
+    "dropped_frames": 0,
+    "failed_inferences": 0,
+    "last_inference_at": null,
+    "latency_window_capacity": 256,
+    "latency_window_size": 0,
+    "latest_latency_ms": null,
+    "max_latency_ms": null,
+    "mean_latency_ms": null,
+    "p50_latency_ms": null,
+    "p95_latency_ms": null,
+    "processed_frames": 0,
+    "successful_inferences": 0,
+    "total_attempts": 0
+  },
+  "overall_result": "PASS",
+  "registry": {
+    "lifecycle": {
+      "status": "candidate"
+    },
+    "reference": "ML_side/model_registry/records/navigation_candidate.json"
+  },
+  "runtime_environment": {
+    "cpu_only": false,
+    "cuda_available": true,
+    "cuda_build": "13.0",
+    "cuda_usable": true,
+    "gpu_memory_bytes": 4294508544,
+    "gpu_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python_version": "3.11.9",
+    "selected_device": "cuda:0",
+    "torch_version": "2.9.1+cu130",
+    "torchvision_version": "0.24.1+cu130"
+  },
+  "schema_version": "1.0.0",
+  "tool": {
+    "name": "walkbuddy_candidate_deployment_readiness",
+    "version": "1.0.0"
+  },
+  "warnings": []
+}
