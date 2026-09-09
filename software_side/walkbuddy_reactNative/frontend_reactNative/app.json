@@ -52,7 +52,14 @@
           }
         }
       ],
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow WalkBuddy to use the microphone for voice commands."
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

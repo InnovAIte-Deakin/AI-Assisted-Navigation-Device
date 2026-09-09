@@ -3,16 +3,30 @@
  *
  * Provides cross-platform STT functionality:
  * - Web: Uses Web Speech API
- * - Native: Uses expo-av for recording, sends to backend for transcription
+ * - Native: Uses expo-audio for recording, sends to backend for transcription
  *
  * Author: ML Engineering Team
  * Purpose: Add STT for voice navigation commands
  */
 
 import { Platform, Alert } from "react-native";
-import { Audio } from "expo-av";
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  requestRecordingPermissionsAsync,
+  type AudioRecorder,
+} from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import { API_BASE } from "../config";
+
+// `AudioModule.AudioRecorder` is the imperative recorder constructor (the
+// `useAudioRecorder` hook builds instances the same way). eslint-plugin-import's
+// `namespace` rule can't see runtime members on the native-module object, so we
+// read the constructor through a typed cast rather than as `AudioModule.AudioRecorder`.
+const { AudioRecorder: NativeAudioRecorder } = AudioModule as unknown as {
+  AudioRecorder: new (options: unknown) => AudioRecorder;
+};
 
 export interface STTResult {
   text: string;
@@ -28,7 +42,9 @@ export interface STTConfig {
 
 class STTService {
   private recognitionRef: any = null;
-  private recordingRef: Audio.Recording | null = null;
+  // expo-audio recorder instance. Was an expo-av Audio.Recording until SDK 55
+  // removed expo-av from Expo Go; expo-audio is the supported replacement.
+  private recorderRef: AudioRecorder | null = null;
   private isRecording = false;
   private recordingStartTime: number = 0;
   private config: STTConfig;
@@ -49,7 +65,7 @@ class STTService {
       const W = globalThis as any;
       return !!(W.SpeechRecognition || W.webkitSpeechRecognition);
     }
-    // Native: expo-av is always available
+    // Native: expo-audio recording is always available
     return true;
   }
 
@@ -131,7 +147,7 @@ class STTService {
   }
 
   /**
-   * Start recording audio (Native - expo-av)
+   * Start recording audio (Native - expo-audio)
    */
   async startRecordingNative(): Promise<boolean> {
     if (Platform.OS === "web") {
@@ -143,9 +159,9 @@ class STTService {
     }
 
     try {
-      // Request permissions
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== "granted") {
+      // Request microphone permission (expo-audio replaces expo-av from SDK 55)
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
         Alert.alert(
           "Permission Required",
           "Microphone permission is required for voice commands.",
@@ -153,18 +169,20 @@ class STTService {
         return false;
       }
 
-      // Configure audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      // Configure the audio session for recording
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      // Create and start recording
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-      );
+      // Create, prepare and start the recorder. prepareToRecordAsync is passed
+      // the preset so expo-audio flattens the platform-specific options for us
+      // (mirrors what the useAudioRecorder hook does internally).
+      const recorder = new NativeAudioRecorder(RecordingPresets.HIGH_QUALITY);
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
 
-      this.recordingRef = recording;
+      this.recorderRef = recorder;
       this.isRecording = true;
       this.recordingStartTime = Date.now();
       console.log("[STT] Recording started at:", this.recordingStartTime);
@@ -180,7 +198,7 @@ class STTService {
    * Stop recording and transcribe (Native)
    */
   async stopRecordingNative(): Promise<STTResult> {
-    if (!this.recordingRef || !this.isRecording) {
+    if (!this.recorderRef || !this.isRecording) {
       return { text: "", error: "No active recording" };
     }
 
@@ -195,23 +213,23 @@ class STTService {
         console.log("[STT]", errorMsg);
         // Clean up recording
         try {
-          await this.recordingRef.stopAndUnloadAsync();
-          const uri = this.recordingRef.getURI();
+          await this.recorderRef.stop();
+          const uri = this.recorderRef.uri;
           if (uri) {
             await FileSystem.deleteAsync(uri, { idempotent: true });
           }
         } catch (e) {
           // Ignore cleanup errors
         }
-        this.recordingRef = null;
+        this.recorderRef = null;
         this.isRecording = false;
         return { text: "", error: errorMsg };
       }
 
       // Stop recording
-      await this.recordingRef.stopAndUnloadAsync();
-      const uri = this.recordingRef.getURI();
-      this.recordingRef = null;
+      await this.recorderRef.stop();
+      const uri = this.recorderRef.uri;
+      this.recorderRef = null;
       this.isRecording = false;
 
       if (!uri) {

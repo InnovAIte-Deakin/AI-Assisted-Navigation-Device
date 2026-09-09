@@ -11,7 +11,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { Audio } from "expo-av";
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer,
+  type AudioStatus,
+} from "expo-audio";
 import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -46,6 +51,21 @@ interface BookDetails {
 const STORAGE_KEY_PREFIX = "@audiobook_progress_";
 const SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
+// expo-audio players load asynchronously and, unlike expo-av's
+// `Audio.Sound.createAsync`, expose no "await until ready". Poll the sync
+// `isLoaded` flag with a ceiling so a dead URL fails fast instead of hanging.
+async function waitUntilPlayerLoaded(
+  player: { isLoaded: boolean },
+  timeoutMs = 12000,
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (player.isLoaded) return true;
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  return player.isLoaded;
+}
+
 export default function AudiobookPlayerScreen() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{
@@ -71,7 +91,7 @@ export default function AudiobookPlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [sound, setSound] = useState<AudioPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -84,7 +104,11 @@ export default function AudiobookPlayerScreen() {
   const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
+  // Kept in sync with currentChapterIndex so the playback-status listener (which
+  // closes over the value from the render that created it) can persist progress
+  // against the chapter that is actually playing.
+  const currentChapterIndexRef = useRef(0);
   const titleAnnouncedRef = useRef<string | null>(null); // Track which title was already announced
   // Incremented on every loadAudio call; used to discard stale loads after chapter switches
   const activeLoadRef = useRef<number>(0);
@@ -105,15 +129,20 @@ export default function AudiobookPlayerScreen() {
     }
   }, [bookId]);
 
-  // Configure audio mode once on mount (native only — expo-av throws on web)
+  // Keep the chapter-index ref current for the playback-status listener.
+  useEffect(() => {
+    currentChapterIndexRef.current = currentChapterIndex;
+  }, [currentChapterIndex]);
+
+  // Configure audio mode once on mount (native only — expo-audio is not used on web)
   useEffect(() => {
     if (Platform.OS === "web") return;
     const configureAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: "duckOthers",
         });
       } catch (err) {
         console.warn("Error configuring audio mode:", err);
@@ -148,7 +177,11 @@ export default function AudiobookPlayerScreen() {
     return () => {
       const currentSound = soundRef.current || sound;
       if (currentSound) {
-        currentSound.unloadAsync().catch(console.warn);
+        try {
+          currentSound.remove();
+        } catch (e) {
+          console.warn("Error releasing player:", e);
+        }
         setSound(null);
         soundRef.current = null;
       }
@@ -233,8 +266,12 @@ export default function AudiobookPlayerScreen() {
         // This runs when screen loses focus (user navigates away)
         const currentSound = soundRef.current;
         if (currentSound) {
-          currentSound.pauseAsync().catch(console.warn);
-          currentSound.unloadAsync().catch(console.warn);
+          try {
+            if (currentSound.playing) currentSound.pause();
+            currentSound.remove();
+          } catch (e) {
+            console.warn("Error releasing player on blur:", e);
+          }
           soundRef.current = null;
         }
         if (positionUpdateInterval.current) {
@@ -253,7 +290,11 @@ export default function AudiobookPlayerScreen() {
       // This prevents interrupting playback when sound is updated
       const currentSound = soundRef.current;
       if (currentSound) {
-        currentSound.unloadAsync().catch(console.warn);
+        try {
+          currentSound.remove();
+        } catch {
+          // player may already be released
+        }
         soundRef.current = null;
       }
       if (positionUpdateInterval.current) {
@@ -287,12 +328,12 @@ export default function AudiobookPlayerScreen() {
       const currentSound = soundRef.current || sound;
       if (currentSound) {
         try {
-          await currentSound.unloadAsync();
+          currentSound.remove();
           setSound(null);
           soundRef.current = null;
           setIsPlaying(false);
         } catch (unloadErr) {
-          console.warn("Error unloading previous sound:", unloadErr);
+          console.warn("Error releasing previous player:", unloadErr);
         }
       }
 
@@ -390,7 +431,7 @@ export default function AudiobookPlayerScreen() {
   const loadAudio = async (
     chapterIndex: number,
     startPosition: number = 0,
-  ): Promise<Audio.Sound | null> => {
+  ): Promise<AudioPlayer | null> => {
     if (!bookDetails || !bookDetails.chapters[chapterIndex]) {
       console.error("No book details or chapter not found");
       return null;
@@ -406,14 +447,10 @@ export default function AudiobookPlayerScreen() {
       const previousSound = sound;
       if (previousSound) {
         try {
-          // Pause first to avoid "interrupted" errors
-          const prevStatus = await previousSound.getStatusAsync();
-          if (prevStatus.isLoaded && prevStatus.isPlaying) {
-            await previousSound.pauseAsync();
-          }
-          await previousSound.unloadAsync();
+          if (previousSound.playing) previousSound.pause();
+          previousSound.remove();
         } catch (unloadErr) {
-          console.warn("Error unloading previous sound:", unloadErr);
+          console.warn("Error releasing previous player:", unloadErr);
         }
       }
       // Clear sound state immediately to prevent useEffect cleanup from interfering
@@ -436,7 +473,7 @@ export default function AudiobookPlayerScreen() {
 
       console.log("Original audio URL:", audioUrl);
 
-      // Try direct URL first (expo-av supports MP3 URLs directly)
+      // Try direct URL first (expo-audio plays MP3 URLs directly)
       // Only use proxy if direct fails (for CORS issues on web) or if URL doesn't look like a direct audio file
       let finalUrl = audioUrl;
       let useProxy = false;
@@ -509,39 +546,57 @@ export default function AudiobookPlayerScreen() {
         return null; // web doesn't use expo-av Sound object
       }
 
-      // Try to load the audio
-      let newSound: Audio.Sound;
-      try {
-        const result = await Audio.Sound.createAsync(
-          {
-            uri: finalUrl,
-            overrideFileExtensionAndroid: "mp3",
-          },
-          {
-            shouldPlay: false,
-            positionMillis: startPosition * 1000,
-            rate: playbackRate,
-          },
-          (status) => {
-            if (status.isLoaded) {
-              setDuration(status.durationMillis || 0);
-              setPosition(status.positionMillis || 0);
+      // Status handler shared by the direct and proxy attempts. Fires on the
+      // player's updateInterval and on state changes; it drives the progress
+      // bar, progress persistence (this replaces the old setInterval poll) and
+      // chapter auto-advance. expo-audio reports time in seconds; the UI works
+      // in milliseconds, so convert at this boundary.
+      const handleStatus = (status: AudioStatus) => {
+        if (!status.isLoaded) return;
+        if (status.duration) setDuration(status.duration * 1000);
+        setPosition(status.currentTime * 1000);
+        if (status.playing) {
+          saveProgress(
+            currentChapterIndexRef.current,
+            status.currentTime,
+          ).catch(() => {});
+        }
+        if (status.didJustFinish) {
+          // Move to next chapter if available
+          if (chapterIndex < bookDetails.chapters.length - 1) {
+            playChapter(chapterIndex + 1, 0);
+          } else {
+            setIsPlaying(false);
+          }
+        }
+      };
 
-              if (status.didJustFinish) {
-                // Move to next chapter if available
-                if (chapterIndex < bookDetails.chapters.length - 1) {
-                  playChapter(chapterIndex + 1, 0);
-                } else {
-                  setIsPlaying(false);
-                }
-              }
-            } else if (!status.isLoaded && (status as any).error) {
-              console.error("Audio status error:", (status as any).error);
-              setPlaybackError(`Audio error: ${(status as any).error}`);
-            }
-          },
-        );
-        newSound = result.sound;
+      // Create an expo-audio player for `url`, attach the listener, seek to the
+      // resume point, and wait until it has actually loaded. Throws on failure
+      // so the caller can fall back to the proxy URL.
+      const openPlayer = async (url: string): Promise<AudioPlayer> => {
+        const player = createAudioPlayer({ uri: url }, { updateInterval: 500 });
+        player.playbackRate = playbackRate;
+        player.shouldCorrectPitch = true;
+        player.addListener("playbackStatusUpdate", handleStatus);
+        const loaded = await waitUntilPlayerLoaded(player);
+        if (!loaded) {
+          player.remove();
+          throw new Error(`audio did not load: ${url.substring(0, 100)}`);
+        }
+        if (startPosition > 0) {
+          try {
+            await player.seekTo(startPosition);
+          } catch {
+            // non-fatal: playback just starts from the beginning
+          }
+        }
+        return player;
+      };
+
+      let newSound: AudioPlayer;
+      try {
+        newSound = await openPlayer(finalUrl);
       } catch (directError) {
         console.error("Direct URL failed, trying proxy:", directError);
 
@@ -550,35 +605,7 @@ export default function AudiobookPlayerScreen() {
           try {
             const proxyUrl = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(audioUrl)}`;
             console.log("Trying proxy URL:", proxyUrl.substring(0, 200));
-
-            const proxyResult = await Audio.Sound.createAsync(
-              {
-                uri: proxyUrl,
-                overrideFileExtensionAndroid: "mp3",
-              },
-              {
-                shouldPlay: false,
-                positionMillis: startPosition * 1000,
-                rate: playbackRate,
-              },
-              (status) => {
-                if (status.isLoaded) {
-                  setDuration(status.durationMillis || 0);
-                  setPosition(status.positionMillis || 0);
-                  if (status.didJustFinish) {
-                    if (chapterIndex < bookDetails.chapters.length - 1) {
-                      playChapter(chapterIndex + 1, 0);
-                    } else {
-                      setIsPlaying(false);
-                    }
-                  }
-                } else if (!status.isLoaded && (status as any).error) {
-                  console.error("Proxy audio error:", (status as any).error);
-                  setPlaybackError(`Audio error: ${(status as any).error}`);
-                }
-              },
-            );
-            newSound = proxyResult.sound;
+            newSound = await openPlayer(proxyUrl);
             useProxy = true;
             finalUrl = proxyUrl;
           } catch (proxyError) {
@@ -590,16 +617,12 @@ export default function AudiobookPlayerScreen() {
         }
       }
 
-      // Check status immediately - no delay needed for streaming
-      const status = await newSound.getStatusAsync();
-
-      if (!status.isLoaded) {
-        console.error("Sound not loaded after creation:", status);
-        const errorMsg = (status as any).error || "Unknown error";
+      if (!newSound.isLoaded) {
+        console.error("Player not loaded after creation");
         setPlaybackError(
-          `Failed to load audio: ${errorMsg}. URL: ${finalUrl.substring(0, 100)}...`,
+          `Failed to load audio. URL: ${finalUrl.substring(0, 100)}...`,
         );
-        await newSound.unloadAsync();
+        newSound.remove();
         return null;
       }
 
@@ -608,21 +631,21 @@ export default function AudiobookPlayerScreen() {
 
       console.log(
         "Audio loaded successfully. Duration:",
-        status.durationMillis,
-        "ms",
+        newSound.duration,
+        "s",
       );
 
       // If a newer chapter load started while we were waiting, discard this one
       if (activeLoadRef.current !== loadId) {
-        await newSound.unloadAsync().catch(() => {});
+        newSound.remove();
         return null;
       }
 
-      // Set sound state AFTER ensuring it's loaded (prevents cleanup race conditions)
+      // Set player state AFTER ensuring it's loaded (prevents cleanup race conditions)
       setSound(newSound);
       soundRef.current = newSound; // Also update ref for cleanup
       setCurrentChapterIndex(chapterIndex);
-      setDuration(status.durationMillis || 0);
+      setDuration((newSound.duration || 0) * 1000);
       setPosition(startPosition * 1000);
 
       return newSound;
@@ -733,79 +756,37 @@ export default function AudiobookPlayerScreen() {
         return;
       }
 
-      // Atomic chapter switch: unload previous, load new, play immediately
-      // loadAudio handles setIsLoadingAudio state
+      // Atomic chapter switch: release previous, load new, play immediately.
+      // loadAudio waits for the player to be loaded and manages setIsLoadingAudio.
       const loadedSound = await loadAudio(chapterIndex, startPosition);
-      if (loadedSound) {
-        // Check sound is loaded before playing
-        const status = await loadedSound.getStatusAsync();
-        if (status.isLoaded) {
-          // Start playback immediately - no delays
-          try {
-            await loadedSound.playAsync();
-            setIsPlaying(true);
-            startPositionUpdates();
-            setIsLoadingAudio(false);
-            console.log("Playback started immediately");
+      if (loadedSound && loadedSound.isLoaded) {
+        // expo-audio play() is synchronous and does not throw the
+        // "play() interrupted by pause()" race that expo-av did.
+        try {
+          loadedSound.play();
+          setIsPlaying(true);
+          startPositionUpdates();
+          setIsLoadingAudio(false);
+          console.log("Playback started immediately");
 
-            // Add to history asynchronously (don't block playback)
-            if (bookDetails) {
-              addToHistory({
-                id: bookDetails.id,
-                title: bookDetails.title,
-                author: bookDetails.author,
-                duration: bookDetails.duration,
-                duration_formatted: bookDetails.duration_formatted,
-                language: bookDetails.language,
-                description: bookDetails.description,
-                cover_url: bookDetails.cover_url,
-              }).catch((historyError) => {
-                console.error("Failed to add to history:", historyError);
-              });
-            }
-          } catch (playError: any) {
-            // If play fails, try once more immediately (no delay)
-            if (
-              playError?.message?.includes("interrupted") ||
-              playError?.message?.includes("pause")
-            ) {
-              console.warn("Play was interrupted, retrying immediately...");
-              try {
-                await loadedSound.playAsync();
-                setIsPlaying(true);
-                startPositionUpdates();
-                setIsLoadingAudio(false);
-                console.log("Playback started on retry");
-
-                // Add to history asynchronously
-                if (bookDetails) {
-                  addToHistory({
-                    id: bookDetails.id,
-                    title: bookDetails.title,
-                    author: bookDetails.author,
-                    duration: bookDetails.duration,
-                    duration_formatted: bookDetails.duration_formatted,
-                    language: bookDetails.language,
-                    description: bookDetails.description,
-                    cover_url: bookDetails.cover_url,
-                  }).catch((historyError) => {
-                    console.error("Failed to add to history:", historyError);
-                  });
-                }
-              } catch (retryError) {
-                console.error("Retry play failed:", retryError);
-                setPlaybackError("Failed to start playback. Please try again.");
-                setIsLoadingAudio(false);
-              }
-            } else {
-              console.error("Play failed:", playError);
-              setPlaybackError("Failed to start playback. Please try again.");
-              setIsLoadingAudio(false);
-            }
+          // Add to history asynchronously (don't block playback)
+          if (bookDetails) {
+            addToHistory({
+              id: bookDetails.id,
+              title: bookDetails.title,
+              author: bookDetails.author,
+              duration: bookDetails.duration,
+              duration_formatted: bookDetails.duration_formatted,
+              language: bookDetails.language,
+              description: bookDetails.description,
+              cover_url: bookDetails.cover_url,
+            }).catch((historyError) => {
+              console.error("Failed to add to history:", historyError);
+            });
           }
-        } else {
-          console.error("Sound not loaded, cannot play");
-          setPlaybackError("Audio is not ready. Please try again.");
+        } catch (playError) {
+          console.error("Play failed:", playError);
+          setPlaybackError("Failed to start playback. Please try again.");
           setIsLoadingAudio(false);
         }
       } else {
@@ -866,74 +847,35 @@ export default function AudiobookPlayerScreen() {
     }
 
     try {
-      // Check if sound is loaded
-      const status = await sound.getStatusAsync();
-      if (!status.isLoaded) {
-        console.error("Sound not loaded, reloading...");
+      if (!sound.isLoaded) {
+        console.error("Player not loaded, reloading...");
         await playChapter(currentChapterIndex, position / 1000);
         return;
       }
 
       if (isPlaying) {
-        await sound.pauseAsync();
+        sound.pause();
         setIsPlaying(false);
         stopPositionUpdates();
       } else {
-        // Start playback immediately - no delays
-        try {
-          await sound.playAsync();
-          setIsPlaying(true);
-          startPositionUpdates();
+        sound.play();
+        setIsPlaying(true);
+        startPositionUpdates();
 
-          // Add to history asynchronously (don't block playback)
-          if (bookDetails) {
-            addToHistory({
-              id: bookDetails.id,
-              title: bookDetails.title,
-              author: bookDetails.author,
-              duration: bookDetails.duration,
-              duration_formatted: bookDetails.duration_formatted,
-              language: bookDetails.language,
-              description: bookDetails.description,
-              cover_url: bookDetails.cover_url,
-            }).catch((historyError) => {
-              console.error("Failed to add to history:", historyError);
-            });
-          }
-        } catch (playError: any) {
-          // Handle "play() interrupted by pause()" error - retry immediately
-          if (
-            playError?.message?.includes("interrupted") ||
-            playError?.message?.includes("pause")
-          ) {
-            console.warn("Play was interrupted, retrying immediately...");
-            try {
-              await sound.playAsync();
-              setIsPlaying(true);
-              startPositionUpdates();
-
-              // Add to history asynchronously
-              if (bookDetails) {
-                addToHistory({
-                  id: bookDetails.id,
-                  title: bookDetails.title,
-                  author: bookDetails.author,
-                  duration: bookDetails.duration,
-                  duration_formatted: bookDetails.duration_formatted,
-                  language: bookDetails.language,
-                  description: bookDetails.description,
-                  cover_url: bookDetails.cover_url,
-                }).catch((historyError) => {
-                  console.error("Failed to add to history:", historyError);
-                });
-              }
-            } catch (retryError) {
-              console.error("Retry play failed:", retryError);
-              setPlaybackError("Failed to start playback. Please try again.");
-            }
-          } else {
-            throw playError;
-          }
+        // Add to history asynchronously (don't block playback)
+        if (bookDetails) {
+          addToHistory({
+            id: bookDetails.id,
+            title: bookDetails.title,
+            author: bookDetails.author,
+            duration: bookDetails.duration,
+            duration_formatted: bookDetails.duration_formatted,
+            language: bookDetails.language,
+            description: bookDetails.description,
+            cover_url: bookDetails.cover_url,
+          }).catch((historyError) => {
+            console.error("Failed to add to history:", historyError);
+          });
         }
       }
     } catch (err) {
@@ -958,7 +900,7 @@ export default function AudiobookPlayerScreen() {
     }
     if (sound) {
       try {
-        await sound.setPositionAsync(value);
+        await sound.seekTo(value / 1000);
         setPosition(value);
         await saveProgress(currentChapterIndex, value / 1000);
       } catch (err) {
@@ -976,7 +918,7 @@ export default function AudiobookPlayerScreen() {
     }
     if (sound) {
       try {
-        await sound.setRateAsync(speed, true);
+        sound.setPlaybackRate(speed, "high");
       } catch (err) {
         console.error("Error changing speed:", err);
       }
@@ -984,30 +926,11 @@ export default function AudiobookPlayerScreen() {
     setShowSpeedMenu(false);
   };
 
-  const startPositionUpdates = () => {
-    if (Platform.OS === "web") return; // web uses ontimeupdate event on the HTML audio element
-    if (positionUpdateInterval.current) {
-      clearInterval(positionUpdateInterval.current);
-    }
-    positionUpdateInterval.current = setInterval(async () => {
-      // Use soundRef.current (not the closed-over `sound`) so we always get the latest sound
-      const currentSound = soundRef.current;
-      if (currentSound) {
-        try {
-          const status = await currentSound.getStatusAsync();
-          if (status.isLoaded) {
-            setPosition(status.positionMillis || 0);
-            await saveProgress(
-              currentChapterIndex,
-              (status.positionMillis || 0) / 1000,
-            );
-          }
-        } catch (err) {
-          console.error("Error updating position:", err);
-        }
-      }
-    }, 500);
-  };
+  // Native position + progress persistence is now driven by the expo-audio
+  // `playbackStatusUpdate` listener attached in loadAudio (it fires on the
+  // player's 500ms updateInterval). These stay as thin shims so the existing
+  // call sites (playChapter, togglePlayPause, cleanups) keep working unchanged.
+  const startPositionUpdates = () => {};
 
   const stopPositionUpdates = () => {
     if (positionUpdateInterval.current) {
@@ -1124,11 +1047,8 @@ export default function AudiobookPlayerScreen() {
     const currentSound = soundRef.current || sound;
     if (currentSound) {
       try {
-        const status = await currentSound.getStatusAsync();
-        if (status.isLoaded && status.isPlaying) {
-          await currentSound.pauseAsync();
-        }
-        await currentSound.unloadAsync();
+        if (currentSound.playing) currentSound.pause();
+        currentSound.remove();
         setSound(null);
         soundRef.current = null;
         setIsPlaying(false);
