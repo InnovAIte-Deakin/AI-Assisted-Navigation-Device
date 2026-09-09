@@ -4,3 +4,8 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Native projects are generated on demand (Continuous Native Generation).
+# Never commit them: `expo run:android` / `expo run:ios` recreate these.
+/android
+/ios
