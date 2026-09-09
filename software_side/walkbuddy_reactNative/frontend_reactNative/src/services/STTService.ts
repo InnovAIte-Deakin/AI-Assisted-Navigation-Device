@@ -19,6 +19,7 @@ import {
 } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import { API_BASE } from "../config";
+import { uriToBlob } from "../utils/uriToBlob";
 
 // `AudioModule.AudioRecorder` is the imperative recorder constructor (the
 // `useAudioRecorder` hook builds instances the same way). eslint-plugin-import's
@@ -304,11 +305,10 @@ class STTService {
 
     try {
       const formData = new FormData();
-      formData.append("file", {
-        uri,
-        type: "audio/m4a",
-        name: "recording.m4a",
-      } as any);
+      // Append a real Blob, not RN's { uri, type, name } object: the SDK 56+
+      // global expo/fetch does not support the latter (the body arrives empty).
+      const blob = await uriToBlob(uri, "audio/m4a");
+      formData.append("file", blob, "recording.m4a");
 
       // Add timeout to prevent voice processing from hanging
       const controller = new AbortController();
