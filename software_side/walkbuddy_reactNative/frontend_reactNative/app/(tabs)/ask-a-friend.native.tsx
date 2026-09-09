@@ -14,9 +14,9 @@ import {
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
-import { RtcSurfaceView } from "react-native-agora";
 
 import { agoraCallService } from "@/services/agoraCallService";
+import { AgoraRemoteVideo } from "@/components/AgoraRemoteVideo";
 import {
   AssistanceSession,
   createAssistanceSession,
@@ -358,11 +358,10 @@ export default function AskAFriendWebScreen() {
 
           <View style={styles.videoContainer}>
             {remoteUid !== null ? (
-              <RtcSurfaceView
-                key={`helper-${remoteUid}`}
-                style={styles.remoteVideo}
-                canvas={{ uid: remoteUid }}
-              />
+              <AgoraRemoteVideo
+  uid={remoteUid}
+  style={styles.remoteVideo}
+/>
             ) : (
               <View style={styles.waitingVideo}>
                 {callState === "starting" ? (

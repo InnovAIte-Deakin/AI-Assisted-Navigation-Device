@@ -193,6 +193,36 @@ else {
     Write-Host "expo-dev-client already installed."
 }
 
+# ==================================================
+# INSTALL AGORA SESSION SERVER DEPENDENCIES
+# ==================================================
+
+$SessionServerDirectory =
+    Join-Path $SourceRoot "agora_session_server"
+
+if (-not (Test-Path $SessionServerDirectory)) {
+    throw "Agora session server directory was not found: $SessionServerDirectory"
+}
+
+Write-Host ""
+Write-Host "============================================"
+Write-Host " Installing Agora session server dependencies"
+Write-Host "============================================"
+Write-Host ""
+
+Push-Location $SessionServerDirectory
+
+try {
+    npm install
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Agora session server npm install failed."
+    }
+}
+finally {
+    Pop-Location
+}
+
 
 # ==================================================
 # PREBUILD
