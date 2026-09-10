@@ -12,7 +12,7 @@ Last trimester produced a visually complete app but left a series of silent brea
 
 - **The expected response shape in `client.ts` does not match what the backend returns.** `SlowLaneResponse` in `client.ts` expects `{ events, answer, safe, source }`. The backend's `/chat` endpoint returns `{ response }`. The backend's `/vision` endpoint returns `{ detections, guidance_message, image_id }`. These shapes are completely misaligned. The types were written against a planned API that was never implemented.
 
-- **Native STT sends audio to an endpoint that does not exist.** `STTService.ts` records audio via `expo-av` on native (iOS/Android) and uploads the file to `${API_BASE}/stt/transcribe`. This endpoint does not exist on the backend. Every native voice command attempt ends with a server error after the recording completes. Web STT works because it uses the browser's `SpeechRecognition` API directly and never calls the backend.
+- **Native STT sends audio to an endpoint that does not exist.** `STTService.ts` records audio via `expo-audio` on native (iOS/Android) and uploads the file to `${API_BASE}/stt/transcribe`. This endpoint does not exist on the backend. Every native voice command attempt ends with a server error after the recording completes. Web STT works because it uses the browser's `SpeechRecognition` API directly and never calls the backend.
 
 - **Screen Reader was never implemented.** `app/(tabs)/index.tsx` has an `ActionTile` labelled `SCREEN READER` that calls `goToScreenReader()`. That function shows an alert: `"Screen Reader is not implemented yet."` It has been in this state since the trimester began. The tile exists in the UI, gives the impression of a feature, and does nothing.
 
@@ -91,7 +91,7 @@ src/
 ├── config.ts               API_BASE resolution
 ├── services/
 │   ├── TTSService.ts       Text-to-speech (expo-speech / Web Speech API)
-│   └── STTService.ts       Speech-to-text (Web Speech API / expo-av + /stt/transcribe)
+│   └── STTService.ts       Speech-to-text (Web Speech API / expo-audio + /stt/transcribe)
 ├── nav/
 │   ├── v2_graph.ts         Indoor map graph (15 nodes, Deakin Library)
 │   ├── astar.ts            A* pathfinding (not used — indoor.tsx uses Dijkstra inline)
@@ -105,6 +105,7 @@ src/
 │   ├── navigationHelpers.ts GPS step advancement, route snapping
 │   ├── routing.ts          Route calculation helpers
 │   ├── settings.ts         Navigation settings load/save
+│   ├── uriToBlob.ts        Local file URI to Blob for expo/fetch multipart uploads (SDK 56+)
 │   ├── webCameraCapture.ts Web camera stream capture for Ask-a-Friend
 │   └── webTTS.ts           Web Speech API TTS wrapper (used by Ask-a-Friend)
 └── types/
@@ -154,7 +155,7 @@ The primary AI interface. Two modes:
 
 **Auto-scan loop:** Starts automatically on permission grant (250ms delay). Fires every 2,500ms. Each tick calls `captureAndDetect()` — takes a photo at quality 0.5, builds `multipart/form-data`, posts to the appropriate endpoint, renders bbox overlays, and speaks the `guidance_message` via `TTSService`.
 
-**Voice input:** Hold-to-speak mic button. On web: `SpeechRecognition` stream with interim results. On native: `expo-av` recording → POST to `/stt/transcribe` (which does not exist — see Known Gaps). Final transcript is checked for voice commands first (`"scan text"`, `"vision"`, `"start scan"`, `"stop scan"`); if not a command, it's sent to `POST /chat`.
+**Voice input:** Hold-to-speak mic button. On web: `SpeechRecognition` stream with interim results. On native: `expo-audio` recording → POST to `/stt/transcribe` (which does not exist — see Known Gaps). Final transcript is checked for voice commands first (`"scan text"`, `"vision"`, `"start scan"`, `"stop scan"`); if not a command, it's sent to `POST /chat`.
 
 **Dedup TTS:** `maybeSpeak()` suppresses the same message within 2,500ms to prevent repetition during continuous scanning.
 
@@ -238,7 +239,7 @@ Saved locations. Managed via `CurrentLocationProvider`.
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/audiobooks-player` | `app/audiobooks-player.tsx` | Full player with expo-av, progress bar, playback controls |
+| `/audiobooks-player` | `app/audiobooks-player.tsx` | Full player with expo-audio, progress bar, playback controls |
 | `/audiobooks-favourites` | `app/audiobooks-favourites.tsx` | Reads favorites from AsyncStorage |
 | `/audiobooks-history` | `app/audiobooks-history.tsx` | Reads history from AsyncStorage |
 | `/audiobooks-listen-later` | `app/audiobooks-listen-later.tsx` | Reads listen-later list from AsyncStorage |
@@ -282,7 +283,7 @@ Cross-platform speech-to-text.
 
 **Platform behaviour:**
 - Web: `window.SpeechRecognition` / `webkitSpeechRecognition`. Streaming with interim results. Fully functional.
-- Native: `expo-av` audio recording (HIGH_QUALITY preset) → POST `multipart/form-data` to `${API_BASE}/stt/transcribe`. **This endpoint does not exist on the backend.** Every native transcription attempt returns a server error.
+- Native: `expo-audio` recording (`RecordingPresets.HIGH_QUALITY`) → the file URI is read into a `Blob` via `src/utils/uriToBlob.ts`, then POST `multipart/form-data` to `${API_BASE}/stt/transcribe`. **This endpoint does not exist on the backend.** Every native transcription attempt returns a server error.
 
 **Validation:** Minimum recording duration 700ms; minimum file size 10,000 bytes. Short or empty recordings are rejected before upload.
 
@@ -416,7 +417,7 @@ frontend_reactNative/
 │   │   ├── profile.tsx                 User profile
 │   │   ├── places.tsx                  Saved locations
 │   │   └── explore.tsx                 Explore (scaffolded)
-│   ├── audiobooks-player.tsx           Playback screen (expo-av)
+│   ├── audiobooks-player.tsx           Playback screen (expo-audio)
 │   ├── audiobooks-favourites.tsx       Favorites list (AsyncStorage)
 │   ├── audiobooks-history.tsx          History list (AsyncStorage)
 │   ├── audiobooks-listen-later.tsx     Watch list (AsyncStorage)
@@ -442,7 +443,7 @@ frontend_reactNative/
 │   │   └── UserGuideModal.tsx          Audiobook user guide overlay
 │   ├── services/
 │   │   ├── TTSService.ts               TTS: expo-speech (native) / speechSynthesis (web), anti-spam
-│   │   └── STTService.ts               STT: SpeechRecognition (web) / expo-av + /stt/transcribe (native, broken)
+│   │   └── STTService.ts               STT: SpeechRecognition (web) / expo-audio + /stt/transcribe (native, broken)
 │   ├── nav/
 │   │   ├── v2_graph.ts                 Indoor graph — 15 POIs, Deakin Library
 │   │   ├── astar.ts                    A* implementation (not used by indoor screen)
@@ -456,6 +457,7 @@ frontend_reactNative/
 │   │   ├── navigationHelpers.ts        GPS step advancement, route snapping, distance calc
 │   │   ├── routing.ts                  Route calculation utilities
 │   │   ├── settings.ts                 Navigation settings (AsyncStorage)
+│   │   ├── uriToBlob.ts                Local file URI → Blob for expo/fetch multipart uploads (SDK 56+)
 │   │   ├── webCameraCapture.ts         getUserMedia frame capture for Ask-a-Friend
 │   │   ├── webTTS.ts                   speechSynthesis wrapper for Ask-a-Friend
 │   │   └── api.ts                      Misc API utilities
@@ -465,10 +467,15 @@ frontend_reactNative/
 ├── components/                         Shared component directory (FilterBar, FilterModal, UserGuideModal)
 ├── hooks/
 │   └── use-color-scheme.ts            Dark/light mode hook
-├── package.json
+├── package.json                        Expo SDK 57 / React Native 0.86 dependency set
 ├── tsconfig.json
-└── app.json                            Expo config (app name, slug, icon, splash)
+├── eslint.config.js                    eslint-config-expo 57 + react-hooks rules pinned to "warn"
+└── app.json                            Single Expo config source (app.config.js removed in SDK 57 bump)
 ```
+
+> `/android` and `/ios` are not committed. They are generated on demand by
+> `expo run:android` / `expo run:ios` (Continuous Native Generation) and are
+> listed in `.gitignore`. Config lives entirely in `app.json`.
 
 ---
 
@@ -486,6 +493,39 @@ npm start
 ```
 
 Set `EXPO_PUBLIC_API_BASE` in a `.env.local` file if the backend is not on the same LAN.
+
+---
+
+## Expo SDK
+
+The app targets **Expo SDK 57** (`expo ^57.0.21`, React Native `0.86.3`, React `19.2.3`). It was moved up from SDK 54 one release at a time (54 → 55 → 56 → 57) so each breaking change could be isolated. Run `npm install` after pulling, since the lockfile changed substantially.
+
+### What changed in the bump
+
+| Area | Before (SDK 54) | Now (SDK 57) | Why it matters |
+|------|-----------------|--------------|----------------|
+| Audio | `expo-av` (`Audio.Recording`, `Audio.Sound`) | `expo-audio` (`AudioModule.AudioRecorder`, `createAudioPlayer`) | `expo-av` was removed from Expo Go in SDK 55. `STTService.ts` and `audiobooks-player.tsx` were rewritten against `expo-audio`. |
+| Config | `app.config.js` **and** `app.json` | `app.json` only | Two config files meant settings silently diverged. `app.config.js` was deleted and everything merged into `app.json`. |
+| Multipart upload | `FormData.append("file", { uri, type, name })` | real `Blob` via `src/utils/uriToBlob.ts` | From SDK 56 `expo/fetch` is the global `fetch` and ignores React Native's `{ uri, ... }` shape, so uploads arrived empty. This broke `/vision`, `/ocr` and the native STT upload until the Blob path was added. Set `EXPO_PUBLIC_USE_RN_FETCH=1` to fall back if a regression appears. |
+| Navigation theming | `DarkTheme`/`DefaultTheme`/`ThemeProvider` from `@react-navigation/native` | same names re-exported from `expo-router` | `expo-router` 57 owns the navigation container. The direct `@react-navigation/*` and `react-native-vector-icons` deps were dropped. |
+| Native folders | committed / ad hoc | `/android` and `/ios` git-ignored (Continuous Native Generation) | `expo run:android` / `expo run:ios` regenerate them from `app.json`. Never commit them. |
+| Lint | `eslint-config-expo ~10` | `eslint-config-expo ~57` | `eslint-plugin-react-hooks` v6 promoted React Compiler diagnostics to errors (~76 pre-existing hits). `eslint.config.js` pins the new `react-hooks/*` rules to `warn` so lint still passes; the hooks cleanup is tracked as its own task. |
+| App scheme | `frontendreactnative` | `walkbuddy` | Deep links now use `walkbuddy://`. Update any saved links or QR shortcuts. |
+
+### Testing the upgrade
+
+```bash
+cd software_side/walkbuddy_reactNative/frontend_reactNative
+npm install
+npm run dev        # LAN
+```
+
+Then open the project in Expo Go (SDK 57 build) or a dev client and verify:
+
+- Camera **Vision** and **Scan Text** modes return detections (confirms the `expo/fetch` Blob upload works)
+- Audiobook player loads a chapter, plays, seeks, and auto-advances (confirms the `expo-audio` migration)
+- Hold-to-speak voice input records on native without a crash (the `/stt/transcribe` call still 404s, which is a pre-existing backend gap, not an SDK regression)
+- Outdoor navigation still tracks GPS and speaks turn guidance
 
 ---
 
