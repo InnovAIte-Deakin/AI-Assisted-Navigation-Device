@@ -511,6 +511,7 @@ def main_module() -> Iterator[ModuleType]:
     routers.ai_service = router_module("routers.ai_service")
     routers.helpers = router_module("routers.helpers")
     routers.auth = router_module("routers.auth")
+    routers.ml_inference = router_module("routers.ml_inference")
 
     internal = ModuleType("internal")
     internal.__path__ = []
@@ -538,6 +539,7 @@ def main_module() -> Iterator[ModuleType]:
         "routers.ai_service": routers.ai_service,
         "routers.helpers": routers.helpers,
         "routers.auth": routers.auth,
+    "routers.ml_inference": routers.ml_inference,
         "internal": internal,
         "internal.state": internal_state,
         "slow_lane": slow_lane,
