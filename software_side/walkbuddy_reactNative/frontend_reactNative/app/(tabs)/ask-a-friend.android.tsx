@@ -32,7 +32,7 @@ function ExpoGoNotice() {
 
         <Text style={[styles.message, { color: colors.textMuted }]}>
           This feature uses Agora for secure camera, microphone, and video
-          access. It is unavailable in Expo Go, but the rest of WalkBuddy can
+          access, and is currently only available in Expo Development builds. The rest of WalkBuddy can
           still be used normally.
         </Text>
       </View>
