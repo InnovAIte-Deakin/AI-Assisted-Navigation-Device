@@ -153,19 +153,28 @@ class TestSpeak:
         assert len(service.message_history) == service.max_history
 
 
-class TestCloudFallbackBug:
-    """Documents a known bug (not fixed here, tracked separately): the cloud
-    fallback path generates an audio file, deletes it, and reports success —
-    without ever actually playing it. A user hears nothing, but speak()
-    returns True as if guidance was delivered."""
+class FakeAudioSegment:
+    """Stands in for pydub's AudioSegment — records what path it was decoded from."""
+
+    def __init__(self, source_path):
+        self.source_path = source_path
+
+
+class TestCloudFallback:
+    """Previously, the cloud fallback path generated an audio file, deleted
+    it, and reported success — without ever actually playing it, so a user
+    heard nothing while the service believed guidance was delivered. These
+    tests confirm audio is now actually played before cleanup."""
 
     @pytest.fixture(autouse=True)
     def fake_gtts(self, monkeypatch):
         monkeypatch.setattr(tts_service_module, "GTTS_AVAILABLE", True)
         monkeypatch.setattr(tts_service_module, "gTTS", FakeGTTS)
+        monkeypatch.setattr(tts_service_module.AudioSegment, "from_mp3", lambda path: FakeAudioSegment(path))
 
-    def test_cloud_fallback_deletes_the_audio_file_before_it_could_be_played(self, monkeypatch):
+    def test_cloud_fallback_plays_the_generated_audio_before_cleanup(self, monkeypatch):
         created_paths = []
+        played = []
         real_named_temp_file = tts_service_module.tempfile.NamedTemporaryFile
 
         def recording_named_temp_file(*args, **kwargs):
@@ -173,7 +182,14 @@ class TestCloudFallbackBug:
             created_paths.append(f.name)
             return f
 
+        def recording_play(audio):
+            # The file must still exist at the moment play() is called,
+            # proving playback happens before, not after, cleanup.
+            assert os.path.exists(audio.source_path)
+            played.append(audio)
+
         monkeypatch.setattr(tts_service_module.tempfile, "NamedTemporaryFile", recording_named_temp_file)
+        monkeypatch.setattr(tts_service_module, "play_audio", recording_play)
 
         service = make_service(use_cloud_fallback=True)
         service.use_offline = True
@@ -182,11 +198,25 @@ class TestCloudFallbackBug:
         result = service.speak("Chair ahead")
 
         assert len(created_paths) == 1
-        # The bug: by the time speak() returns, the audio file it would have
-        # played is already gone, and nothing ever played it.
+        assert len(played) == 1
+        assert played[0].source_path == created_paths[0]
+        # Cleaned up afterward, now that playback has actually happened.
         assert not os.path.exists(created_paths[0])
-        # Yet the service reports success, as if guidance was actually heard.
         assert result is True
+
+    def test_cloud_fallback_failure_still_reports_failure(self, monkeypatch):
+        # If playback itself raises, this must not be swallowed into a false
+        # success — the existing except-and-fail-safe behavior must hold.
+        def raising_play(audio):
+            raise RuntimeError("synthetic playback failure")
+
+        monkeypatch.setattr(tts_service_module, "play_audio", raising_play)
+
+        service = make_service(use_cloud_fallback=True)
+        service.use_offline = True
+        service.offline_engine = FakeEngine(raise_on_say=True)
+
+        assert service.speak("Chair ahead") is False
 
 
 class TestGetStatusResetShutdown:
