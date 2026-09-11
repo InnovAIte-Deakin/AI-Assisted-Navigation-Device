@@ -22,5 +22,6 @@ services:
       - WALKBUDDY_API_KEY=${WALKBUDDY_API_KEY}
     volumes:
       - ../../../ML_side/models:/models
+      - ../../../ML_side/depth:/app/depth:ro
     depends_on:
       - jaeger
