@@ -151,7 +151,7 @@ def _event_from_detection(detection: dict) -> dict:
     return {
         "label": detection["category"],
         "direction": detection.get("direction", "ahead"),
-        "distance_m": None,
+        "distance_m": detection.get("relative_depth"),
         "confidence": detection["confidence"],
         "track_id": detection.get("track_id"),
         "is_moving": detection.get("is_moving", False),

@@ -216,3 +216,89 @@ def test_current_scene_response_keeps_only_the_top_three_by_confidence(ai_servic
     message = ai_service.current_scene_response(events)
 
     assert message == "I can see b ahead, c ahead, d ahead."
+
+
+# ── _event_from_detection ────────────────────────────────────────────────
+#
+# Previously untested. Writing coverage surfaced a real bug: distance_m was
+# hardcoded to None regardless of input, so the "relative_depth" field
+# vision_adapter() attaches to detections (adapters/depth_adapter.py) never
+# reached downstream guidance/safety logic. Fixed in the same change.
+
+def test_event_from_detection_maps_basic_fields(ai_service):
+    detection = {
+        "category": "stairs",
+        "confidence": 0.87,
+        "direction": "left",
+    }
+
+    event = ai_service._event_from_detection(detection)
+
+    assert event["label"] == "stairs"
+    assert event["direction"] == "left"
+    assert event["confidence"] == 0.87
+
+
+def test_event_from_detection_defaults_direction_to_ahead(ai_service):
+    detection = {"category": "door", "confidence": 0.5}
+
+    event = ai_service._event_from_detection(detection)
+
+    assert event["direction"] == "ahead"
+
+
+def test_event_from_detection_defaults_motion_fields_when_absent(ai_service):
+    detection = {"category": "person", "confidence": 0.9}
+
+    event = ai_service._event_from_detection(detection)
+
+    assert event["track_id"] is None
+    assert event["is_moving"] is False
+    assert event["motion_direction"] == "unknown"
+    assert event["motion_magnitude"] == "low"
+    assert event["approaching"] is False
+
+
+def test_event_from_detection_passes_through_motion_fields_when_present(ai_service):
+    detection = {
+        "category": "person",
+        "confidence": 0.9,
+        "track_id": "t-42",
+        "is_moving": True,
+        "motion_direction": "toward",
+        "motion_magnitude": "high",
+        "approaching": True,
+    }
+
+    event = ai_service._event_from_detection(detection)
+
+    assert event["track_id"] == "t-42"
+    assert event["is_moving"] is True
+    assert event["motion_direction"] == "toward"
+    assert event["motion_magnitude"] == "high"
+    assert event["approaching"] is True
+
+
+def test_event_from_detection_distance_m_is_none_when_no_depth_data_present(ai_service):
+    # Legitimate case: depth enrichment failed/unavailable upstream, so there
+    # is no relative_depth to report. This should keep passing after a fix.
+    detection = {"category": "door", "confidence": 0.5}
+
+    event = ai_service._event_from_detection(detection)
+
+    assert event["distance_m"] is None
+
+
+def test_event_from_detection_surfaces_relative_depth_as_distance_m(ai_service):
+    # Was previously hardcoded to None regardless of input, so depth data
+    # vision_adapter() attaches to detections (relative_depth) never reached
+    # downstream guidance/safety logic. Fixed alongside this test.
+    detection = {
+        "category": "stairs",
+        "confidence": 0.9,
+        "relative_depth": 3.2,
+    }
+
+    event = ai_service._event_from_detection(detection)
+
+    assert event["distance_m"] == 3.2
