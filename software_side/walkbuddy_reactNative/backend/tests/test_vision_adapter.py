@@ -19,6 +19,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+import adapters.depth_adapter as depth_adapter  # noqa: E402
 from adapters.vision_adapter import vision_adapter  # noqa: E402
 
 
@@ -189,3 +190,95 @@ def test_image_id_uses_the_file_stem(tmp_path):
     result = vision_adapter(model, str(image_path))
 
     assert result["image_id"] == "frame_007"
+
+
+# ── depth enrichment (adapters.depth_adapter.enrich_detections_with_depth) ──
+#
+# vision_adapter() unconditionally calls enrich_detections_with_depth() on
+# every detection. depth_adapter reads its estimator from a module-level
+# `estimate_depth` global, so that's what gets patched here rather than
+# mocking vision_adapter's own import — patching the function reference
+# vision_adapter imported wouldn't affect enrich_detections_with_depth's own
+# internal lookup of the estimator.
+
+def test_depth_enrichment_attaches_relative_depth_when_estimator_available(tmp_path, monkeypatch):
+    image_path = tmp_path / "frame.jpg"
+    write_image(image_path, size=(300, 150))
+    box = FakeBox(0, 0, 50, 50, conf=0.9, cls_id=0)
+    model = FakeModel(boxes=[box], names={0: "door"})
+
+    def fake_estimate_depth(_image_path, bounding_boxes):
+        return {"boxes": [{"improved_depth_score": 0.42} for _ in bounding_boxes]}
+
+    monkeypatch.setattr(depth_adapter, "estimate_depth", fake_estimate_depth)
+
+    result = vision_adapter(model, str(image_path))
+
+    assert result["detections"][0]["relative_depth"] == 0.42
+
+
+def test_depth_enrichment_matches_scores_to_detections_in_order(tmp_path, monkeypatch):
+    image_path = tmp_path / "frame.jpg"
+    write_image(image_path, size=(300, 150))
+    # Same priority/confidence so vision_adapter's own sort doesn't reorder
+    # them — isolates the depth-matching behavior from the sort behavior.
+    box_a = FakeBox(0, 0, 20, 20, conf=0.9, cls_id=0)
+    box_b = FakeBox(0, 0, 20, 20, conf=0.9, cls_id=0)
+    model = FakeModel(boxes=[box_a, box_b], names={0: "door"})
+
+    def fake_estimate_depth(_image_path, bounding_boxes):
+        return {"boxes": [{"improved_depth_score": 0.1}, {"improved_depth_score": 0.9}]}
+
+    monkeypatch.setattr(depth_adapter, "estimate_depth", fake_estimate_depth)
+
+    result = vision_adapter(model, str(image_path))
+
+    assert [d["relative_depth"] for d in result["detections"]] == [0.1, 0.9]
+
+
+def test_depth_enrichment_falls_back_to_none_when_estimator_unavailable(tmp_path, monkeypatch):
+    image_path = tmp_path / "frame.jpg"
+    write_image(image_path, size=(300, 150))
+    box = FakeBox(0, 0, 50, 50, conf=0.9, cls_id=0)
+    model = FakeModel(boxes=[box], names={0: "door"})
+
+    monkeypatch.setattr(depth_adapter, "estimate_depth", None)
+
+    result = vision_adapter(model, str(image_path))
+
+    assert result["detections"][0]["relative_depth"] is None
+
+
+def test_depth_enrichment_falls_back_to_none_when_estimator_raises(tmp_path, monkeypatch):
+    image_path = tmp_path / "frame.jpg"
+    write_image(image_path, size=(300, 150))
+    box = FakeBox(0, 0, 50, 50, conf=0.9, cls_id=0)
+    model = FakeModel(boxes=[box], names={0: "door"})
+
+    def broken_estimate_depth(_image_path, bounding_boxes):
+        raise RuntimeError("depth model exploded")
+
+    monkeypatch.setattr(depth_adapter, "estimate_depth", broken_estimate_depth)
+
+    result = vision_adapter(model, str(image_path))
+
+    # Must degrade gracefully, not propagate the estimator's exception.
+    assert result["detections"][0]["relative_depth"] is None
+
+
+def test_depth_enrichment_with_no_detections_does_not_call_the_estimator(tmp_path, monkeypatch):
+    image_path = tmp_path / "empty.jpg"
+    write_image(image_path)
+    model = FakeModel(boxes=[], names={})
+    calls = []
+
+    def spy_estimate_depth(_image_path, bounding_boxes):
+        calls.append(bounding_boxes)
+        return {"boxes": []}
+
+    monkeypatch.setattr(depth_adapter, "estimate_depth", spy_estimate_depth)
+
+    result = vision_adapter(model, str(image_path))
+
+    assert result["detections"] == []
+    assert calls == []
