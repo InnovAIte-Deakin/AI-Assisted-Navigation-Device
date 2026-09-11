@@ -107,6 +107,7 @@ export default function CameraAssistScreen() {
 
   // Feature 2: Lost & Recovery
   const lastPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const currentLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const assistanceAlertShownRef = useRef(false);
 
@@ -430,13 +431,17 @@ export default function CameraAssistScreen() {
       const ws2 = wsRef.current;
       if (!ws2 || ws2.readyState !== WebSocket.OPEN) return;
 
-      ws2.send(JSON.stringify({
-        type: "frame_meta",
-        frame_id: frameId,
-        width: photo.width ?? 0,
-        height: photo.height ?? 0,
-        timestamp_ms: Date.now(),
-      }));
+      const currentLocation = currentLocationRef.current;
+
+  ws2.send(JSON.stringify({
+  type: "frame_meta",
+  frame_id: frameId,
+  width: photo.width ?? 0,
+  height: photo.height ?? 0,
+  timestamp_ms: Date.now(),
+  latitude: currentLocation?.latitude ?? null,
+  longitude: currentLocation?.longitude ?? null,
+}));
 
       if (Platform.OS === "web") {
         const resp = await fetch(photo.uri);
@@ -693,6 +698,7 @@ export default function CameraAssistScreen() {
         (loc) => {
           const { latitude, longitude } = loc.coords;
           const now = Date.now();
+          currentLocationRef.current = { latitude, longitude };
 
           if (!lastPositionRef.current) {
             lastPositionRef.current = { lat: latitude, lng: longitude, time: now };
