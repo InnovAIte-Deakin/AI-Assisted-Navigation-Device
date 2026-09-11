@@ -4,12 +4,6 @@ auth.py connects to a real SQLite file at a hardcoded relative path
 ("helpers.db"). To keep tests isolated and avoid creating/polluting a real
 database file wherever pytest happens to run from, every test redirects
 sqlite3.connect() to a fresh temp-file database via the isolated_db fixture.
-
-Scope note: this file tests auth.py's *current* behavior as-is. It does not
-fix the known issues (unsalted SHA-256 hashing, and login tokens that are
-generated but never stored anywhere a later request could validate) — those
-are tracked separately. Documenting current behavior here (including its
-gaps) is deliberate, not an oversight.
 """
 
 from __future__ import annotations
@@ -73,6 +67,17 @@ class TestSignup:
         row = conn.execute("SELECT pw FROM helpers WHERE email=?", ("hash-check@example.com",)).fetchone()
         assert row[0] != password
 
+    def test_same_password_hashes_differently_per_account_due_to_salting(self, isolated_db):
+        # The real proof the fix works: two accounts with the identical
+        # password must not produce the identical stored hash, since each
+        # gets its own random salt. Unsalted SHA-256 would fail this.
+        auth.signup(make_body(email="salt-a@example.com", password="hunter2"))
+        auth.signup(make_body(email="salt-b@example.com", password="hunter2"))
+        conn = sqlite3.connect(isolated_db)
+        hash_a = conn.execute("SELECT pw FROM helpers WHERE email=?", ("salt-a@example.com",)).fetchone()[0]
+        hash_b = conn.execute("SELECT pw FROM helpers WHERE email=?", ("salt-b@example.com",)).fetchone()[0]
+        assert hash_a != hash_b
+
 
 class TestLogin:
     def test_correct_credentials_returns_ok_and_token(self, isolated_db):
@@ -91,14 +96,13 @@ class TestLogin:
             auth.login(make_body(email="never-signed-up@example.com", password="whatever"))
         assert exc_info.value.status_code == 401
 
-    def test_login_on_a_never_used_database_crashes_instead_of_401(self, isolated_db):
-        # Known gap, not fixed here: signup() runs CREATE TABLE IF NOT
-        # EXISTS, but login() does not. If /login is ever called before any
-        # /signup has happened on a given deployment, the table doesn't
-        # exist yet and this raises an unhandled sqlite3.OperationalError
-        # (-> 500) instead of the intended 401 "Invalid credentials".
-        with pytest.raises(sqlite3.OperationalError):
+    def test_login_on_a_never_used_database_returns_clean_401(self, isolated_db):
+        # Previously this crashed with an unhandled sqlite3.OperationalError
+        # (-> 500) because only signup() created the table. login() now
+        # ensures the table exists too, so a fresh deployment fails safely.
+        with pytest.raises(HTTPException) as exc_info:
             auth.login(make_body(email="anyone@example.com", password="whatever"))
+        assert exc_info.value.status_code == 401
 
     def test_wrong_password_raises_401(self, isolated_db):
         auth.signup(make_body(email="wrong-pw@example.com", password="correct-password"))
@@ -112,16 +116,20 @@ class TestLogin:
         second = auth.login(make_body(email="two-tokens@example.com", password="hunter2"))
         assert first["token"] != second["token"]
 
-    def test_issued_token_is_not_persisted_anywhere(self, isolated_db):
-        # Documents a known gap (not fixed in this PR): login() generates a
-        # token but never stores it, so no later request could ever
-        # validate it against anything. This test fails if a future change
-        # accidentally starts persisting tokens without updating this note.
-        auth.signup(make_body(email="token-not-stored@example.com", password="hunter2"))
-        auth.login(make_body(email="token-not-stored@example.com", password="hunter2"))
+    def test_issued_token_is_persisted_and_linked_to_the_right_helper(self, isolated_db):
+        # Previously login() generated a token but never stored it anywhere,
+        # so no later request could ever validate it. It's now persisted
+        # against the helper it belongs to.
+        auth.signup(make_body(email="token-stored@example.com", password="hunter2"))
+        result = auth.login(make_body(email="token-stored@example.com", password="hunter2"))
+
         conn = sqlite3.connect(isolated_db)
-        table_names = {
-            row[0]
-            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-        }
-        assert table_names == {"helpers"}  # no separate token/session table exists
+        helper_id = conn.execute(
+            "SELECT id FROM helpers WHERE email=?", ("token-stored@example.com",)
+        ).fetchone()[0]
+        stored = conn.execute(
+            "SELECT helper_id FROM helper_tokens WHERE token=?", (result["token"],)
+        ).fetchone()
+
+        assert stored is not None
+        assert stored[0] == helper_id
