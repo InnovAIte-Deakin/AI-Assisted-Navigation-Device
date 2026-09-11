@@ -205,6 +205,11 @@ async def vision_endpoint(request: Request, file: UploadFile = File(...)):
                     )
                     raise
                 _finish_vision_metrics(request.app, metrics_started_at, successful=True)
+                depth_estimator = getattr(request.app.state, "depth_estimator", None)
+                if depth_estimator is not None:
+                    result["detections"] = await anyio.to_thread.run_sync(
+                        depth_estimator.annotate, temp_path, result["detections"]
+                    )
         except Exception:
             logger.exception("Vision adapter error")
             return JSONResponse(status_code=500, content=inference_failed_error())
@@ -464,6 +469,11 @@ async def vision_ws_endpoint(websocket: WebSocket):
                             result = await anyio.to_thread.run_sync(
                                 vision_adapter, yolo, temp_path
                             )
+                            depth_estimator = getattr(websocket.app.state, "depth_estimator", None)
+                            if depth_estimator is not None:
+                                result["detections"] = await anyio.to_thread.run_sync(
+                                    depth_estimator.annotate, temp_path, result["detections"]
+                                )
                             _finish_vision_metrics(
                                 websocket.app, metrics_started_at, successful=True
                             )

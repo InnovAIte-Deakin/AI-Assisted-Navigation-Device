@@ -254,6 +254,7 @@ tifffile==2026.1.14
 tokenizers==0.22.2
 tomlkit==0.13.3
 torch==2.9.1
+transformers>=4.47,<5
 torchvision==0.24.1
 tqdm==4.67.1
 typer==0.21.1

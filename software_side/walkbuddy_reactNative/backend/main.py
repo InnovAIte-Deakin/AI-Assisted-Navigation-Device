@@ -40,6 +40,7 @@ except IndexError:
 _model_base = Path(os.environ["WALKBUDDY_MODEL_DIR"]) if "WALKBUDDY_MODEL_DIR" in os.environ else PROJECT_ROOT / "ML_side/models"
 LLM_MODEL_PATH = _model_base / "llama-3.2-1b-instruct-q4_k_m.gguf"
 YOLO_MODEL_PATH = _model_base / "best.pt"
+DEPTH_MODEL_DIR = Path(os.environ["WALKBUDDY_DEPTH_MODEL_DIR"]) if "WALKBUDDY_DEPTH_MODEL_DIR" in os.environ else None
 
 
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +67,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import internal.state as app_state
 from internal.state import collaboration_sessions
 from slow_lane import SlowLaneBrain
+from adapters.depth_estimator import MetricDepthEstimator
 
 # Routers
 from routers import audiobooks as audiobooks_router
@@ -297,6 +299,9 @@ async def lifespan(app: FastAPI):
     # than two competing threads on a single CPU, and anyio's CapacityLimiter
     # queues waiters in FIFO order so multiple WS clients share it fairly.
     app.state.vision_limiter = anyio.CapacityLimiter(1)
+    # Optional and display-only; absence/failure must never affect YOLO.
+    app.state.depth_estimator = MetricDepthEstimator(DEPTH_MODEL_DIR, interval_s=0.5)
+    await anyio.to_thread.run_sync(app.state.depth_estimator.load)
     app.state.ocr_limiter = anyio.CapacityLimiter(1)
     app.state.llm_limiter = anyio.CapacityLimiter(1)
 

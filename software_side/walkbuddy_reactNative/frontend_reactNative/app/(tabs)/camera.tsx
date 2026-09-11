@@ -41,7 +41,7 @@ type CamMode = "vision" | "ocr";
 const WS_VISION_URL = API_BASE.replace(/^http/, "ws") + "/ws/vision";
 
 type BBox = { x_min: number; y_min: number; x_max: number; y_max: number };
-type Detection = { category: string; confidence: number; bbox: BBox; direction?: string };
+type Detection = { category: string; confidence: number; bbox: BBox; direction?: string; distance_m?: number };
 
 // Module-level frame ID counter (no import needed)
 let _frameCounter = 0;
@@ -144,6 +144,7 @@ export default function CameraAssistScreen() {
 
   // ── UI state ────────────────────────────────────────────────────────────
   const [detections, setDetections] = useState<Detection[]>([]);
+  const [showDistanceEstimates, setShowDistanceEstimates] = useState(false);
   const detectionsRef = useRef<Detection[]>([]);
   const [frameMeta, setFrameMeta] = useState<{ w: number; h: number } | null>(null);
   const [previewLayout, setPreviewLayout] = useState({ w: SCREEN_W, h: SCREEN_H });
@@ -827,12 +828,20 @@ export default function CameraAssistScreen() {
                 style={[styles.boxLabel, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
                 numberOfLines={1}
               >
-                {d.category} {Math.round(d.confidence * 100)}%
+                {d.category} {Math.round(d.confidence * 100)}%{showDistanceEstimates && typeof d.distance_m === "number" ? ` · ≈${d.distance_m.toFixed(1)} m` : ""}
               </Text>
             </View>
           );
         })}
       </View>
+
+      <Pressable
+        onPress={() => setShowDistanceEstimates((shown) => !shown)}
+        style={styles.depthToggle}
+        accessibilityLabel="Toggle distance estimates"
+      >
+        <Text style={styles.depthToggleText}>{showDistanceEstimates ? "Distance: on" : "Distance: off"}</Text>
+      </Pressable>
 
       {/* WS connection status dot (top-left) */}
       <View style={[styles.statusDot, { backgroundColor: wsConnected ? "#4CAF50" : "#ff4444" }]} />
@@ -910,6 +919,8 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
+  depthToggle: { position: "absolute", top: 52, right: 16, backgroundColor: "rgba(27,38,59,0.85)", borderColor: GOLD, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
+  depthToggleText: { color: GOLD, fontSize: 11, fontWeight: "700" },
   ocrOverlay: {
     position: "absolute",
     left: 24,
