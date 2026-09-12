@@ -63,7 +63,7 @@ The system has three components: a React Native frontend, a FastAPI backend that
 
 | Layer | Framework | Language | Key dependencies |
 |-------|-----------|----------|-----------------|
-| Frontend | React Native 0.81.4 + Expo 54 | TypeScript | Expo Router, expo-camera, expo-av, expo-speech, expo-location |
+| Frontend | React Native 0.86.3 + Expo 57 | TypeScript | Expo Router, expo-camera, expo-audio, expo-speech, expo-location |
 | Backend | FastAPI 0.115.4 + uvicorn | Python 3.11 | ultralytics, easyocr, llama-cpp-python, httpx, anyio |
 | ML | YOLOv8n + Llama 3.2-1B | Python | torch, ultralytics, easyocr, llama-cpp-python |
 | Infra | Docker + docker-compose | — | Jaeger (OpenTelemetry tracing) |

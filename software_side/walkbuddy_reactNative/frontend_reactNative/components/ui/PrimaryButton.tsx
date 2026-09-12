@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.10)',
   },
   label: {

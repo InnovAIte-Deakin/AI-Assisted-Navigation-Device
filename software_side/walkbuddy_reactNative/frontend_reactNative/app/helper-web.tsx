@@ -128,8 +128,8 @@ export default function HelperWebScreen() {
   // Fallback frame streaming
   const [useFallbackMode, setUseFallbackMode] = useState(false);
   const [lastFrameDataUrl, setLastFrameDataUrl] = useState<string | null>(null);
-  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const frameStatsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const frameStatsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const frameReceivedCountRef = useRef(0); // Use ref for counter to persist across renders
   const hasVideoTrackRef = useRef(false); // Use ref to avoid stale closure in message handlers
   const useFallbackModeRef = useRef(false); // Use ref to avoid stale closure in message handlers

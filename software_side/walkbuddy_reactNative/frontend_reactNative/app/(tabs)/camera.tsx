@@ -25,6 +25,7 @@ import {
 
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
+import { uriToBlob } from "../../src/utils/uriToBlob";
 import { API_BASE, API_KEY } from "../../src/config";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Radius, Spacing, Typography } from "@/constants/theme";
@@ -58,7 +59,10 @@ async function buildImageFormData(photoUri: string) {
     const blob = await resp.blob();
     form.append("file", new File([blob], "frame.jpg", { type: blob.type || "image/jpeg" }));
   } else {
-    form.append("file", { uri: photoUri, type: "image/jpeg", name: "frame.jpg" } as any);
+    // Append a real Blob, not RN's { uri, type, name } object: the SDK 56+ global
+    // expo/fetch does not support the latter (the body arrives empty).
+    const blob = await uriToBlob(photoUri, "image/jpeg");
+    form.append("file", blob, "frame.jpg");
   }
 
   return form;
