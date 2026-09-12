@@ -440,6 +440,8 @@ async def vision_ws_endpoint(websocket: WebSocket):
                 client_ts = frame_meta.get("timestamp_ms", 0)
                 saved_meta = frame_meta
                 frame_meta = None  # clear before any await so next message is clean
+                latitude = saved_meta.get("latitude")
+                longitude = saved_meta.get("longitude")
 
                 temp_path = None
 
@@ -501,6 +503,10 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                 "risk_level": risk_level_str,
                                 "inference_time_ms": inference_ms,
                                 "server_timestamp_ms": int(time.time() * 1000),
+                                "location": {
+                                "latitude": latitude,
+                                "longitude": longitude,
+                                } if latitude is not None and longitude is not None else None,
                             }))
 
                         except Exception:
