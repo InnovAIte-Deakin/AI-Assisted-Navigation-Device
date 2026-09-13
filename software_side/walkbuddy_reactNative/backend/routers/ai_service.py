@@ -69,6 +69,25 @@ def _record_dropped_vision_frame(app) -> None:
         logger.exception("Unable to record dropped vision frame")
 
 
+async def _send_ws_text(websocket: WebSocket, message: str) -> bool:
+    """Send a prepared WebSocket message, treating a closed peer as normal.
+
+    A client can leave while an inference is running.  In that case the
+    inference result is still valid for runtime accounting, but there is no
+    peer left to receive it.  Keep that lifecycle event separate from an ML
+    inference failure so callers do not try to send a second error payload.
+    """
+    try:
+        await websocket.send_text(message)
+        return True
+    except (WebSocketDisconnect, RuntimeError):
+        # Starlette raises WebSocketDisconnect for transport closure.  Some
+        # ASGI servers instead raise RuntimeError after a close message has
+        # already been sent.  Both mean this connection has ended.
+        logger.info("[WS Vision] Outbound message skipped: client disconnected")
+        return False
+
+
 def normalize_vision_events(raw_events):
     if not isinstance(raw_events, list):
         return []
@@ -493,7 +512,7 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                     int(time.time() * 1000) - client_ts,
                                 )
 
-                            await websocket.send_text(json.dumps({
+                            sent = await _send_ws_text(websocket, json.dumps({
                                 "type": "detection_result",
                                 "frame_id": fid,
                                 "detections": result["detections"],
@@ -502,6 +521,8 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                 "inference_time_ms": inference_ms,
                                 "server_timestamp_ms": int(time.time() * 1000),
                             }))
+                            if not sent:
+                                return
 
                         except Exception:
                             if not metrics_finished:
@@ -509,9 +530,12 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                     websocket.app, metrics_started_at, successful=False
                                 )
                             logger.exception("[WS Vision] Inference error (frame %s)", fid)
-                            await websocket.send_text(
-                                json.dumps(websocket_error_payload("inference_failed", fid))
+                            sent = await _send_ws_text(
+                                websocket,
+                                json.dumps(websocket_error_payload("inference_failed", fid)),
                             )
+                            if not sent:
+                                return
 
                         finally:
                             if temp_path and os.path.exists(temp_path):

@@ -379,12 +379,14 @@ class _WebSocket:
         self.client = None
         self._messages = iter(messages)
         self.sent: list[dict[str, object]] = []
+        self.send_attempts = 0
         self.close_code: int | None = None
 
     async def accept(self) -> None:
         pass
 
     async def send_text(self, message: str) -> None:
+        self.send_attempts += 1
         self.sent.append(json.loads(message))
 
     async def close(self, code: int) -> None:
@@ -395,6 +397,18 @@ class _WebSocket:
             return next(self._messages)
         except StopIteration as exc:
             raise WebSocketDisconnect() from exc
+
+
+class _ClosedOnSendWebSocket(_WebSocket):
+    """Simulate a peer closing after a frame is accepted but before send."""
+
+    def __init__(self, *args: object, send_error: Exception) -> None:
+        super().__init__(*args)
+        self._send_error = send_error
+
+    async def send_text(self, _message: str) -> None:
+        self.send_attempts += 1
+        raise self._send_error
 
 
 _AI_STUB_MODULES = (
@@ -423,6 +437,7 @@ _MAIN_STUB_MODULES = (
     "slow_lane",
     "predictive_path",
     "predictive_path.router",
+    "predictive_path.retrain_router",
     "telemetry",
 )
 
@@ -526,6 +541,7 @@ def main_module() -> Iterator[ModuleType]:
     predictive_path = ModuleType("predictive_path")
     predictive_path.__path__ = []
     predictive_path.router = router_module("predictive_path.router")
+    predictive_path.retrain_router = router_module("predictive_path.retrain_router")
 
     telemetry = ModuleType("telemetry")
     telemetry.init_telemetry = lambda _app: None
@@ -545,6 +561,7 @@ def main_module() -> Iterator[ModuleType]:
         "slow_lane": slow_lane,
         "predictive_path": predictive_path,
         "predictive_path.router": predictive_path.router,
+        "predictive_path.retrain_router": predictive_path.retrain_router,
         "telemetry": telemetry,
     })
 
@@ -741,6 +758,8 @@ def test_websocket_inference_failure_hides_raw_exception_text(
     assert websocket.sent[-1]["code"] == "inference_failed"
     assert "private model failure detail" not in json.dumps(websocket.sent[-1])
     assert app.state.ml_runtime.metrics.snapshot()["failed_inferences"] == 1
+    assert app.state.ml_runtime.metrics.snapshot()["successful_inferences"] == 0
+    assert websocket.send_attempts == 1
 
 
 def test_websocket_tracks_only_frames_the_server_actually_skips(
@@ -787,6 +806,79 @@ def test_successful_websocket_detection_result_shape_is_preserved(
         "inference_time_ms", "server_timestamp_ms",
     }
     assert app.state.ml_runtime.metrics.snapshot()["successful_inferences"] == 1
+    assert app.state.ml_runtime.metrics.snapshot()["failed_inferences"] == 0
+    assert websocket.send_attempts == 1
+
+
+def test_websocket_disconnect_before_result_send_is_not_inference_failure(
+    ai_service_module: ModuleType,
+) -> None:
+    temporary_paths: list[Path] = []
+
+    def successful_adapter(_model: object, image_path: str) -> dict[str, object]:
+        temporary_paths.append(Path(image_path))
+        return {
+            "detections": [],
+            "image_id": "frame",
+            "metadata": {"image_shape": [480, 640]},
+        }
+
+    ai_service_module.vision_adapter = successful_adapter
+    ai_service_module._guidance_payload = lambda *_args, **_kwargs: ("Path clear", "CLEAR")
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            yolo=object(), vision_limiter=_AsyncLimiter(), ml_runtime=MLRuntimeState()
+        )
+    )
+    websocket = _ClosedOnSendWebSocket(
+        app,
+        [
+            {"text": json.dumps({"type": "frame_meta", "frame_id": "frame-1"}), "bytes": None},
+            {"text": None, "bytes": b"image-bytes"},
+        ],
+        send_error=WebSocketDisconnect(),
+    )
+
+    asyncio.run(ai_service_module.vision_ws_endpoint(websocket))
+
+    metrics = app.state.ml_runtime.metrics.snapshot()
+    assert websocket.sent == []
+    assert websocket.send_attempts == 1
+    assert metrics["successful_inferences"] == 1
+    assert metrics["failed_inferences"] == 0
+    assert temporary_paths and not temporary_paths[0].exists()
+
+
+def test_websocket_send_after_close_runtime_error_is_not_inference_failure(
+    ai_service_module: ModuleType,
+) -> None:
+    ai_service_module.vision_adapter = lambda *_args: {
+        "detections": [],
+        "image_id": "frame",
+        "metadata": {"image_shape": [480, 640]},
+    }
+    ai_service_module._guidance_payload = lambda *_args, **_kwargs: ("Path clear", "CLEAR")
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            yolo=object(), vision_limiter=_AsyncLimiter(), ml_runtime=MLRuntimeState()
+        )
+    )
+    websocket = _ClosedOnSendWebSocket(
+        app,
+        [
+            {"text": json.dumps({"type": "frame_meta", "frame_id": "frame-1"}), "bytes": None},
+            {"text": None, "bytes": b"image-bytes"},
+        ],
+        send_error=RuntimeError("Cannot call send once a close message has been sent."),
+    )
+
+    asyncio.run(ai_service_module.vision_ws_endpoint(websocket))
+
+    metrics = app.state.ml_runtime.metrics.snapshot()
+    assert websocket.sent == []
+    assert websocket.send_attempts == 1
+    assert metrics["successful_inferences"] == 1
+    assert metrics["failed_inferences"] == 0
 
 
 def test_model_info_before_startup_reports_unknown_taxonomy_compatibility() -> None:

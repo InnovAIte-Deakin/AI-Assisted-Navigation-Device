@@ -102,16 +102,25 @@ when saving reports to shared evidence locations.
 The preflight complements physical phone testing. It does not replace visual
 overlay/TTS observation, formal held-out evaluation, or model-promotion gates.
 
-## WebSocket lifecycle follow-up
+## WebSocket lifecycle hardening
 
-The physical test also observed a focus-loss race: a camera WebSocket can close
-while an inference is still in flight, after which the backend may attempt
-`websocket.send_text`. This can log `WebSocketDisconnect` or `Cannot call
-"send" once a close message has been sent.` Completed inference results remain
-valid; the race concerns delivery to a connection that has already closed.
+The physical test observed a focus-loss race: a camera WebSocket could close
+while an inference was still in flight, after which the backend attempted to
+send the completed result. Depending on the ASGI server, that produced either
+`WebSocketDisconnect` or `Cannot call "send" once a close message has been
+sent.` The completed inference was valid; only delivery to the departed client
+was impossible.
 
-The smallest likely backend-owned fix is to catch disconnect/send-state errors
-around the result send, stop processing that connection, and clean up the frame
-without treating completed inference as a model failure. Add a regression test
-that closes a WebSocket after binary-frame receipt but before result delivery.
-This task intentionally does not modify `backend/routers/ai_service.py`.
+`backend/routers/ai_service.py` now handles those outbound send failures as a
+normal connection-lifecycle event. It stops processing that connection and does
+not send a second `inference_failed` payload. A genuine `vision_adapter`
+exception while a connection remains open still returns the existing stable
+`inference_failed` protocol message. Temporary frame files are still removed,
+and a completed inference remains recorded as successful runtime work.
+
+`backend/tests/test_ml_runtime.py` covers normal result delivery, a genuine
+inference error, a disconnect before result delivery, and an ASGI-style
+send-after-close `RuntimeError`. This is regression-test evidence only; a
+fresh physical-device re-validation remains required. Inference is not
+cancelled when a client disconnects, so completed work may still be recorded
+without a client receiving its result.
