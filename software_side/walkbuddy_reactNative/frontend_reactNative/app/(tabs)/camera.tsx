@@ -141,6 +141,10 @@ export default function CameraAssistScreen() {
   // ── WebSocket vision streaming ────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [visionConnectionWarning, setVisionConnectionWarning] = useState(false);
+  const [checkingBackend, setCheckingBackend] = useState(false);
+  const [backendCheckMessage, setBackendCheckMessage] = useState("");
+  const backendCheckAbortRef = useRef<AbortController | null>(null);
   const wsReconnectDelay = useRef(500);
   const wsReconnectCount = useRef(0);
   const wsReconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -318,6 +322,8 @@ export default function CameraAssistScreen() {
 
     ws.onopen = () => {
       setWsConnected(true);
+      setVisionConnectionWarning(false);
+      setBackendCheckMessage("");
       wsReconnectDelay.current = 500;
       wsReconnectCount.current = 0;
       // Web camera needs ~2s to warm up its video stream before takePictureAsync works
@@ -375,6 +381,9 @@ export default function CameraAssistScreen() {
       if (wsReconnectCount.current === 3) {
         tts.speakAsync("Vision disconnected. Reconnecting.", RiskLevel.MEDIUM);
       }
+      if (wsReconnectCount.current >= 3) {
+        setVisionConnectionWarning(true);
+      }
 
       const delay = wsReconnectDelay.current;
       wsReconnectDelay.current = Math.min(delay * 2, 8000);
@@ -389,6 +398,43 @@ export default function CameraAssistScreen() {
     connectWebSocketRef.current = connectWebSocket;
   }, [connectWebSocket]);
 
+  const checkBackendReachability = async () => {
+    if (checkingBackend) return;
+    setCheckingBackend(true);
+    setBackendCheckMessage("");
+    const controller = new AbortController();
+    backendCheckAbortRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch(`${API_BASE}/ping`, { signal: controller.signal });
+      if (!isMountedRef.current || !isFocusedRef.current) return;
+      if (!response.ok) {
+        setBackendCheckMessage(`Backend responded with HTTP ${response.status}. Check backend logs.`);
+      } else {
+        const body = await response.json();
+        if (!isMountedRef.current || !isFocusedRef.current) return;
+        setBackendCheckMessage(
+          body?.ok === true
+            ? "Backend is reachable, but live vision is disconnected. Check /ws/vision logs."
+            : "Backend responded, but its health check did not pass.",
+        );
+      }
+    } catch {
+      if (isMountedRef.current && isFocusedRef.current) {
+        setBackendCheckMessage(
+          "This phone cannot reach the backend. Check the API address and phone/Mac network.",
+        );
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (backendCheckAbortRef.current === controller) {
+        backendCheckAbortRef.current = null;
+        if (isMountedRef.current) setCheckingBackend(false);
+      }
+    }
+  };
+
   // Connect on screen focus, disconnect on blur (tab screens stay mounted in background)
   useFocusEffect(
     useCallback(() => {
@@ -397,6 +443,12 @@ export default function CameraAssistScreen() {
       connectWebSocket();
       return () => {
         isFocusedRef.current = false;
+        setWsConnected(false);
+        setVisionConnectionWarning(false);
+        setBackendCheckMessage("");
+        backendCheckAbortRef.current?.abort();
+        backendCheckAbortRef.current = null;
+        setCheckingBackend(false);
         if (wsReconnectTimer.current) clearTimeout(wsReconnectTimer.current);
         if (nextFrameTimer.current) clearTimeout(nextFrameTimer.current);
         if (frameWatchdogTimer.current) clearTimeout(frameWatchdogTimer.current);
@@ -843,6 +895,31 @@ export default function CameraAssistScreen() {
       {/* WS connection status dot (top-left) */}
       <View style={[styles.statusDot, { backgroundColor: wsConnected ? colors.success : colors.danger }]} />
 
+      {visionConnectionWarning && !wsConnected && (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={[styles.connectionWarning, { top: insets.top + 64, backgroundColor: colors.background + "ED", borderColor: colors.danger }]}
+        >
+          <Text style={[styles.connectionWarningTitle, { color: colors.text }]}>Vision feedback disconnected</Text>
+          <Text style={[styles.connectionWarningText, { color: colors.text }]}>The camera preview works, but detection and guidance need the backend. An Expo tunnel does not connect the backend automatically.</Text>
+          {!!backendCheckMessage && (
+            <Text style={[styles.connectionWarningText, { color: colors.text }]}>{backendCheckMessage}</Text>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Check backend connection"
+            disabled={checkingBackend}
+            onPress={checkBackendReachability}
+            style={[styles.connectionCheckButton, { backgroundColor: colors.accent }]}
+          >
+            <Text style={{ color: colors.accentText, fontWeight: "700" }}>
+              {checkingBackend ? "Checking backend…" : "Check backend connection"}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* OCR result overlay — tap to dismiss */}
       {!!ocrResult && (
         <Pressable style={[styles.ocrOverlay, { backgroundColor: colors.background + "ED", borderColor: colors.accent }]} onPress={() => setOcrResult("")}>
@@ -917,6 +994,29 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  connectionWarning: {
+    position: "absolute",
+    left: Spacing.md,
+    right: Spacing.md,
+    zIndex: 2,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  connectionWarningTitle: {
+    fontSize: Typography.size.md,
+    fontWeight: "800",
+  },
+  connectionWarningText: {
+    fontSize: Typography.size.sm,
+  },
+  connectionCheckButton: {
+    alignSelf: "flex-start",
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   ocrOverlay: {
     position: "absolute",
