@@ -129,18 +129,9 @@ All other state is local to individual screens via `useState` and `useRef`.
 
 #### Home (`app/(tabs)/index.tsx`)
 
-Entry point. Four action tiles in a 2×2 grid:
+The Home screen has primary Camera and Emergency actions, plus quick actions for Text Reader, Voice Assist, Places, Audiobooks, Predictive Path, and Favourites. Text Reader and Voice Assist open `/camera` in their respective modes.
 
-| Tile | Label | Action |
-|------|-------|--------|
-| Microphone | VOICE ASSIST | Pushes to `/camera` with `{ mode: "voice" }` |
-| Map marker | PLACES | Pushes to `/places` |
-| Volume | SCREEN READER | Shows "not implemented" alert |
-| File text | TEXT READER | Pushes to `/camera` with `{ mode: "ocr" }` |
-
-Vision Assist section below the grid: toggle switch enables/disables the feature; tapping the preview card loads a `ModelWebView` pointing at `${API_BASE}/vision/?v=${rev}`.
-
-**Known gap:** Greeting is hardcoded to `"Hi Daniel"` — `SessionContext` profile is not read.
+The Vision Assist card opens `/camera` when enabled; its switch disables the card when off. On the Camera screen, live vision uses `/ws/vision`, while the separate REST `/vision` route accepts `POST` image uploads. Neither route is an HTML page to embed in a WebView. During physical-device testing, the phone must also be able to reach the backend API address; an Expo tunnel for Metro alone does not provide backend connectivity.
 
 ---
 
@@ -436,7 +427,7 @@ frontend_reactNative/
 │   │   └── client.ts                   Typed backend functions (broken — see Known Gaps)
 │   ├── config.ts                       API_BASE: env override → LAN IP → 172.20.10.2:8000
 │   ├── components/
-│   │   ├── ModelWebView.tsx            WebView embedding vision preview iframe
+│   │   ├── ModelWebView.tsx            Legacy vision preview component (not used by Vision Assist)
 │   │   ├── MapPanel.tsx                Map component used by exterior navigation
 │   │   ├── FilterBar.tsx               Audiobook filter controls
 │   │   ├── FilterModal.tsx             Audiobook filter modal
