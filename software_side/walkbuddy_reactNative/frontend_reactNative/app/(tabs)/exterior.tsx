@@ -16,6 +16,7 @@ import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 let ExpoSpeechRecognitionModule: any = null;
 let useSpeechRecognitionEvent: any = () => {};
 try {
@@ -72,8 +73,14 @@ const { height: SCREEN_H } = Dimensions.get("window");
 
 const MILESTONES = [200, 100, 50];
 
+// Footer's fixed floating bar occupies about 76 px before the device's
+// system-navigation inset. The scroll content needs this runway so its final
+// controls can move completely above that intentional overlay.
+const FLOATING_FOOTER_CLEARANCE = 76;
+
 export default function ExteriorNavigationScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ presetDestination?: string }>();
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -815,6 +822,15 @@ export default function ExteriorNavigationScreen() {
         }
       />
 
+      <ScrollView
+        style={styles.bodyScrollView}
+        contentContainerStyle={[
+          styles.bodyScrollContent,
+          { paddingBottom: FLOATING_FOOTER_CLEARANCE + insets.bottom },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={[styles.previewBox, { backgroundColor: colors.background }]}>
         <View style={styles.mapInner}>
           <MapPanel
@@ -1127,6 +1143,7 @@ export default function ExteriorNavigationScreen() {
           </Pressable>
         )}
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -1136,6 +1153,8 @@ export default function ExteriorNavigationScreen() {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
+  bodyScrollView: { flex: 1 },
+  bodyScrollContent: { flexGrow: 1 },
 
   headerEditBtn: {
     width: 40, height: 40, borderRadius: Radius.md,
@@ -1187,7 +1206,7 @@ const styles = StyleSheet.create({
   },
 
   startBtn: {
-    flex: 2,
+    flex: 1.8,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 16,
@@ -1214,12 +1233,15 @@ const styles = StyleSheet.create({
   },
 
   destinationBtn: {
+    flex: 1.2,
+    gap: 6,
     borderWidth: 1.5,
   },
 
   destinationBtnText: {
-    fontSize: Typography.size.sm,
-    fontWeight: "800"
+    fontSize: 13.5,
+    fontWeight: "800",
+    letterSpacing: -0.1,
   },
 
   // ─── Modal ───
