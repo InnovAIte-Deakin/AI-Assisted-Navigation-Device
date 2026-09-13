@@ -81,7 +81,62 @@ def _load_vision_adapter(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 def _load_ai_service_for_safety_contract(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    """Load the chat route without CV/OCR/model runtime dependencies."""
+    """Load the chat route with only the safety dependencies kept real."""
+
+    class FakeAPIRouter:
+        def post(self, *_args, **_kwargs):
+            return lambda handler: handler
+
+        def websocket(self, *_args, **_kwargs):
+            return lambda handler: handler
+
+    class FakeRequest:
+        pass
+
+    class FakeUploadFile:
+        pass
+
+    class FakeWebSocket:
+        pass
+
+    class FakeWebSocketDisconnect(Exception):
+        pass
+
+    class FakeHTTPException(Exception):
+        pass
+
+    class FakeJSONResponse:
+        def __init__(self, **_kwargs):
+            pass
+
+    anyio = ModuleType("anyio")
+    fastapi = ModuleType("fastapi")
+    fastapi.APIRouter = FakeAPIRouter
+    fastapi.UploadFile = FakeUploadFile
+    fastapi.File = lambda *_args, **_kwargs: None
+    fastapi.Request = FakeRequest
+    fastapi.WebSocket = FakeWebSocket
+    fastapi.WebSocketDisconnect = FakeWebSocketDisconnect
+    fastapi.HTTPException = FakeHTTPException
+    fastapi_responses = ModuleType("fastapi.responses")
+    fastapi_responses.JSONResponse = FakeJSONResponse
+
+    trace = ModuleType("opentelemetry.trace")
+    trace.get_tracer = lambda _name: object()
+    opentelemetry = ModuleType("opentelemetry")
+    opentelemetry.trace = trace
+
+    ml_runtime = ModuleType("ml_runtime")
+    ml_runtime.inference_failed_error = lambda: {}
+    ml_runtime.model_unavailable_error = lambda: {}
+    ml_runtime.websocket_error_payload = lambda **_kwargs: {}
+
+    # Import the real deterministic safety gate directly. Importing the
+    # slow_lane package would also import its optional Llama runtime, which the
+    # lightweight ML contract environment deliberately does not install.
+    real_safetygate = _load_safetygate()
+    slow_lane = ModuleType("slow_lane")
+    slow_lane.safe_or_stop_recommendation = real_safetygate.safe_or_stop_recommendation
 
     adapters = ModuleType("adapters")
     adapters.__path__ = []
@@ -104,6 +159,13 @@ def _load_ai_service_for_safety_contract(monkeypatch: pytest.MonkeyPatch) -> Mod
     reasoning = ModuleType("tts_service.message_reasoning")
     reasoning.process_adapter_output = lambda *_args, **_kwargs: []
 
+    monkeypatch.setitem(sys.modules, "anyio", anyio)
+    monkeypatch.setitem(sys.modules, "fastapi", fastapi)
+    monkeypatch.setitem(sys.modules, "fastapi.responses", fastapi_responses)
+    monkeypatch.setitem(sys.modules, "opentelemetry", opentelemetry)
+    monkeypatch.setitem(sys.modules, "opentelemetry.trace", trace)
+    monkeypatch.setitem(sys.modules, "ml_runtime", ml_runtime)
+    monkeypatch.setitem(sys.modules, "slow_lane", slow_lane)
     monkeypatch.setitem(sys.modules, "adapters", adapters)
     monkeypatch.setitem(sys.modules, "adapters.vision_adapter", vision)
     monkeypatch.setitem(sys.modules, "adapters.ocr_adapter", ocr)
