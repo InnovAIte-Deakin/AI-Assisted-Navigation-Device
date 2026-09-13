@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 from dataclasses import FrozenInstanceError
@@ -73,6 +74,47 @@ def _load_vision_adapter(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
     path = BACKEND_DIR / "adapters" / "vision_adapter.py"
     spec = importlib.util.spec_from_file_location("navigation_semantics_vision_adapter", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_ai_service_for_safety_contract(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    """Load the chat route without CV/OCR/model runtime dependencies."""
+
+    adapters = ModuleType("adapters")
+    adapters.__path__ = []
+    vision = ModuleType("adapters.vision_adapter")
+    vision.vision_adapter = lambda *_args, **_kwargs: None
+    ocr = ModuleType("adapters.ocr_adapter")
+    ocr.ocr_adapter = lambda *_args, **_kwargs: None
+
+    internal = ModuleType("internal")
+    internal.__path__ = []
+    state = ModuleType("internal.state")
+    state.memory = SimpleNamespace(buffer=[], add_event=lambda **_kwargs: None)
+    state.llm_brain = None
+    state.conversation_histories = {}
+    motion = ModuleType("internal.motion_tracker")
+    motion.MotionTracker = type("MotionTracker", (), {})
+
+    tts_service = ModuleType("tts_service")
+    tts_service.__path__ = []
+    reasoning = ModuleType("tts_service.message_reasoning")
+    reasoning.process_adapter_output = lambda *_args, **_kwargs: []
+
+    monkeypatch.setitem(sys.modules, "adapters", adapters)
+    monkeypatch.setitem(sys.modules, "adapters.vision_adapter", vision)
+    monkeypatch.setitem(sys.modules, "adapters.ocr_adapter", ocr)
+    monkeypatch.setitem(sys.modules, "internal", internal)
+    monkeypatch.setitem(sys.modules, "internal.state", state)
+    monkeypatch.setitem(sys.modules, "internal.motion_tracker", motion)
+    monkeypatch.setitem(sys.modules, "tts_service", tts_service)
+    monkeypatch.setitem(sys.modules, "tts_service.message_reasoning", reasoning)
+
+    path = BACKEND_DIR / "routers" / "ai_service.py"
+    spec = importlib.util.spec_from_file_location("navigation_semantics_ai_service", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -285,6 +327,54 @@ def test_safetygate_uses_exact_identity_and_canonical_hazard_wording() -> None:
     assert safetygate.extract_hazards(
         [{"label": "office-chair", "direction": "ahead", "confidence": 0.9}]
     ) == ["chair ahead"]
+
+
+def test_chat_safety_gate_returns_before_the_llm_for_a_canonical_hazard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ai_service = _load_ai_service_for_safety_contract(monkeypatch)
+
+    class ProbeLLM:
+        calls = 0
+
+        def ask(self, *_args, **_kwargs):
+            self.calls += 1
+            return "unsafe fallback"
+
+    llm = ProbeLLM()
+    ai_service.state.llm_brain = llm
+
+    response = asyncio.run(
+        ai_service.chat_endpoint(
+            SimpleNamespace(),
+            {
+                "query": "Can I continue walking?",
+                "vision_events": [
+                    {"label": "stairs", "direction": "ahead", "confidence": 0.9}
+                ],
+            },
+        )
+    )
+
+    assert response["response"].startswith("Not safe to move forward.")
+    assert llm.calls == 0
+
+
+def test_guidance_event_does_not_recast_relative_depth_as_metric_distance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ai_service = _load_ai_service_for_safety_contract(monkeypatch)
+
+    event = ai_service._event_from_detection(
+        {
+            "category": "stairs",
+            "direction": "ahead",
+            "confidence": 0.9,
+            "relative_depth": 0.625,
+        }
+    )
+
+    assert event["distance_m"] is None
 
 
 @pytest.mark.parametrize(
