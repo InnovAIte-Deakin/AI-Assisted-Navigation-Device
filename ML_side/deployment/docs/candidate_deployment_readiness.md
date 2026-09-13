@@ -134,9 +134,12 @@ Common issues:
   firewall, and Expo's backend base URL.
 - **Expo mismatch:** use the project-compatible Expo workflow; do not casually
   upgrade the whole app during candidate validation.
-- **WebSocket close on blur:** an in-flight result can finish after a close and
-  backend send can raise a disconnect error. This is a backend-owned follow-up,
-  not changed by this tooling.
+- **WebSocket close on blur:** a client can leave while inference is still
+  running. The vision route now treats a failed result send as normal connection
+  lifecycle handling, without sending a second inference-failure payload. The
+  completed inference is still accounted for and its temporary frame is cleaned
+  up. This does not cancel the in-flight inference or prove a fresh
+  physical-device re-test; validate that path separately.
 
 ## Physical-device context
 
