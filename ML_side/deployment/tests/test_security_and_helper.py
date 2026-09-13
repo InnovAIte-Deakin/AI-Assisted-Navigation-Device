@@ -47,12 +47,23 @@ POWERSHELL = shutil.which("powershell") or shutil.which("pwsh")
 
 
 def _write_fake_python(tmp_path: Path, exit_code: int) -> Path:
-    fake_python = tmp_path / "fake_python.cmd"
-    fake_python.write_text(
-        "@echo %*>> \"%FAKE_PYTHON_LOG%\"\r\n"
-        f"@exit /b {exit_code}\r\n",
-        encoding="utf-8",
-    )
+    if os.name == "nt":
+        fake_python = tmp_path / "fake_python.cmd"
+        fake_python.write_text(
+            "@echo %*>> \"%FAKE_PYTHON_LOG%\"\r\n"
+            f"@exit /b {exit_code}\r\n",
+            encoding="utf-8",
+        )
+    else:
+        fake_python = tmp_path / "fake_python"
+        fake_python.write_text(
+            "#!/bin/sh\n"
+            'printf "%s\\n" "$*" >> "$FAKE_PYTHON_LOG"\n'
+            f"exit {exit_code}\n",
+            encoding="utf-8",
+        )
+        fake_python.chmod(fake_python.stat().st_mode | 0o111)
+
     return fake_python
 
 
@@ -101,6 +112,7 @@ def test_launch_helper_binds_host_alias_and_keeps_dry_runs_nonexecuting(tmp_path
     )
     assert default_run.returncode == 0, default_run.stderr
     assert "--host 0.0.0.0 --port 8000" in default_run.stdout
+    assert default_log.exists()
     assert "-m uvicorn" not in default_log.read_text(encoding="utf-8")
 
     custom_log = tmp_path / "custom.log"
@@ -115,6 +127,7 @@ def test_launch_helper_binds_host_alias_and_keeps_dry_runs_nonexecuting(tmp_path
     )
     assert custom_run.returncode == 0, custom_run.stderr
     assert "--host 127.0.0.1 --port 8765" in custom_run.stdout
+    assert custom_log.exists()
     assert "-m uvicorn" not in custom_log.read_text(encoding="utf-8")
 
 
@@ -129,6 +142,7 @@ def test_launch_helper_stops_before_uvicorn_when_readiness_fails(tmp_path):
     )
     assert failed_run.returncode != 0
     assert "Deployment readiness failed; backend was not started." in failed_run.stderr
+    assert log_path.exists()
     assert "-m uvicorn" not in log_path.read_text(encoding="utf-8")
 
 
