@@ -437,6 +437,7 @@ _MAIN_STUB_MODULES = (
     "slow_lane",
     "predictive_path",
     "predictive_path.router",
+    "predictive_path.retrain_router",
     "telemetry",
 )
 
@@ -540,6 +541,7 @@ def main_module() -> Iterator[ModuleType]:
     predictive_path = ModuleType("predictive_path")
     predictive_path.__path__ = []
     predictive_path.router = router_module("predictive_path.router")
+    predictive_path.retrain_router = router_module("predictive_path.retrain_router")
 
     telemetry = ModuleType("telemetry")
     telemetry.init_telemetry = lambda _app: None
@@ -559,6 +561,7 @@ def main_module() -> Iterator[ModuleType]:
         "slow_lane": slow_lane,
         "predictive_path": predictive_path,
         "predictive_path.router": predictive_path.router,
+        "predictive_path.retrain_router": predictive_path.retrain_router,
         "telemetry": telemetry,
     })
 
