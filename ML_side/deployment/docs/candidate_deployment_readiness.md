@@ -100,7 +100,10 @@ python .\ML_side\deployment\tools\validate_evidence.py .\evidence\candidate-read
 
 The PowerShell helper is dry-run-first. It validates readiness, prints a safely
 argumentized Uvicorn command, sets `WALKBUDDY_MODEL_DIR` and
-`WALKBUDDY_ML_MOCK=0`, and only launches with `-Execute`:
+`WALKBUDDY_ML_MOCK=0`, binds `WALKBUDDY_EXPECTED_MODEL_SHA256` from the already
+validated deployment manifest, and only launches with `-Execute`. This lets the
+backend verify that the startup-loaded artifact matches the preflight-approved
+Candidate identity without re-running deployment validation:
 
 ```powershell
 .\ML_side\deployment\scripts\start_candidate_backend.ps1 `
@@ -118,7 +121,9 @@ arrays and `Resolve-Path`, not shell string evaluation, so spaces are safe.
 
 The preflight checks `/ml/model-info`, `/ml/ready`, `/ml/health`, and
 `/ml/metrics`, including loaded state, backend identity, taxonomy, readiness,
-health, finite metrics, and transport/HTTP/JSON failures. A missing Llama
+health, finite metrics, and transport/HTTP/JSON failures. `/ml/health` is
+component/liveness-style status, while `/ml/ready` is technical navigation-model
+readiness; neither endpoint grants production authorization. A missing Llama
 artifact or unavailable OpenTelemetry collector does not by itself prove YOLO
 vision is unavailable; the environment doctor classifies feature-specific
 dependencies separately.

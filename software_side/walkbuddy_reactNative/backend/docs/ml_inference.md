@@ -146,12 +146,32 @@ there is no second taxonomy definition.
 deserialisation failure, and is reported with `loaded: true` and no
 `failure_category`.
 
-**This field is currently observational.** A `false` value does **not** alter
-`GET /ml/ready`, `GET /ml/health`, `POST /ml/navigate`, or the container health
-check in this change. The active `best.pt` is the inherited historical model, so
-enforcing the contract before the approved eight-class model is trained and
-promoted would deliberately make the development backend unhealthy. Enforcement
-is intentionally deferred to a separate change once that model exists.
+## ML runtime operational endpoints
+
+- `GET /ping` is basic process reachability.
+- `GET /ml/health` is component/liveness-style status. It remains `200` while
+  reporting whether the vision and OCR components are loaded, and does not make
+  a model-quality, lifecycle, or production-authorization decision.
+- `GET /ml/ready` is technical navigation-model readiness. It returns `200`
+  only when startup lineage proves a loaded model, usable metadata, and the
+  exact approved ordered navigation taxonomy. Otherwise it returns `503` with
+  a stable `reason` category and no filesystem paths or exception text.
+- `GET /ml/model-info` remains the detailed safe active-lineage endpoint.
+
+The Docker `HEALTHCHECK` probes `/ml/ready`, because this is an ML-serving
+container whose operational health requires a technically ready navigation
+model. This still does not grant production approval, lifecycle promotion,
+model-quality approval, or deployment authorization.
+
+When `WALKBUDDY_EXPECTED_MODEL_SHA256` is set by a controlled launcher,
+`/ml/ready` additionally requires that exact startup-captured SHA-256. An absent
+variable retains taxonomy-only technical readiness; a malformed or mismatched
+value returns `model_identity_mismatch`. The SHA is calculated once during
+startup lineage capture, never per readiness request.
+
+Technical readiness is not production approval, promotion approval, held-out
+evaluation approval, model-quality approval, or deployment authorization. The
+Candidate lifecycle remains authoritative in the model registry.
 
 ## Tests
 

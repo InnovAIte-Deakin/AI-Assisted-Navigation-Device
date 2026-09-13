@@ -40,6 +40,12 @@ def test_launch_helper_is_dry_run_first_and_uses_argument_arrays():
     assert "[string]$BindHost = \"0.0.0.0\"" in helper
     assert "[string]$Host" not in helper
     assert '"--host", $BindHost' in helper
+    assert "WALKBUDDY_EXPECTED_MODEL_SHA256" in helper
+    assert "ConvertFrom-Json" in helper
+    assert "expected_sha256" in helper
+    assert helper.index("WALKBUDDY_EXPECTED_MODEL_SHA256") > helper.index(
+        "if ($LASTEXITCODE -ne 0)"
+    )
     assert "Invoke-Expression" not in helper
 
 
@@ -144,6 +150,21 @@ def test_launch_helper_stops_before_uvicorn_when_readiness_fails(tmp_path):
     assert "Deployment readiness failed; backend was not started." in failed_run.stderr
     assert log_path.exists()
     assert "-m uvicorn" not in log_path.read_text(encoding="utf-8")
+
+
+def test_backend_docker_healthcheck_requires_ml_readiness():
+    dockerfile = (
+        DEPLOYMENT_DIR.parents[1]
+        / "software_side"
+        / "walkbuddy_reactNative"
+        / "backend"
+        / "Dockerfile"
+    )
+    contents = dockerfile.read_text(encoding="utf-8")
+
+    assert "HEALTHCHECK" in contents
+    assert "curl -f http://localhost:8000/ml/ready" in contents
+    assert "curl -f http://localhost:8000/ml/health" not in contents
 
 
 def test_runtime_preflight_output_safety_remains_in_force(tmp_path):
