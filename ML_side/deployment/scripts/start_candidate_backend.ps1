@@ -10,7 +10,8 @@ param(
 
     [string]$Python = "python",
     [string]$BackendDirectory = "software_side/walkbuddy_reactNative/backend",
-    [string]$Host = "0.0.0.0",
+    [Alias("Host")]
+    [string]$BindHost = "0.0.0.0",
     [ValidateRange(1, 65535)]
     [int]$Port = 8000,
     [string]$AllowedOrigins,
@@ -42,7 +43,7 @@ $env:WALKBUDDY_MODEL_DIR = Split-Path -Parent $model
 $env:WALKBUDDY_ML_MOCK = "0"
 if ($AllowedOrigins) { $env:WALKBUDDY_ALLOWED_ORIGINS = $AllowedOrigins }
 
-$uvicornArguments = @("-m", "uvicorn", "main:app", "--host", $Host, "--port", "$Port")
+$uvicornArguments = @("-m", "uvicorn", "main:app", "--host", $BindHost, "--port", "$Port")
 Write-Host "Candidate model directory: $env:WALKBUDDY_MODEL_DIR"
 Write-Host "ML mock mode: $env:WALKBUDDY_ML_MOCK"
 Write-Host "Backend command preview: $Python $($uvicornArguments -join ' ')"
