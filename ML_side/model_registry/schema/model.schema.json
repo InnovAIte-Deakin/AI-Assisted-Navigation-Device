@@ -6,6 +6,45 @@
   "type": "object",
   "additionalProperties": false,
 
+  "$defs": {
+    "portable_reference": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        {
+          "not": {
+            "pattern": "^[A-Za-z]:[\\\\/]"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^/"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^\\\\\\\\"
+          }
+        },
+        {
+          "not": {
+            "pattern": "^~(?:[\\\\/]|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "\\\\\\\\"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(?:^|/)\\.\\.(?:/|$)"
+          }
+        }
+      ]
+    }
+  },
+
   "required": [
     "schema_version",
     "model_id",
@@ -104,9 +143,13 @@
           ]
         },
         "manifest_reference": {
-          "type": [
-            "string",
-            "null"
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/portable_reference"
+            }
           ]
         }
       }
@@ -128,9 +171,13 @@
           "format": "date"
         },
         "configuration_reference": {
-          "type": [
-            "string",
-            "null"
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/portable_reference"
+            }
           ]
         }
       }

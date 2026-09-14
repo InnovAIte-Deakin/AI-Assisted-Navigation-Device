@@ -23,7 +23,7 @@
   },
   "dataset": {
     "release_id": "walkbuddy-navigation-v5",
-    "manifest_reference": "C:\\Users\\lorenzodario\\Documents\\WalkBuddy-Controlled-Releases\\walkbuddy-navigation-v5\\v5-sequence-aware-20260820\\release_manifest.json"
+    "manifest_reference": "external-local/manifest.json"
   },
   "training": {
     "training_date": "2026-09-01",
