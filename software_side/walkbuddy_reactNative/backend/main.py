@@ -41,6 +41,41 @@ LLM_MODEL_PATH = _model_base / "llama-3.2-1b-instruct-q4_k_m.gguf"
 YOLO_MODEL_PATH = _model_base / "best.pt"
 DEPTH_MODEL_DIR = Path(os.environ["WALKBUDDY_DEPTH_MODEL_DIR"]) if "WALKBUDDY_DEPTH_MODEL_DIR" in os.environ else None
 
+# Expected/approved SHA-256 for the shared YOLO artifact. This is intentionally
+# NOT hardcoded in code: it is sourced (in priority order) from an environment
+# variable, then falling back to the machine-readable approved record that the
+# ML side already maintains. When neither is available the check is skipped
+# (reported as "not checked") rather than failing startup.
+_EXPECTED_MODEL_SHA256_ENV = "WALKBUDDY_EXPECTED_MODEL_SHA256"
+_BASELINE_SHA_PATH = PROJECT_ROOT / "ML_side/evaluation/baselines/historical_7class_baseline.json"
+
+
+def _expected_sha_from_baseline() -> str | None:
+    """Read the approved SHA-256 from the committed baseline record, if present.
+
+    Weights are never committed to git, but the ML side already records the
+    approved artifact's SHA-256 in this versioned JSON, so it is a safe single
+    source of truth for the fallback. Any read/parse problem is treated as
+    "unavailable" and must never break startup.
+    """
+    try:
+        with _BASELINE_SHA_PATH.open("r", encoding="utf-8") as baseline_file:
+            record = json.load(baseline_file)
+        sha256 = record.get("model", {}).get("sha256")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if isinstance(sha256, str) and sha256.strip():
+        return sha256.strip()
+    return None
+
+
+def _resolve_expected_model_sha256() -> str | None:
+    """Resolve the expected SHA-256: env var first, then baseline, else None."""
+    env_value = os.environ.get(_EXPECTED_MODEL_SHA256_ENV, "").strip()
+    if env_value:
+        return env_value
+    return _expected_sha_from_baseline()
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,6 +115,7 @@ from ml_runtime import (
     MLRuntimeState,
     ModelMetadataError,
     capture_model_lineage,
+    verify_checksum,
     router as ml_runtime_router,
 )
 
@@ -241,8 +277,8 @@ async def lifespan(app: FastAPI):
     else:
         load_duration_ms = (time.perf_counter() - yolo_load_started) * 1000
         try:
-            app.state.ml_runtime.set_model_lineage(
-                capture_model_lineage(YOLO_MODEL_PATH, app.state.yolo, load_duration_ms)
+            lineage = capture_model_lineage(
+                YOLO_MODEL_PATH, app.state.yolo, load_duration_ms
             )
         except (ModelMetadataError, OSError):
             # The model is usable even if optional lineage capture fails; retain
@@ -251,6 +287,36 @@ async def lifespan(app: FastAPI):
             app.state.ml_runtime.set_model_metadata_failure(
                 YOLO_MODEL_PATH, load_duration_ms
             )
+        else:
+            app.state.ml_runtime.set_model_lineage(lineage)
+
+            # --- verify checksum against the approved value (never crash) ---
+            # This is a pure addition: it only annotates the recorded lineage and
+            # is independent of the taxonomy compatibility signal. A mismatch is
+            # logged and surfaced via /ml/model-info, but the model stays loaded
+            # and /vision, /ws/vision, and /ml/navigate are unaffected.
+            expected_sha256 = _resolve_expected_model_sha256()
+            checksum_verified = verify_checksum(lineage.sha256, expected_sha256)
+            if checksum_verified is False:
+                logger.error(
+                    "❌ Model checksum verification FAILED: the loaded best.pt "
+                    "SHA-256 does not match the expected approved value. The "
+                    "model remains loaded and usable, but its integrity is "
+                    "UNVERIFIED — investigate the artifact before relying on it."
+                )
+                app.state.ml_runtime.set_checksum_verification(
+                    False, failure_category="model_checksum_mismatch"
+                )
+            elif checksum_verified is True:
+                logger.info("✅ Model checksum verified against expected SHA-256")
+                app.state.ml_runtime.set_checksum_verification(True)
+            else:
+                logger.info(
+                    "ℹ️ Model checksum not verified: no expected SHA-256 "
+                    "configured (set %s or provide the baseline record)",
+                    _EXPECTED_MODEL_SHA256_ENV,
+                )
+                app.state.ml_runtime.set_checksum_verification(None)
         logger.info("✅ YOLO ready")
 
     # --- load EasyOCR ---

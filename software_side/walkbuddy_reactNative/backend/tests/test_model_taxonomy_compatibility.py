@@ -208,10 +208,14 @@ def test_lineage_payload_preserves_existing_fields(tmp_path: Path) -> None:
         "num_classes",
         "classes",
         "taxonomy_compatible",
+        "checksum_verified",
         "load_duration_ms",
         "loaded_at",
         "runtime",
         "failure_category",
     }
     assert payload["filename"] == "best.pt"
+    # A freshly captured lineage is "not checked" until the lifespan verifies it,
+    # and this stays independent of the taxonomy-compatibility signal.
+    assert payload["checksum_verified"] is None
     assert str(tmp_path) not in repr(payload)

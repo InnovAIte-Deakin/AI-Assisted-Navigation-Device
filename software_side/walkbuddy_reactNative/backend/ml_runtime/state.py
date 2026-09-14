@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -55,6 +56,24 @@ class MLRuntimeState:
             metadata_unavailable_model_lineage(model_path, load_duration_ms)
         )
 
+    def set_checksum_verification(
+        self, checksum_verified: bool | None, *, failure_category: str | None = None
+    ) -> None:
+        """Record the startup checksum-verification result on the active lineage.
+
+        This is a pure annotation of an already-captured lineage: it never marks
+        a loaded model as unloaded and stays independent of taxonomy reporting.
+        A mismatch may optionally attach a ``failure_category`` for operators,
+        but the model remains ``loaded`` and usable regardless.
+        """
+        with self._model_lock:
+            if self._model_lineage is None:
+                return
+            updates: dict[str, Any] = {"checksum_verified": checksum_verified}
+            if failure_category is not None:
+                updates["failure_category"] = failure_category
+            self._model_lineage = replace(self._model_lineage, **updates)
+
     def model_info(self) -> dict[str, Any]:
         """Return safe lineage data, including pre-startup unavailable state."""
         with self._model_lock:
@@ -67,6 +86,7 @@ class MLRuntimeState:
                     "num_classes": None,
                     "classes": [],
                     "taxonomy_compatible": None,
+                    "checksum_verified": None,
                     "load_duration_ms": None,
                     "loaded_at": None,
                     "runtime": {},
