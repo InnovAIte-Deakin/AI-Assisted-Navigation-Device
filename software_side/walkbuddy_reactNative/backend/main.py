@@ -196,7 +196,9 @@ async def lifespan(app: FastAPI):
 
     # Runtime state is reset for each application startup and is shared by
     # REST and WebSocket inference worker threads.
-    app.state.ml_runtime = MLRuntimeState()
+    app.state.ml_runtime = MLRuntimeState(
+        expected_model_sha256=os.environ.get("WALKBUDDY_EXPECTED_MODEL_SHA256")
+    )
 
     # --- init DB ---
     init_database()
@@ -317,7 +319,9 @@ app = FastAPI(
 )
 app.state.yolo = None
 app.state.ocr_reader = None
-app.state.ml_runtime = MLRuntimeState()
+app.state.ml_runtime = MLRuntimeState(
+    expected_model_sha256=os.environ.get("WALKBUDDY_EXPECTED_MODEL_SHA256")
+)
 
 # =========================
 # 7. MIDDLEWARE

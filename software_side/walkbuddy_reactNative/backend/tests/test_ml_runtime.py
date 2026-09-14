@@ -60,11 +60,19 @@ class CanonicalTaxonomyModel:
     names = {index: name for index, name in enumerate(canonical_class_names())}
 
 
-def _app_with_runtime(*, yolo: object | None, ocr_reader: object | None) -> FastAPI:
+def _app_with_runtime(
+    *,
+    yolo: object | None,
+    ocr_reader: object | None,
+    expected_model_sha256: str | None = None,
+) -> FastAPI:
     app = FastAPI()
     app.state.yolo = yolo
     app.state.ocr_reader = ocr_reader
-    app.state.ml_runtime = MLRuntimeState(latency_window_capacity=4)
+    app.state.ml_runtime = MLRuntimeState(
+        latency_window_capacity=4,
+        expected_model_sha256=expected_model_sha256,
+    )
     app.include_router(ml_runtime_router)
     return app
 
@@ -165,14 +173,14 @@ def test_ml_health_reports_degraded_components() -> None:
     assert response.json()["vision"] == {"loaded": False}
 
 
-def test_ml_ready_returns_200_only_when_yolo_is_available() -> None:
+def test_ml_ready_requires_startup_lineage_even_when_yolo_is_available() -> None:
     app = _app_with_runtime(yolo=object(), ocr_reader=None)
 
     with TestClient(app) as client:
         response = client.get("/ml/ready")
 
-    assert response.status_code == 200
-    assert response.json() == {"ready": True}
+    assert response.status_code == 503
+    assert response.json() == {"ready": False, "reason": "not_initialized"}
 
 
 def test_ml_ready_returns_503_when_yolo_is_unavailable() -> None:
@@ -182,7 +190,95 @@ def test_ml_ready_returns_503_when_yolo_is_unavailable() -> None:
         response = client.get("/ml/ready")
 
     assert response.status_code == 503
-    assert response.json() == {"ready": False}
+    assert response.json() == {"ready": False, "reason": "not_initialized"}
+
+
+def test_ml_ready_accepts_canonical_startup_lineage(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"ready": True, "reason": "ready"}
+
+
+def test_ml_ready_reports_model_load_failure_without_private_details(tmp_path: Path) -> None:
+    app = _app_with_runtime(yolo=None, ocr_reader=None)
+    private_path = tmp_path / "private" / "best.pt"
+    app.state.ml_runtime.set_model_load_failure(
+        private_path, 1.0, "model_load_failed"
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"ready": False, "reason": "model_not_loaded"}
+    assert str(private_path.parent) not in response.text
+
+
+def test_ml_ready_reports_metadata_failure_without_private_details(tmp_path: Path) -> None:
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    private_path = tmp_path / "private" / "best.pt"
+    app.state.ml_runtime.set_model_metadata_failure(private_path, 1.0)
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "ready": False,
+        "reason": "model_metadata_unavailable",
+    }
+    assert str(private_path.parent) not in response.text
+
+
+def test_ml_ready_requires_matching_optional_expected_sha256(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    sha256 = calculate_sha256(artifact)
+    app = _app_with_runtime(
+        yolo=object(),
+        ocr_reader=None,
+        expected_model_sha256=sha256,
+    )
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"ready": True, "reason": "ready"}
+
+
+@pytest.mark.parametrize("expected_model_sha256", ("0" * 64, "not-a-sha"))
+def test_ml_ready_rejects_mismatched_or_malformed_expected_sha256(
+    tmp_path: Path, expected_model_sha256: str
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(
+        yolo=object(),
+        ocr_reader=None,
+        expected_model_sha256=expected_model_sha256,
+    )
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"ready": False, "reason": "model_identity_mismatch"}
 
 
 def test_model_info_endpoint_reports_captured_lineage(tmp_path: Path) -> None:
@@ -648,6 +744,28 @@ def test_lifespan_records_missing_model_without_preventing_startup(
     assert model_info["failure_category"] == "model_file_missing"
 
 
+def test_lifespan_binds_expected_model_sha256_from_environment(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", calculate_sha256(artifact))
+    main_module.YOLO_MODEL_PATH = artifact
+    main_module.YOLO = lambda _path: CanonicalTaxonomyModel()
+    main_module.init_database = lambda: None
+    monkeypatch.setattr(main_module, "_cleanup_sessions_loop", lambda: None)
+    monkeypatch.setattr(main_module.asyncio, "create_task", lambda _coroutine: None)
+
+    async def start_with_candidate_model() -> dict[str, bool | str]:
+        async with main_module.lifespan(main_module.app):
+            return main_module.app.state.ml_runtime.readiness()
+
+    assert asyncio.run(start_with_candidate_model()) == {
+        "ready": True,
+        "reason": "ready",
+    }
+
+
 def test_rest_model_unavailable_response_uses_stable_error_code(
     ai_service_module: ModuleType,
 ) -> None:
@@ -962,8 +1080,7 @@ def test_model_info_endpoint_preserves_existing_lineage_fields(tmp_path: Path) -
     assert str(tmp_path) not in json.dumps(payload)
 
 
-def test_incompatible_taxonomy_does_not_change_readiness(tmp_path: Path) -> None:
-    """Scope guard: this PR reports compatibility and must not enforce it."""
+def test_incompatible_taxonomy_blocks_navigation_readiness(tmp_path: Path) -> None:
     artifact = tmp_path / "best.pt"
     artifact.write_bytes(b"model")
     app = _app_with_runtime(yolo=object(), ocr_reader=object())
@@ -977,14 +1094,14 @@ def test_incompatible_taxonomy_does_not_change_readiness(tmp_path: Path) -> None
         model_info = client.get("/ml/model-info").json()
 
     assert model_info["taxonomy_compatible"] is False
-    assert ready.status_code == 200
-    assert ready.json() == {"ready": True}
+    assert ready.status_code == 503
+    assert ready.json() == {"ready": False, "reason": "taxonomy_incompatible"}
     assert health.status_code == 200
     assert health.json()["status"] == "ok"
     assert app.state.yolo is not None
 
 
-def test_readiness_still_depends_only_on_the_loaded_model(tmp_path: Path) -> None:
+def test_readiness_uses_captured_startup_lineage(tmp_path: Path) -> None:
     artifact = tmp_path / "best.pt"
     artifact.write_bytes(b"model")
     app = _app_with_runtime(yolo=None, ocr_reader=None)
@@ -997,8 +1114,8 @@ def test_readiness_still_depends_only_on_the_loaded_model(tmp_path: Path) -> Non
         model_info = client.get("/ml/model-info").json()
 
     assert model_info["taxonomy_compatible"] is True
-    assert ready.status_code == 503
-    assert ready.json() == {"ready": False}
+    assert ready.status_code == 200
+    assert ready.json() == {"ready": True, "reason": "ready"}
 
 
 def test_taxonomy_compatibility_helper_matches_the_canonical_contract() -> None:

@@ -41,11 +41,14 @@ if ($LASTEXITCODE -ne 0) { throw "Deployment readiness failed; backend was not s
 
 $env:WALKBUDDY_MODEL_DIR = Split-Path -Parent $model
 $env:WALKBUDDY_ML_MOCK = "0"
+$manifestData = Get-Content -Raw -LiteralPath $manifest | ConvertFrom-Json
+$env:WALKBUDDY_EXPECTED_MODEL_SHA256 = [string]$manifestData.expected_sha256
 if ($AllowedOrigins) { $env:WALKBUDDY_ALLOWED_ORIGINS = $AllowedOrigins }
 
 $uvicornArguments = @("-m", "uvicorn", "main:app", "--host", $BindHost, "--port", "$Port")
 Write-Host "Candidate model directory: $env:WALKBUDDY_MODEL_DIR"
 Write-Host "ML mock mode: $env:WALKBUDDY_ML_MOCK"
+Write-Host "Expected model SHA is bound from the validated deployment manifest."
 Write-Host "Backend command preview: $Python $($uvicornArguments -join ' ')"
 if (-not $Execute) {
     Write-Host "Dry run complete. Add -Execute to launch after reviewing the command."
