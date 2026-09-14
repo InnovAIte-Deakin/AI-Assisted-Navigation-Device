@@ -370,12 +370,14 @@ async def vision_ws_endpoint(websocket: WebSocket):
 
     Protocol (per frame):
       Client → text:   {"type": "frame_meta", "frame_id": str, "width": int,
-                         "height": int, "timestamp_ms": int}
+                         "height": int, "timestamp_ms": int,
+                         "latitude": float|null, "longitude": float|null}
       Client → binary: raw JPEG bytes
       Server → text:   {"type": "detection_result", "frame_id": str,
                          "detections": [...], "guidance_message": str,
                          "risk_level": str, "inference_time_ms": int,
-                         "server_timestamp_ms": int}
+                         "server_timestamp_ms": int,
+                         "location": {"latitude": float, "longitude": float}|null}
                     OR {"type": "frame_dropped", "frame_id": str, "reason": str}
                     OR {"type": "error", "code": str, "frame_id": str|null,
                         "message": str}
@@ -504,8 +506,8 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                 "inference_time_ms": inference_ms,
                                 "server_timestamp_ms": int(time.time() * 1000),
                                 "location": {
-                                "latitude": latitude,
-                                "longitude": longitude,
+                                    "latitude": latitude,
+                                    "longitude": longitude,
                                 } if latitude is not None and longitude is not None else None,
                             }))
 

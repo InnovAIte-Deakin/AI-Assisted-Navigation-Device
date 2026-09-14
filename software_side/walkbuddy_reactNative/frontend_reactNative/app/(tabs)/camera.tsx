@@ -433,15 +433,15 @@ export default function CameraAssistScreen() {
 
       const currentLocation = currentLocationRef.current;
 
-  ws2.send(JSON.stringify({
-  type: "frame_meta",
-  frame_id: frameId,
-  width: photo.width ?? 0,
-  height: photo.height ?? 0,
-  timestamp_ms: Date.now(),
-  latitude: currentLocation?.latitude ?? null,
-  longitude: currentLocation?.longitude ?? null,
-}));
+      ws2.send(JSON.stringify({
+        type: "frame_meta",
+        frame_id: frameId,
+        width: photo.width ?? 0,
+        height: photo.height ?? 0,
+        timestamp_ms: Date.now(),
+        latitude: currentLocation?.latitude ?? null,
+        longitude: currentLocation?.longitude ?? null,
+      }));
 
       if (Platform.OS === "web") {
         const resp = await fetch(photo.uri);
