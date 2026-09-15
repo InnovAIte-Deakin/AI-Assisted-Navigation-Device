@@ -289,10 +289,11 @@ def test_event_from_detection_distance_m_is_none_when_no_depth_data_present(ai_s
     assert event["distance_m"] is None
 
 
-def test_event_from_detection_surfaces_relative_depth_as_distance_m(ai_service):
-    # Was previously hardcoded to None regardless of input, so depth data
-    # vision_adapter() attaches to detections (relative_depth) never reached
-    # downstream guidance/safety logic. Fixed alongside this test.
+def test_event_from_detection_does_not_treat_relative_depth_as_metres(ai_service):
+    # relative_depth is a unitless proxy score (bbox size/position
+    # heuristic), not a calibrated metre distance. distance_m must stay
+    # None so downstream navigation memory / LLM context never presents
+    # the proxy as a real physical distance (reviewer-flagged: PR #224).
     detection = {
         "category": "stairs",
         "confidence": 0.9,
@@ -301,4 +302,4 @@ def test_event_from_detection_surfaces_relative_depth_as_distance_m(ai_service):
 
     event = ai_service._event_from_detection(detection)
 
-    assert event["distance_m"] == 3.2
+    assert event["distance_m"] is None

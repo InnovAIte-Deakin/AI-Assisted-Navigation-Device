@@ -170,7 +170,13 @@ def _event_from_detection(detection: dict) -> dict:
     return {
         "label": detection["category"],
         "direction": detection.get("direction", "ahead"),
-        "distance_m": detection.get("relative_depth"),
+        # relative_depth is a unitless proxy score (bbox size/position
+        # heuristic), not a calibrated metre distance. Mapping it directly
+        # into distance_m would make downstream navigation memory / LLM
+        # context present it as a real physical distance. Keep this None
+        # until a calibrated metre-producing estimator exists; if the proxy
+        # needs to reach memory, it should use its own honestly-named field.
+        "distance_m": None,
         "confidence": detection["confidence"],
         "track_id": detection.get("track_id"),
         "is_moving": detection.get("is_moving", False),
