@@ -238,6 +238,81 @@ def _pillow_available() -> bool:
     return True
 
 
+def _perceptual_hash(path: Path, *, hash_size: int = 8) -> int:
+    """Compute a simple average hash (aHash) as a ``hash_size**2``-bit int.
+
+    Unlike ``_sha256``, images that are visually near-identical (re-encoded,
+    slightly cropped, mildly colour-shifted — the common case for
+    consecutive video-capture frames of the same pole) produce hashes a
+    small Hamming distance apart, rather than requiring byte-identical
+    files. This is intentionally simple (no new dependency beyond the
+    already-optional Pillow) rather than a learned embedding.
+    """
+    try:
+        from PIL import Image, UnidentifiedImageError
+    except ImportError as exc:
+        raise CandidateInspectionError("Pillow is unavailable for requested perceptual hashing.") from exc
+    try:
+        with Image.open(path) as image:
+            grayscale = image.convert("L").resize((hash_size, hash_size), Image.Resampling.LANCZOS)
+            pixels = list(grayscale.getdata())
+    except (OSError, SyntaxError, UnidentifiedImageError, ValueError) as exc:
+        raise CandidateInspectionError(str(exc)) from exc
+    average = sum(pixels) / len(pixels)
+    bits = "".join("1" if pixel >= average else "0" for pixel in pixels)
+    return int(bits, 2)
+
+
+def _hamming_distance(a: int, b: int) -> int:
+    return bin(a ^ b).count("1")
+
+
+def _near_duplicate_groups(
+    records: Sequence[Mapping[str, object]],
+    *,
+    max_distance: int,
+) -> list[dict[str, object]]:
+    """Group images whose perceptual hashes are within ``max_distance`` bits.
+
+    Pairwise comparison (O(n^2) in the number of hashed images) is
+    intentional and acceptable here: this tool inspects a controlled
+    candidate dataset (or a class-scoped subset of one), not the full
+    multi-class corpus at training scale. For a class with tens of
+    thousands of images, pre-filter to that class's images before calling
+    this tool rather than scaling this comparison up.
+    """
+    hashed = [
+        (record, record.get("perceptual_hash"))
+        for record in records
+        if isinstance(record.get("perceptual_hash"), int)
+    ]
+    visited: set[int] = set()
+    groups: list[dict[str, object]] = []
+    for i, (record_a, hash_a) in enumerate(hashed):
+        if i in visited:
+            continue
+        cluster = [record_a]
+        cluster_indices = {i}
+        for j in range(i + 1, len(hashed)):
+            if j in visited:
+                continue
+            record_b, hash_b = hashed[j]
+            assert isinstance(hash_a, int) and isinstance(hash_b, int)
+            if _hamming_distance(hash_a, hash_b) <= max_distance:
+                cluster.append(record_b)
+                cluster_indices.add(j)
+        if len(cluster) > 1:
+            visited |= cluster_indices
+            groups.append(
+                {
+                    "images": sorted(str(record["image_path"]) for record in cluster),
+                    "splits": sorted({str(record["split"]) for record in cluster}),
+                    "max_hash_distance": max_distance,
+                }
+            )
+    return sorted(groups, key=lambda group: group["images"])  # type: ignore[arg-type,return-value]
+
+
 def _read_group_map(path: Path | None, dataset_root: Path, errors: list[dict[str, str]]) -> dict[str, str] | None:
     if path is None:
         return None
@@ -445,6 +520,7 @@ def _scan_split(
     *,
     decode_images: bool,
     checksums: bool,
+    perceptual_hashes: bool,
     errors: list[dict[str, str]],
     warnings: list[dict[str, str]],
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
@@ -522,6 +598,12 @@ def _scan_split(
                 checksum = _sha256(image_path)
             except OSError as exc:
                 errors.append(_issue(relative_image, f"image checksum could not be read: {exc}"))
+        perceptual_hash: int | None = None
+        if perceptual_hashes:
+            try:
+                perceptual_hash = _perceptual_hash(image_path)
+            except CandidateInspectionError as exc:
+                errors.append(_issue(relative_image, f"perceptual hash could not be computed: {exc}"))
         records.append(
             {
                 "split": split_name,
@@ -531,6 +613,7 @@ def _scan_split(
                 "annotations": annotations,
                 "label_is_empty": label_is_empty,
                 "checksum": checksum,
+                "perceptual_hash": perceptual_hash,
                 "width": dimensions[0] if dimensions else None,
                 "height": dimensions[1] if dimensions else None,
             }
@@ -566,11 +649,67 @@ def _scan_split(
     )
 
 
+def _class_geometry_buckets(
+    records: Sequence[Mapping[str, object]],
+    *,
+    small_area_threshold: float,
+    extreme_aspect_ratio_threshold: float,
+    max_examples: int = 20,
+) -> list[dict[str, object]]:
+    """Bucket every mapped, non-excluded annotation by size and aspect ratio, per target class.
+
+    Uses the normalized ``width``/``height`` already captured by
+    ``_parse_label_file`` — this data existed before but was never
+    aggregated this way. ``small_area`` and ``extreme_aspect_ratio`` are
+    independent flags (an annotation can be both, one, or neither), since a
+    thin pole close to the camera can be large-area but extreme-aspect, and
+    a distant one can be small-area but ordinary-aspect.
+    """
+    by_class: dict[str, dict[str, object]] = {}
+    for record in records:
+        image_path = str(record["image_path"])
+        for annotation in record["annotations"]:  # type: ignore[union-attr]
+            if annotation.get("excluded") or annotation.get("target_class_name") is None:
+                continue
+            class_name = str(annotation["target_class_name"])
+            width = float(annotation["width"])  # type: ignore[arg-type]
+            height = float(annotation["height"])  # type: ignore[arg-type]
+            area = width * height
+            aspect_ratio = max(height / width, width / height) if width > 0 and height > 0 else float("inf")
+            bucket = by_class.setdefault(
+                class_name,
+                {
+                    "class_name": class_name,
+                    "annotation_count": 0,
+                    "small_area_count": 0,
+                    "extreme_aspect_ratio_count": 0,
+                    "small_area_examples": [],
+                    "extreme_aspect_ratio_examples": [],
+                },
+            )
+            bucket["annotation_count"] = int(bucket["annotation_count"]) + 1  # type: ignore[arg-type]
+            if area < small_area_threshold:
+                bucket["small_area_count"] = int(bucket["small_area_count"]) + 1  # type: ignore[arg-type]
+                examples = bucket["small_area_examples"]
+                assert isinstance(examples, list)
+                if len(examples) < max_examples:
+                    examples.append({"image_path": image_path, "normalized_area": round(area, 6)})
+            if aspect_ratio > extreme_aspect_ratio_threshold:
+                bucket["extreme_aspect_ratio_count"] = int(bucket["extreme_aspect_ratio_count"]) + 1  # type: ignore[arg-type]
+                examples = bucket["extreme_aspect_ratio_examples"]
+                assert isinstance(examples, list)
+                if len(examples) < max_examples:
+                    examples.append({"image_path": image_path, "aspect_ratio": round(aspect_ratio, 3)})
+    return [by_class[name] for name in sorted(by_class)]
+
+
 def _analysis_findings(
     records: Sequence[Mapping[str, object]],
     group_map: Mapping[str, str] | None,
     errors: list[dict[str, str]],
     warnings: list[dict[str, str]],
+    *,
+    near_duplicate_hash_distance: int | None = None,
 ) -> dict[str, object]:
     sample_ids: dict[str, list[Mapping[str, object]]] = defaultdict(list)
     checksums: dict[str, list[Mapping[str, object]]] = defaultdict(list)
@@ -629,12 +768,25 @@ def _analysis_findings(
         )
     for unused_path in sorted(unused_groups):
         warnings.append(_issue(f"groups[{unused_path}]", "does not match an inspected image path."))
+    near_duplicate_images: list[dict[str, object]] = []
+    if near_duplicate_hash_distance is not None:
+        near_duplicate_images = _near_duplicate_groups(records, max_distance=near_duplicate_hash_distance)
+        if near_duplicate_images:
+            warnings.append(
+                _issue(
+                    "duplicates.near_duplicate_images",
+                    f"{len(near_duplicate_images)} near-duplicate image group(s) found "
+                    f"(perceptual hash distance <= {near_duplicate_hash_distance}).",
+                )
+            )
     return {
         "duplicate_sample_identifiers": duplicate_sample_identifiers,
         "duplicate_normalized_paths": duplicate_normalised_paths,
         "duplicate_checksums": duplicate_checksums,
         "cross_split_duplicate_images": cross_split_duplicates,
         "cross_split_group_leakage": group_leakage,
+        "near_duplicate_images": near_duplicate_images,
+        "near_duplicate_detection_configured": near_duplicate_hash_distance is not None,
         "grouping_configured": group_map is not None,
     }
 
@@ -782,6 +934,9 @@ def inspect_dataset(
     group_map_path: Path | None = None,
     decode_images: bool = True,
     checksums: bool = True,
+    near_duplicate_hash_distance: int | None = None,
+    small_area_threshold: float = 0.01,
+    extreme_aspect_ratio_threshold: float = 3.0,
     generate_manifest: bool = False,
     execution_time_utc: str | None = None,
 ) -> tuple[dict[str, object], dict[str, object] | None]:
@@ -809,6 +964,11 @@ def inspect_dataset(
         warnings.append(_issue("image_decoding", "image decoding was explicitly skipped."))
     if not checksums:
         warnings.append(_issue("checksums", "SHA-256 checksum calculation was explicitly skipped."))
+    perceptual_hashes = near_duplicate_hash_distance is not None
+    if perceptual_hashes and not _pillow_available():
+        perceptual_hashes = False
+        near_duplicate_hash_distance = None
+        warnings.append(_issue("near_duplicate_detection", "Pillow is unavailable; near-duplicate detection was skipped."))
 
     split_reports: dict[str, object] = {}
     records: list[dict[str, object]] = []
@@ -836,13 +996,21 @@ def inspect_dataset(
             excluded,
             decode_images=decode_images,
             checksums=checksums,
+            perceptual_hashes=perceptual_hashes,
             errors=errors,
             warnings=warnings,
         )
         split_reports[split_name] = split_report
         records.extend(split_records)
 
-    findings = _analysis_findings(records, group_map, errors, warnings)
+    findings = _analysis_findings(
+        records, group_map, errors, warnings, near_duplicate_hash_distance=near_duplicate_hash_distance
+    )
+    geometry_buckets = _class_geometry_buckets(
+        records,
+        small_area_threshold=small_area_threshold,
+        extreme_aspect_ratio_threshold=extreme_aspect_ratio_threshold,
+    )
     source_counts = Counter(
         int(annotation["source_class_id"])
         for record in records
@@ -898,7 +1066,13 @@ def inspect_dataset(
         "dataset_source_version": metadata.get("dataset", {}).get("source_version")
         if isinstance(metadata, Mapping) and isinstance(metadata.get("dataset"), Mapping)
         else None,
-        "settings": {"image_decoding": decode_images, "checksums": checksums},
+        "settings": {
+            "image_decoding": decode_images,
+            "checksums": checksums,
+            "near_duplicate_hash_distance": near_duplicate_hash_distance,
+            "small_area_threshold": small_area_threshold,
+            "extreme_aspect_ratio_threshold": extreme_aspect_ratio_threshold,
+        },
         "splits": split_reports,
         "source_taxonomy": [{"id": class_id, "name": name} for class_id, name in source_taxonomy.items()],
         "walkbuddy_target_taxonomy": [
@@ -941,6 +1115,7 @@ def inspect_dataset(
             "samples_without_valid_annotations": samples_without_annotations,
         },
         "duplicates": findings,
+        "class_geometry_buckets": geometry_buckets,
         "validation_errors": _sort_issues(errors),
         "warnings": _sort_issues(warnings),
         "quality_verdict": verdict,
@@ -1038,6 +1213,41 @@ def render_markdown_report(report: Mapping[str, object]) -> str:
             ["Target ID", "Class", "Mapped annotations"],
         )
     )
+    lines.extend(["", "## Class geometry buckets", ""])
+    buckets = report.get("class_geometry_buckets")
+    if isinstance(buckets, list) and buckets:
+        lines.extend(
+            _markdown_table(
+                [
+                    (
+                        bucket["class_name"],
+                        bucket["annotation_count"],
+                        bucket["small_area_count"],
+                        bucket["extreme_aspect_ratio_count"],
+                    )
+                    for bucket in buckets
+                ],
+                ["Class", "Annotations", "Small-area count", "Extreme-aspect-ratio count"],
+            )
+        )
+        settings = report.get("settings")
+        if isinstance(settings, Mapping):
+            lines.append("")
+            lines.append(
+                f"Small-area threshold: normalized area < {settings.get('small_area_threshold')}. "
+                f"Extreme-aspect-ratio threshold: max(h/w, w/h) > {settings.get('extreme_aspect_ratio_threshold')}."
+            )
+    else:
+        lines.append("- No annotations were mapped to a WalkBuddy target class.")
+    lines.extend(["", "## Near-duplicate images", ""])
+    near_duplicates = report.get("duplicates", {}).get("near_duplicate_images") if isinstance(report.get("duplicates"), Mapping) else None  # type: ignore[union-attr]
+    if not report.get("duplicates", {}).get("near_duplicate_detection_configured"):  # type: ignore[union-attr]
+        lines.append("- Not run (no `--near-duplicate-hash-distance` supplied).")
+    elif near_duplicates:
+        for group in near_duplicates:  # type: ignore[union-attr]
+            lines.append(f"- {', '.join(group['images'])}")  # type: ignore[index]
+    else:
+        lines.append("- None found within the configured hash distance.")
     for heading, values in (("Validation errors", report["validation_errors"]), ("Warnings", report["warnings"])):
         lines.extend(["", f"## {heading}", ""])
         if values:
@@ -1088,6 +1298,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-image-decode", action="store_true", help="Do not decode images with Pillow.")
     parser.add_argument("--skip-checksums", action="store_true", help="Do not calculate SHA-256 image checksums.")
     parser.add_argument("--generate-manifest", action="store_true", help="Write candidate_manifest.json only when reviewed metadata is complete.")
+    parser.add_argument(
+        "--near-duplicate-hash-distance",
+        type=int,
+        default=None,
+        help="Enable perceptual-hash near-duplicate detection with this maximum Hamming distance (e.g. 5). Off by default.",
+    )
+    parser.add_argument(
+        "--small-area-threshold",
+        type=float,
+        default=0.01,
+        help="Normalized bounding-box area below which an annotation is flagged as small-area (default: 0.01).",
+    )
+    parser.add_argument(
+        "--extreme-aspect-ratio-threshold",
+        type=float,
+        default=3.0,
+        help="max(height/width, width/height) above which an annotation is flagged as extreme-aspect-ratio (default: 3.0).",
+    )
     return parser
 
 
@@ -1100,6 +1328,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             metadata_path=args.metadata,
             group_map_path=args.group_map,
             decode_images=not args.skip_image_decode,
+            near_duplicate_hash_distance=args.near_duplicate_hash_distance,
+            small_area_threshold=args.small_area_threshold,
+            extreme_aspect_ratio_threshold=args.extreme_aspect_ratio_threshold,
             checksums=not args.skip_checksums,
             generate_manifest=args.generate_manifest,
         )
