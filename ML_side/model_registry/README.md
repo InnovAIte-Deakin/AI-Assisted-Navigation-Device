@@ -238,6 +238,15 @@ It records references to the controlled dataset release and manifest produced by
 
 This makes it possible to trace a trained model back to its source data.
 
+`dataset.manifest_reference` and `training.configuration_reference` are portable
+lineage references. Use repository-root-relative (`ML_side/...`) or ML-side-relative
+paths with forward slashes. When an approved dataset release intentionally remains
+in controlled external storage, use the established `external-local/manifest.json`
+reference and preserve its release identity through `dataset.release_id`. The
+training pipeline retains the related manifest and release-checksum evidence in
+its run records. Developer-local absolute, home, UNC, backslash, and traversal
+paths are not valid registry lineage references.
+
 ---
 
 ## 4. Training Lineage

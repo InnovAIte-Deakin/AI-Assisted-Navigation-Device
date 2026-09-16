@@ -72,6 +72,7 @@ _MOCK_RESULT = {
             "bbox": {"x_min": 220, "y_min": 180, "x_max": 420, "y_max": 400},
             "direction": "ahead",
             "priority": get_base_severity(_MOCK_CATEGORY).name,
+            "relative_depth": None,
         }
     ],
     "metadata": {"image_shape": [480, 640]},

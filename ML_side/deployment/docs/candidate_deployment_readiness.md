@@ -100,7 +100,10 @@ python .\ML_side\deployment\tools\validate_evidence.py .\evidence\candidate-read
 
 The PowerShell helper is dry-run-first. It validates readiness, prints a safely
 argumentized Uvicorn command, sets `WALKBUDDY_MODEL_DIR` and
-`WALKBUDDY_ML_MOCK=0`, and only launches with `-Execute`:
+`WALKBUDDY_ML_MOCK=0`, binds `WALKBUDDY_EXPECTED_MODEL_SHA256` from the already
+validated deployment manifest, and only launches with `-Execute`. This lets the
+backend verify that the startup-loaded artifact matches the preflight-approved
+Candidate identity without re-running deployment validation:
 
 ```powershell
 .\ML_side\deployment\scripts\start_candidate_backend.ps1 `
@@ -118,7 +121,9 @@ arrays and `Resolve-Path`, not shell string evaluation, so spaces are safe.
 
 The preflight checks `/ml/model-info`, `/ml/ready`, `/ml/health`, and
 `/ml/metrics`, including loaded state, backend identity, taxonomy, readiness,
-health, finite metrics, and transport/HTTP/JSON failures. A missing Llama
+health, finite metrics, and transport/HTTP/JSON failures. `/ml/health` is
+component/liveness-style status, while `/ml/ready` is technical navigation-model
+readiness; neither endpoint grants production authorization. A missing Llama
 artifact or unavailable OpenTelemetry collector does not by itself prove YOLO
 vision is unavailable; the environment doctor classifies feature-specific
 dependencies separately.
@@ -134,9 +139,12 @@ Common issues:
   firewall, and Expo's backend base URL.
 - **Expo mismatch:** use the project-compatible Expo workflow; do not casually
   upgrade the whole app during candidate validation.
-- **WebSocket close on blur:** an in-flight result can finish after a close and
-  backend send can raise a disconnect error. This is a backend-owned follow-up,
-  not changed by this tooling.
+- **WebSocket close on blur:** a client can leave while inference is still
+  running. The vision route now treats a failed result send as normal connection
+  lifecycle handling, without sending a second inference-failure payload. The
+  completed inference is still accounted for and its temporary frame is cleaned
+  up. This does not cancel the in-flight inference or prove a fresh
+  physical-device re-test; validate that path separately.
 
 ## Physical-device context
 

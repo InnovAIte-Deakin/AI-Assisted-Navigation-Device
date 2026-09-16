@@ -1,10 +1,9 @@
 // app/(tabs)/index.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import {
   Alert,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,8 +16,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import HomeHeader from "../HomeHeader";
-import ModelWebView from "../../src/components/ModelWebView";
-import { API_BASE } from "../../src/config";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { IconTile } from "@/components/ui/IconTile";
@@ -33,9 +30,6 @@ export default function HomePage() {
   const { width } = useWindowDimensions();
 
   const [visionEnabled, setVisionEnabled] = useState(true);
-  const [visionPreviewOn, setVisionPreviewOn] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [rev, setRev] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
   const [query, setQuery] = useState("");
   const [destinationType, setDestinationType] = useState<DestinationType | null>(null);
@@ -63,29 +57,11 @@ export default function HomePage() {
   const goToCameraOCR = () =>
     router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
 
-  useEffect(() => {
-    if (!visionEnabled) {
-      setVisionPreviewOn(false);
-      setLoading(false);
-    }
-  }, [visionEnabled]);
-
-  useEffect(() => {
-    if (!visionPreviewOn) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setRev((x) => x + 1);
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
-  }, [visionPreviewOn]);
-
-  const visionUrl = `${API_BASE}/vision/?v=${rev}`;
-
-  const toggleVisionPreview = () => {
+  const openVisionAssist = () => {
     if (!visionEnabled) return;
-    setVisionPreviewOn((prev) => !prev);
+    // /vision accepts POST image uploads; the endpoint is not a webpage.
+    // Open the camera screen instead of loading it in a WebView.
+    router.push("/camera");
   };
 
   const openSearch = () => {
@@ -194,16 +170,10 @@ export default function HomePage() {
             />
           </View>
 
-          {/* ─── Vision preview ─── */}
-          <View
-            style={[
-              styles.visionWrapper,
-              { backgroundColor: colors.surface },
-              visionPreviewOn && { borderWidth: 1, borderColor: colors.accent },
-            ]}
-          >
+          {/* ─── Vision Assist ─── */}
+          <View style={[styles.visionWrapper, { backgroundColor: colors.surface }]}>
             <View style={styles.visionRow}>
-              <Text style={[styles.visionTitle, { color: colors.text }]}>VISION ASSIST PREVIEW</Text>
+              <Text style={[styles.visionTitle, { color: colors.text }]}>VISION ASSIST</Text>
 
               <View style={styles.visionToggle}>
                 <Text style={[styles.visionToggleText, { color: colors.textMuted }]}>
@@ -213,6 +183,7 @@ export default function HomePage() {
                 <Switch
                   value={visionEnabled}
                   onValueChange={setVisionEnabled}
+                  accessibilityLabel="Enable Vision Assist"
                   trackColor={{ false: colors.border, true: colors.surfaceElevated }}
                   thumbColor={visionEnabled ? colors.accent : colors.textMuted}
                 />
@@ -220,7 +191,12 @@ export default function HomePage() {
             </View>
 
             <Pressable
-              onPress={toggleVisionPreview}
+              onPress={openVisionAssist}
+              disabled={!visionEnabled}
+              accessibilityRole="button"
+              accessibilityLabel="Open Vision Assist camera"
+              accessibilityHint="Opens the live camera for object detection and guidance"
+              accessibilityState={{ disabled: !visionEnabled }}
               style={({ pressed }) => [
                 styles.visionCard,
                 { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" },
@@ -228,19 +204,15 @@ export default function HomePage() {
               ]}
             >
               <View style={[styles.visionInner, { backgroundColor: colors.background }]}>
-                {visionEnabled && visionPreviewOn ? (
-                  <ModelWebView url={visionUrl} loading={loading} />
-                ) : (
-                  <View style={styles.previewPlaceholder}>
-                    <Ionicons name="eye-outline" size={24} color={colors.textMuted} />
-                    <Text style={[styles.previewText, { color: colors.text }]}>
-                      {visionEnabled ? "Tap to start camera" : "Vision disabled"}
-                    </Text>
-                    <Text style={[styles.previewSubtext, { color: colors.textMuted }]}>
-                      Starting camera gives live surroundings
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.previewPlaceholder}>
+                  <Ionicons name="eye-outline" size={24} color={colors.textMuted} />
+                  <Text style={[styles.previewText, { color: colors.text }]}>
+                    {visionEnabled ? "Tap to open camera" : "Vision disabled"}
+                  </Text>
+                  <Text style={[styles.previewSubtext, { color: colors.textMuted }]}>
+                    Vision Assist uses the live camera screen
+                  </Text>
+                </View>
               </View>
             </Pressable>
           </View>

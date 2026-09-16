@@ -33,9 +33,12 @@ async def ml_health(request: Request) -> dict[str, object]:
 
 @router.get("/ready")
 async def ml_ready(request: Request) -> JSONResponse:
-    """Return container readiness for the vision MVP independently of liveness."""
-    vision_loaded = bool(getattr(request.app.state, "yolo", None))
-    return JSONResponse(status_code=200 if vision_loaded else 503, content={"ready": vision_loaded})
+    """Return technical navigation-model readiness independently of liveness."""
+    readiness = _runtime_state(request).readiness()
+    return JSONResponse(
+        status_code=200 if readiness["ready"] else 503,
+        content=readiness,
+    )
 
 
 @router.get("/model-info")
