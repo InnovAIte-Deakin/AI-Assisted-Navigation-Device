@@ -1,11 +1,19 @@
 import React from "react";
-import { View } from "react-native";
+import { RtcSurfaceView } from "react-native-agora";
 
 type Props = {
   uid: number;
   style?: any;
 };
 
-export function AgoraRemoteVideo({ style }: Props) {
-  return <View style={style} />;
+export function AgoraRemoteVideo({
+  uid,
+  style,
+}: Props) {
+  return (
+    <RtcSurfaceView
+      style={style}
+      canvas={{ uid }}
+    />
+  );
 }

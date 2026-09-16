@@ -18,18 +18,19 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
-      }
+        },
+        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone."
+      },
+      "bundleIdentifier": "com.anonymous.frontend-reactNative"
     },
     "android": {
-      "package":"com.innovaite.walkbuddy",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#FFFFFF"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.frontend_reactNative"
-    },
+        "package": "com.innovaite.walkbuddy",
+        "adaptiveIcon": {
+            "foregroundImage": "./assets/images/icon.png",
+            "backgroundColor": "#FFFFFF"
+        },
+    "predictiveBackGestureEnabled": false},
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png",

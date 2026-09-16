@@ -160,16 +160,113 @@
       pointer-events: none;
     }
 
-    @media (max-width: 800px) {
-      header { height: 62px; padding: 12px 14px; }
-      h1 { font-size: 19px; }
-      main { height: calc(100vh - 62px); padding: 8px; }
-      .call-stage { border-radius: 12px; min-height: 360px; }
-      .local-card { width: 32vw; min-width: 120px; top: 10px; right: 10px; }
-      .controls { bottom: 12px; width: calc(100% - 24px); }
-      .message { bottom: 86px; left: 12px; right: 12px; font-size: 13px; }
-      button { padding: 12px 14px; font-size: 14px; }
-    }
+      @media (max-width: 800px) {
+        html,
+        body {
+          width: 100%;
+          height: 100%;
+          min-height: 100%;
+        }
+
+        body {
+          overflow: auto;
+        }
+
+        header {
+          height: 62px;
+          padding: 12px 14px;
+        }
+
+        h1 {
+          font-size: 19px;
+        }
+
+        main {
+          height: auto;
+          min-height: calc(100dvh - 62px);
+          padding: 8px;
+        }
+
+        .call-stage {
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          height: auto;
+          min-height: 0;
+          overflow: visible;
+          border-radius: 12px;
+          background: #111;
+        }
+
+        .remote-card {
+          position: relative;
+          inset: auto;
+          width: 100%;
+          height: auto;
+          aspect-ratio: 3 / 4;
+          min-height: 0;
+          overflow: hidden;
+          border-radius: 12px;
+          background: #111;
+        }
+
+        #remote-player {
+          width: 100%;
+          height: 100%;
+        }
+
+        .local-card {
+          width: 30vw;
+          max-width: 150px;
+          min-width: 105px;
+          top: 10px;
+          right: 10px;
+        }
+
+        .controls {
+          position: relative;
+          left: auto;
+          bottom: auto;
+          transform: none;
+
+          width: 100%;
+          margin-top: 8px;
+
+          display: flex;
+          flex-wrap: nowrap;
+          justify-content: center;
+          gap: 8px;
+
+          padding: 10px 6px;
+          border-radius: 12px;
+
+          background: #171717;
+          backdrop-filter: none;
+        }
+
+        .controls button {
+          flex: 1;
+          min-width: 0;
+          padding: 12px 8px;
+          font-size: 14px;
+          white-space: nowrap;
+        }
+
+        .message {
+          position: relative;
+          left: auto;
+          right: auto;
+          bottom: auto;
+
+          width: 100%;
+          margin-top: 8px;
+
+          padding: 10px 12px;
+          border-radius: 10px;
+
+          font-size: 13px;
+        }
+      }
   </style>
 </head>
 
@@ -209,9 +306,43 @@
     </div>
 
     <div class="controls">
-      <button id="mute-button" class="normal-button" disabled>Mute</button>
-      <button id="camera-button" class="normal-button" disabled>Camera Off</button>
-      <button id="leave-button" class="danger-button" disabled>Leave Call</button>
+
+      <button
+        id="mute-button"
+        class="call-control normal-button"
+        disabled
+        aria-label="Mute microphone"
+      >
+        <span class="control-icon">
+          <span class="icon-symbol">🎙</span>
+        </span>
+        <span class="control-text">Mute</span>
+      </button>
+
+      <button
+        id="camera-button"
+        class="call-control normal-button"
+        disabled
+        aria-label="Turn camera off"
+      >
+        <span class="control-icon">
+          <span class="icon-symbol">📷</span>
+        </span>
+        <span class="control-text">Camera Off</span>
+      </button>
+
+      <button
+        id="leave-button"
+        class="call-control danger-button"
+        disabled
+        aria-label="Leave call"
+      >
+        <span class="control-icon">
+          <span class="hangup-symbol">☎</span>
+        </span>
+        <span class="control-text">Leave</span>
+      </button>
+
     </div>
   </div>
 </main>
