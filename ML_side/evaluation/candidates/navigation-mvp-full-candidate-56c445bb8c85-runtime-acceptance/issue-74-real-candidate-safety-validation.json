@@ -1,0 +1,154 @@
+{
+  "schema_version": "1.0.0",
+  "issue": {
+    "number": 74,
+    "title": "End-to-end safety gate validation with current navigation model"
+  },
+  "generated_at": "2026-09-16T07:05:33Z",
+  "source": {
+    "branch": "test/issue-74-real-candidate-acceptance",
+    "commit": "8bc21d157ab1a4af9a8a6e8b82dc270f067e9ab5"
+  },
+  "candidate": {
+    "candidate_id": "WB-OD-NAV-001",
+    "run_id": "navigation-mvp-full-candidate-56c445bb8c85",
+    "lifecycle": "candidate",
+    "artifact_filename": "best.pt",
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+    "size_bytes": 5364741,
+    "ordered_taxonomy": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ]
+  },
+  "runtime": {
+    "python_version": "3.11.9",
+    "torch_version": "2.9.1+cu130",
+    "cuda_version": "13.0",
+    "cuda_available": true,
+    "cuda_usable": true,
+    "gpu_name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "mock_mode": false,
+    "bind_scope": "loopback only"
+  },
+  "deployment_readiness": {
+    "cuda_required_preflight": "PASS",
+    "live_readiness": "PASS",
+    "startup": "PASS",
+    "startup_summary": "Controlled launcher loaded Candidate 1 and bound the expected SHA-256 from the deployment manifest; no model identity or taxonomy readiness failure was logged."
+  },
+  "operational_endpoints": {
+    "model_info": {
+      "http_status": 200,
+      "loaded": true,
+      "filename": "best.pt",
+      "sha256_matches_manifest": true,
+      "size_matches_manifest": true,
+      "num_classes": 8,
+      "taxonomy_compatible": true,
+      "failure_category": null
+    },
+    "ready": {
+      "http_status": 200,
+      "ready": true,
+      "reason": "ready"
+    },
+    "health": {
+      "http_status": 200,
+      "status": "ok",
+      "vision_loaded": true,
+      "ocr_loaded": true
+    }
+  },
+  "input_policy": {
+    "result": "PASS",
+    "summary": "Only controlled-release validation-split inputs were posted to /vision. No held-out test-split input, raw image, label, or input path is retained in this evidence.",
+    "dataset_release": "walkbuddy-navigation-v5",
+    "source_version": "candidate-v4 corrected bytes with filename mapping and sequence-aware split seed 42"
+  },
+  "real_candidate_safety_validation": {
+    "vision_hazard_case": {
+      "result": "PASS",
+      "http_status": 200,
+      "canonical_detection": "stairs",
+      "confidence": 0.806,
+      "direction": "ahead",
+      "guidance": "Not safe to move forward. Hazard ahead: stairs ahead. Stop and reassess or change direction."
+    },
+    "vision_non_trigger_case": {
+      "result": "PASS",
+      "http_status": 200,
+      "detection_summary": "five lateral or below-threshold canonical detections",
+      "guidance": "door on your right",
+      "stop_recommendation_returned": false
+    },
+    "chat_safety_override": {
+      "result": "PASS",
+      "http_status": 200,
+      "event_source": "real /vision-seeded navigation memory",
+      "guidance": "Not safe to move forward. Hazard ahead: chair ahead, chair ahead. Stop and reassess or change direction.",
+      "llm_dependency": "none; the deterministic safety gate returned before the unavailable LLM path"
+    },
+    "depth_semantics": {
+      "result": "PASS",
+      "relative_depth_observed": 0.810336538461538,
+      "relative_depth_unit": "unitless relative score",
+      "distance_m_observed": null,
+      "distance_m_derived_from_relative_depth": false
+    }
+  },
+  "negative_path_validation": {
+    "result": "PASS",
+    "method": "isolated existing pytest coverage; Candidate 1 weights were not changed",
+    "checks": [
+      "wrong or malformed expected SHA returns model_identity_mismatch",
+      "missing model records model_file_missing",
+      "incompatible taxonomy makes readiness return taxonomy_incompatible"
+    ],
+    "tests_passed": 4
+  },
+  "regression": {
+    "ml_deployment_suite": {
+      "result": "PASS",
+      "passed": 111,
+      "failed": 0,
+      "files": [
+        "ML_side/tests/test_runtime_preflight.py",
+        "ML_side/deployment/tests/test_readiness.py",
+        "ML_side/tests/test_validate_candidate_model.py",
+        "ML_side/tests/test_inspect_candidate_dataset.py"
+      ]
+    },
+    "backend_suite": {
+      "result": "WARNING",
+      "passed": 149,
+      "failed": 1,
+      "classification": "pre-existing stale-test warning",
+      "failure": "test_successful_websocket_detection_result_shape_is_preserved expects no location field, but the documented and emitted current successful detection_result contract includes location.",
+      "issue_74_impact": "none; the failure is unrelated to Candidate 1 identity, readiness, real /vision safety behavior, /chat deterministic override, or depth semantics",
+      "evidence_change_causation": "none; this evidence-only change did not modify runtime behavior or tests",
+      "files": [
+        "software_side/walkbuddy_reactNative/backend/tests/test_navigation_semantics.py",
+        "software_side/walkbuddy_reactNative/backend/tests/test_ml_runtime.py",
+        "software_side/walkbuddy_reactNative/backend/tests/test_ml_inference.py",
+        "software_side/walkbuddy_reactNative/backend/tests/test_slow_lane.py",
+        "software_side/walkbuddy_reactNative/backend/tests/test_vision_depth_integration.py",
+        "software_side/walkbuddy_reactNative/backend/tests/test_model_taxonomy_compatibility.py"
+      ]
+    }
+  },
+  "governance": "Candidate lifecycle remains candidate. This technical evidence is not production authorization, promotion approval, a canonical-baseline designation, or permission to tune against held-out data.",
+  "issue_74_acceptance": {
+    "result": "PASS",
+    "reason": "All real Candidate 1 acceptance criteria for Issue #74 were satisfied using non-held-out validation inputs."
+  },
+  "broader_regression_status": "WARNING",
+  "overall_result": "PASS",
+  "overall_reason": "Issue #74 acceptance passed. The separately reported backend regression warning is a pre-existing stale test against the intentional current location response field."
+}
