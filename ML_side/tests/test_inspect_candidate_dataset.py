@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
 import sys
 from pathlib import Path
 
 import pytest
+
+PIL_AVAILABLE = True
+try:
+    from PIL import Image
+except ImportError:
+    PIL_AVAILABLE = False
 
 
 ML_SIDE_DIR = Path(__file__).resolve().parents[1]
@@ -503,3 +510,203 @@ def test_cli_help_succeeds(capsys: pytest.CaptureFixture[str]) -> None:
 
     assert exit_result.value.code == 0
     assert "--generate-manifest" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Near-duplicate detection (perceptual hashing) and class geometry buckets.
+# These extend the existing tool per Task 2 (pole training-data quality):
+# duplicate detection previously only caught byte-identical files (documented
+# limitation in PR #172); geometry data (width/height) was already captured
+# per-annotation but never aggregated by class/size/aspect-ratio.
+# ---------------------------------------------------------------------------
+
+pytestmark_pillow_required = pytest.mark.skipif(not PIL_AVAILABLE, reason="Pillow is required for these fixtures")
+
+
+def _png_bytes(pixels: list[list[int]]) -> bytes:
+    """Build real PNG bytes from a 2D list of 0-255 grayscale values."""
+    size = len(pixels)
+    image = Image.new("L", (size, size))
+    image.putdata([value for row in pixels for value in row])
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _gradient_image(size: int = 16, *, shift: int = 0) -> bytes:
+    return _png_bytes([[max(0, min(255, (x + y) * 8 + shift)) for x in range(size)] for y in range(size)])
+
+
+def _checkerboard_image(size: int = 16) -> bytes:
+    return _png_bytes([[255 if (x + y) % 2 == 0 else 0 for x in range(size)] for y in range(size)])
+
+
+@pytestmark_pillow_required
+class TestPerceptualHashing:
+    def test_identical_images_have_zero_hash_distance(self, tmp_path: Path) -> None:
+        path_a = tmp_path / "a.png"
+        path_b = tmp_path / "b.png"
+        path_a.write_bytes(_gradient_image())
+        path_b.write_bytes(_gradient_image())
+
+        assert inspector._hamming_distance(inspector._perceptual_hash(path_a), inspector._perceptual_hash(path_b)) == 0
+
+    def test_slightly_shifted_image_has_small_hash_distance(self, tmp_path: Path) -> None:
+        path_a = tmp_path / "a.png"
+        path_b = tmp_path / "b.png"
+        path_a.write_bytes(_gradient_image())
+        path_b.write_bytes(_gradient_image(shift=3))  # small brightness shift, same structure
+
+        distance = inspector._hamming_distance(inspector._perceptual_hash(path_a), inspector._perceptual_hash(path_b))
+        assert distance <= 5
+
+    def test_very_different_image_has_large_hash_distance(self, tmp_path: Path) -> None:
+        path_a = tmp_path / "a.png"
+        path_b = tmp_path / "b.png"
+        path_a.write_bytes(_gradient_image())
+        path_b.write_bytes(_checkerboard_image())
+
+        distance = inspector._hamming_distance(inspector._perceptual_hash(path_a), inspector._perceptual_hash(path_b))
+        assert distance > 5
+
+
+@pytestmark_pillow_required
+class TestNearDuplicateDetection:
+    def test_off_by_default(self, tmp_path: Path) -> None:
+        root, yaml_path = create_dataset(tmp_path)
+        report, _ = inspector.inspect_dataset(root, yaml_path, checksums=False)
+
+        assert report["duplicates"]["near_duplicate_detection_configured"] is False
+        assert report["duplicates"]["near_duplicate_images"] == []
+
+    def test_near_identical_images_are_grouped(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        root.mkdir()
+        add_pair(root, "train", "frame_001.png", image=_gradient_image())
+        add_pair(root, "train", "frame_002.png", image=_gradient_image(shift=3))
+        add_pair(root, "train", "unrelated.png", image=_checkerboard_image())
+        yaml_path = write_yaml(root, names=["person"])
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, checksums=False, near_duplicate_hash_distance=5
+        )
+
+        groups = report["duplicates"]["near_duplicate_images"]
+        assert len(groups) == 1
+        assert set(groups[0]["images"]) == {"train/images/frame_001.png", "train/images/frame_002.png"}
+
+    def test_genuinely_different_images_are_not_grouped(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        root.mkdir()
+        add_pair(root, "train", "a.png", image=_gradient_image())
+        add_pair(root, "train", "b.png", image=_checkerboard_image())
+        yaml_path = write_yaml(root, names=["person"])
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, checksums=False, near_duplicate_hash_distance=5
+        )
+
+        assert report["duplicates"]["near_duplicate_images"] == []
+
+    def test_skipped_without_pillow(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(inspector, "_pillow_available", lambda: False)
+        root, yaml_path = create_dataset(tmp_path)
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, checksums=False, decode_images=False, near_duplicate_hash_distance=5
+        )
+
+        assert report["duplicates"]["near_duplicate_detection_configured"] is False
+        assert any(
+            warning["location"] == "near_duplicate_detection" for warning in report["warnings"]
+        )
+
+
+def _write_metadata(tmp_path: Path, metadata: dict[str, object]) -> Path:
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    return metadata_path
+
+
+class TestClassGeometryBuckets:
+    def test_small_area_annotation_is_flagged(self, tmp_path: Path) -> None:
+        root, yaml_path = create_dataset(tmp_path, names=["pole"])
+        (root / "train" / "labels" / "train.txt").write_text("0 0.5 0.5 0.02 0.02\n", encoding="utf-8")
+        metadata_path = _write_metadata(tmp_path, approved_metadata(["pole"]))
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, metadata_path=metadata_path, checksums=False, decode_images=False, small_area_threshold=0.01
+        )
+
+        buckets = {bucket["class_name"]: bucket for bucket in report["class_geometry_buckets"]}
+        assert buckets["pole"]["small_area_count"] == 1
+        assert buckets["pole"]["small_area_examples"][0]["image_path"] == "train/images/train.png"
+
+    def test_extreme_aspect_ratio_annotation_is_flagged(self, tmp_path: Path) -> None:
+        root, yaml_path = create_dataset(tmp_path, names=["pole"])
+        # A thin, tall box: 0.02 wide x 0.5 tall -> aspect ratio 25, well past a 3.0 threshold.
+        (root / "train" / "labels" / "train.txt").write_text("0 0.5 0.5 0.02 0.5\n", encoding="utf-8")
+        metadata_path = _write_metadata(tmp_path, approved_metadata(["pole"]))
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, metadata_path=metadata_path, checksums=False, decode_images=False, extreme_aspect_ratio_threshold=3.0
+        )
+
+        buckets = {bucket["class_name"]: bucket for bucket in report["class_geometry_buckets"]}
+        assert buckets["pole"]["extreme_aspect_ratio_count"] == 1
+
+    def test_ordinary_annotation_is_not_flagged(self, tmp_path: Path) -> None:
+        root, yaml_path = create_dataset(tmp_path, names=["pole"])
+        (root / "train" / "labels" / "train.txt").write_text("0 0.5 0.5 0.3 0.3\n", encoding="utf-8")
+        metadata_path = _write_metadata(tmp_path, approved_metadata(["pole"]))
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, metadata_path=metadata_path, checksums=False, decode_images=False
+        )
+
+        buckets = {bucket["class_name"]: bucket for bucket in report["class_geometry_buckets"]}
+        assert buckets["pole"]["small_area_count"] == 0
+        assert buckets["pole"]["extreme_aspect_ratio_count"] == 0
+        # 2, not 1: create_dataset() also fixtures a validation.png with its own
+        # default 0.2x0.2 "pole" label (also ordinary, area 0.04 / ratio 1.0),
+        # on top of the train.txt content this test wrote explicitly.
+        assert buckets["pole"]["annotation_count"] == 2
+
+    def test_excluded_annotations_are_not_counted(self, tmp_path: Path) -> None:
+        root, yaml_path = create_dataset(tmp_path, names=["pole"])
+        (root / "train" / "labels" / "train.txt").write_text("0 0.5 0.5 0.02 0.02\n", encoding="utf-8")
+        metadata = approved_metadata(["pole"])
+        metadata["excluded_source_classes"] = [{"source_class_id": 0, "reason": "excluded for this test"}]
+        metadata["class_mapping"] = []
+        metadata_path = _write_metadata(tmp_path, metadata)
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, metadata_path=metadata_path, checksums=False, decode_images=False
+        )
+
+        assert report["class_geometry_buckets"] == []
+
+    def test_appears_in_markdown_report(self, tmp_path: Path) -> None:
+        root, yaml_path = create_dataset(tmp_path, names=["pole"])
+        (root / "train" / "labels" / "train.txt").write_text("0 0.5 0.5 0.02 0.5\n", encoding="utf-8")
+        metadata_path = _write_metadata(tmp_path, approved_metadata(["pole"]))
+
+        report, _ = inspector.inspect_dataset(
+            root, yaml_path, metadata_path=metadata_path, checksums=False, decode_images=False
+        )
+        markdown = inspector.render_markdown_report(report)
+
+        assert "## Class geometry buckets" in markdown
+        assert "pole" in markdown
+        assert "## Near-duplicate images" in markdown
+
+
+def test_cli_near_duplicate_and_geometry_flags_are_documented(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_result:
+        inspector.main(["--help"])
+
+    assert exit_result.value.code == 0
+    output = capsys.readouterr().out
+    assert "--near-duplicate-hash-distance" in output
+    assert "--small-area-threshold" in output
+    assert "--extreme-aspect-ratio-threshold" in output
