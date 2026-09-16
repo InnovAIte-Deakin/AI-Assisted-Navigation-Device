@@ -6,7 +6,7 @@ import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { CurrentLocationProvider } from "../src/utils/locationSaver";
 import { SessionProvider } from "../src/context/SessionContext";
-import { WakeWordProvider } from "../src/context/WakeWordContext";
+import { WakeWordProvider } from "../src/context/ForegroundWakeWordContext";
 
 export const unstable_settings = {
   anchor: "(tabs)",

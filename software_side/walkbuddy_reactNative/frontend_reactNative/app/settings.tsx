@@ -7,7 +7,7 @@ import HomeHeader from "./HomeHeader";
 import Footer from "./Footer";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import { useWakeWord } from "@/src/context/WakeWordContext";
+import { useWakeWord } from "@/src/context/ForegroundWakeWordContext";
 
 export default function SettingsPage() {
   const colors = useThemeColors();
@@ -32,9 +32,9 @@ export default function SettingsPage() {
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
-              <Text style={[styles.subtitle, { color: colors.text }]}>Hey WalkBuddy</Text>
+              <Text style={[styles.subtitle, { color: colors.text }]}>Hey Buddy / Hey WalkBuddy</Text>
               <Text style={[styles.note, { color: colors.textMuted }]}>
-                Listen for the wake phrase only while WalkBuddy is open.
+                Records short clips for transcription only while WalkBuddy is open.
               </Text>
             </View>
             <Switch
@@ -43,14 +43,14 @@ export default function SettingsPage() {
               onValueChange={(nextValue) => void setEnabled(nextValue)}
               trackColor={{ false: colors.border, true: colors.accent }}
               thumbColor={enabled ? colors.accentText : colors.textMuted}
-              accessibilityLabel="Hey WalkBuddy wake activation"
+              accessibilityLabel="Hey Buddy foreground voice activation"
               accessibilityHint="Turns foreground wake phrase listening on or off"
             />
           </View>
           <Text style={[styles.note, { color: colors.textMuted }]}>
             {available
               ? `${listening ? "Active" : "Status"}: ${status}`
-              : "A WalkBuddy development build is required. This feature is not available in Expo Go."}
+              : "Voice activation is unavailable on this device or browser."}
           </Text>
         </View>
 

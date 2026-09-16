@@ -3,22 +3,32 @@ export type VoiceCommandId =
   | "repeat-guidance"
   | "read-text"
   | "describe-surroundings"
+  | "open-camera"
   | "stop-speaking"
   | "go-home"
   | "go-back"
+  | "open-search"
   | "open-places"
   | "open-audiobooks"
   | "open-favourites"
+  | "open-audiobook-favourites"
+  | "open-audiobook-history"
+  | "open-listen-later"
   | "open-indoor-navigation"
   | "open-outdoor-navigation"
   | "open-predictive-path"
   | "open-ask-a-friend"
-  | "open-emergency";
+  | "open-emergency"
+  | "open-profile"
+  | "open-settings"
+  | "open-location-map"
+  | "open-helper";
 
 export const VOICE_COMMAND_HELP =
-  "You can say: read text, describe surroundings, repeat guidance, go home, " +
-  "open places, open audiobooks, indoor navigation, outdoor navigation, " +
-  "ask a friend, emergency, or stop speaking.";
+  "You can say: open camera, search, places, audiobooks, favourites, profile, " +
+  "settings, location map, indoor navigation, outdoor navigation, predictive path, " +
+  "ask a friend, helper, emergency, read text, describe surroundings, repeat guidance, " +
+  "go home, go back, or stop speaking.";
 
 function normalizeVoiceInput(input: string): string {
   return input
@@ -66,6 +76,10 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
     return "describe-surroundings";
   }
 
+  if (matchesAny(text, [/^(open|show|go to)( the)? camera$/, /^camera$/])) {
+    return "open-camera";
+  }
+
   if (matchesAny(text, [/^(emergency|open emergency|i need help|get help)$/])) {
     return "open-emergency";
   }
@@ -78,12 +92,47 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
     return "go-back";
   }
 
+  if (matchesAny(text, [/^(open|show|go to)( the)? search$/, /^search$/])) {
+    return "open-search";
+  }
+
   if (matchesAny(text, [/^(open|show|go to)( my)? places$/, /^places$/])) {
     return "open-places";
   }
 
   if (matchesAny(text, [/^(open|show|go to)( the)? audiobooks?$/, /^audiobooks?$/])) {
     return "open-audiobooks";
+  }
+
+  if (
+    matchesAny(text, [
+      /^(open|show|go to)( my)? audiobook favourites?$/,
+      /^(open|show|go to)( my)? audiobook favorites?$/,
+      /^audiobook favourites?$/,
+      /^audiobook favorites?$/,
+    ])
+  ) {
+    return "open-audiobook-favourites";
+  }
+
+  if (
+    matchesAny(text, [
+      /^(open|show|go to)( my)? audiobook history$/,
+      /^audiobook history$/,
+      /^listening history$/,
+    ])
+  ) {
+    return "open-audiobook-history";
+  }
+
+  if (
+    matchesAny(text, [
+      /^(open|show|go to)( my)? listen later$/,
+      /^listen later$/,
+      /^audiobook listen later$/,
+    ])
+  ) {
+    return "open-listen-later";
   }
 
   if (matchesAny(text, [/^(open|show|go to)( my)? favourites?$/, /^favourites?$/])) {
@@ -116,6 +165,35 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
 
   if (matchesAny(text, [/^(open|start|go to)( the)? ask a friend$/, /^ask a friend$/])) {
     return "open-ask-a-friend";
+  }
+
+  if (matchesAny(text, [/^(open|show|go to)( my)? profile$/, /^profile$/])) {
+    return "open-profile";
+  }
+
+  if (matchesAny(text, [/^(open|show|go to)( the)? settings$/, /^settings$/])) {
+    return "open-settings";
+  }
+
+  if (
+    matchesAny(text, [
+      /^(open|show|go to)( the)? location map$/,
+      /^(show|find)( my)? current location$/,
+      /^(open|show)( the)? map$/,
+      /^location map$/,
+    ])
+  ) {
+    return "open-location-map";
+  }
+
+  if (
+    matchesAny(text, [
+      /^(open|show|go to)( the)? helper$/,
+      /^(open|show|go to)( the)? guide interface$/,
+      /^helper$/,
+    ])
+  ) {
+    return "open-helper";
   }
 
   return null;
