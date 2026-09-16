@@ -26,6 +26,7 @@ import {
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
 import { matchVoiceCommand, VOICE_COMMAND_HELP } from "../../src/services/VoiceCommandService";
+import { uriToBlob } from "../../src/utils/uriToBlob";
 import { API_BASE, API_KEY } from "../../src/config";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Radius, Spacing, Typography } from "@/constants/theme";
@@ -46,7 +47,7 @@ type CamMode = "vision" | "ocr";
 const WS_VISION_URL = API_BASE.replace(/^http/, "ws") + "/ws/vision";
 
 type BBox = { x_min: number; y_min: number; x_max: number; y_max: number };
-type Detection = { category: string; confidence: number; bbox: BBox; direction?: string };
+type Detection = { category: string; confidence: number; bbox: BBox; direction?: string; priority?: string };
 
 // Module-level frame ID counter (no import needed)
 let _frameCounter = 0;
@@ -60,7 +61,10 @@ async function buildImageFormData(photoUri: string) {
     const blob = await resp.blob();
     form.append("file", new File([blob], "frame.jpg", { type: blob.type || "image/jpeg" }));
   } else {
-    form.append("file", { uri: photoUri, type: "image/jpeg", name: "frame.jpg" } as any);
+    // Append a real Blob, not RN's { uri, type, name } object: the SDK 56+ global
+    // expo/fetch does not support the latter (the body arrives empty).
+    const blob = await uriToBlob(photoUri, "image/jpeg");
+    form.append("file", blob, "frame.jpg");
   }
 
   return form;
@@ -83,6 +87,16 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 
 export default function CameraAssistScreen() {
   const colors = useThemeColors();
+  // Bounding-box colour per detection, keyed off the same RiskLevel scale
+  // TTSService already uses. Reuses the semantic theme tokens (see
+  // constants/theme.ts) rather than introducing a parallel colour scheme.
+  const RISK_COLOR: Record<RiskLevel, string> = {
+    [RiskLevel.CRITICAL]: colors.danger,
+    [RiskLevel.HIGH]: colors.warning,
+    [RiskLevel.MEDIUM]: colors.info,
+    [RiskLevel.LOW]: colors.success,
+    [RiskLevel.CLEAR]: colors.accent,
+  };
   const router = useRouter();
   // No SafeAreaView here (full-bleed camera preview must ignore the safe
   // area), so the back button needs the real device inset instead of a
@@ -110,6 +124,7 @@ export default function CameraAssistScreen() {
 
   // Feature 2: Lost & Recovery
   const lastPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const currentLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const assistanceAlertShownRef = useRef(false);
 
@@ -449,12 +464,16 @@ export default function CameraAssistScreen() {
       const ws2 = wsRef.current;
       if (!ws2 || ws2.readyState !== WebSocket.OPEN) return;
 
+      const currentLocation = currentLocationRef.current;
+
       ws2.send(JSON.stringify({
         type: "frame_meta",
         frame_id: frameId,
         width: photo.width ?? 0,
         height: photo.height ?? 0,
         timestamp_ms: Date.now(),
+        latitude: currentLocation?.latitude ?? null,
+        longitude: currentLocation?.longitude ?? null,
       }));
 
       if (Platform.OS === "web") {
@@ -804,6 +823,7 @@ export default function CameraAssistScreen() {
         (loc) => {
           const { latitude, longitude } = loc.coords;
           const now = Date.now();
+          currentLocationRef.current = { latitude, longitude };
 
           if (!lastPositionRef.current) {
             lastPositionRef.current = { lat: latitude, lng: longitude, time: now };
@@ -919,13 +939,15 @@ export default function CameraAssistScreen() {
         {detections.slice(0, 20).map((d, idx) => {
           const mapped = mapBBoxToPreview(d.bbox);
           if (!mapped || mapped.width <= 1 || mapped.height <= 1) return null;
+          const risk = riskLevelFromString(d.priority ?? "LOW");
+          const boxColor = RISK_COLOR[risk];
           return (
             <View
               key={`${idx}-${d.category}`}
-              style={[styles.box, { borderColor: colors.accent, left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
+              style={[styles.box, { borderColor: boxColor, left: mapped.left, top: mapped.top, width: mapped.width, height: mapped.height }]}
             >
               <Text
-                style={[styles.boxLabel, { color: colors.accentText, backgroundColor: colors.accent }, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
+                style={[styles.boxLabel, { color: colors.accentText, backgroundColor: boxColor }, Platform.OS === "web" && { transform: [{ scaleX: -1 }] }]}
                 numberOfLines={1}
               >
                 {d.category} {Math.round(d.confidence * 100)}%

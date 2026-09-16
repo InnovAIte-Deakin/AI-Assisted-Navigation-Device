@@ -74,6 +74,7 @@ from routers import ml_inference as ml_router
 from routers import helpers as helpers_router
 from routers import auth as auth_router
 from predictive_path import router as pred_router
+from predictive_path import retrain_router
 from ml_runtime import (
     MLRuntimeState,
     ModelMetadataError,
@@ -195,7 +196,9 @@ async def lifespan(app: FastAPI):
 
     # Runtime state is reset for each application startup and is shared by
     # REST and WebSocket inference worker threads.
-    app.state.ml_runtime = MLRuntimeState()
+    app.state.ml_runtime = MLRuntimeState(
+        expected_model_sha256=os.environ.get("WALKBUDDY_EXPECTED_MODEL_SHA256")
+    )
 
     # --- init DB ---
     init_database()
@@ -316,7 +319,9 @@ app = FastAPI(
 )
 app.state.yolo = None
 app.state.ocr_reader = None
-app.state.ml_runtime = MLRuntimeState()
+app.state.ml_runtime = MLRuntimeState(
+    expected_model_sha256=os.environ.get("WALKBUDDY_EXPECTED_MODEL_SHA256")
+)
 
 # =========================
 # 7. MIDDLEWARE
@@ -384,6 +389,7 @@ app.include_router(helpers_router.router)
 app.include_router(stt.router)
 app.include_router(auth_router.router)
 app.include_router(pred_router.router)
+app.include_router(retrain_router.router)
 app.include_router(ml_runtime_router)
 
 # =========================
