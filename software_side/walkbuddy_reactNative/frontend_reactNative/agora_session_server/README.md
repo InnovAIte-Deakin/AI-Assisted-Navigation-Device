@@ -60,7 +60,7 @@ AI-Assisted-Navigation-Device/
 - A physical iPhone for device testing
 - An Apple Account available in Xcode for development signing
 
-The macOS setup script installs the WalkBuddy-specific Node.js, Ruby, CocoaPods, Cloudflared, and supporting command-line dependencies in the user's home directory without requiring Homebrew. Xcode itself must already be installed and usable.
+The macOS setup script installs the WalkBuddy-specific Node.js, Ruby, CocoaPods, and supporting command-line dependencies in the user's home directory without requiring Homebrew. Xcode itself must already be installed and usable.
 
 ## 1. Clone the repository or update your branch
 
@@ -146,7 +146,7 @@ Connect and unlock the iPhone, then run from `frontend_reactNative`:
 bash scripts/setup-ios-macos.sh
 ```
 
-The setup script checks or installs the WalkBuddy development dependencies, including Node.js, the compatible local Ruby toolchain, CocoaPods and Cloudflared. It installs project dependencies, prepares the iOS native project when required, installs CocoaPods, checks Apple Development signing and performs a basic code-signing access test before starting:
+The setup script checks or installs the WalkBuddy development dependencies, including Node.js, the compatible local Ruby toolchain and CocoaPods. It installs project dependencies, prepares the iOS native project when required, installs CocoaPods, checks Apple Development signing and performs a basic code-signing access test before starting:
 
 ```bash
 npx expo run:ios --device
