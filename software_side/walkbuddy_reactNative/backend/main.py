@@ -19,7 +19,6 @@ from contextlib import asynccontextmanager
 from ultralytics import YOLO
 import easyocr
 import tempfile
-from routers import stt
 
 
 # =========================
@@ -96,6 +95,13 @@ import httpx
 SESSION_EXPIRY_HOURS = 1
 SESSION_TIMEOUT_MINUTES = 30
 DB_PATH = BACKEND_DIR / "helpers.db"
+WHISPER_MODEL_NAME = os.environ.get("WALKBUDDY_WHISPER_MODEL", "base.en")
+WHISPER_HOTWORDS = (
+    "Hey Buddy, Hey WalkBuddy, camera, settings, home, back, search, places, "
+    "audiobooks, favourites, profile, text reader, OCR, vision assist, "
+    "indoor navigation, outdoor navigation, predictive path, ask a friend, "
+    "emergency, location map, helper"
+)
 
 tracer = trace.get_tracer("main.websocket")
 
@@ -184,7 +190,13 @@ async def _cleanup_sessions_loop():
 
 def _whisper_transcribe(model, path: str) -> str:
     """Run Whisper transcription synchronously (called from thread pool)."""
-    segments, _ = model.transcribe(path, beam_size=5)
+    segments, _ = model.transcribe(
+        path,
+        language="en",
+        beam_size=5,
+        condition_on_previous_text=False,
+        hotwords=WHISPER_HOTWORDS,
+    )
     return " ".join(seg.text.strip() for seg in segments).strip()
 
 # =========================
@@ -288,8 +300,12 @@ async def lifespan(app: FastAPI):
     # --- load Whisper STT ---
     try:
         from faster_whisper import WhisperModel
-        logger.info("Loading Whisper STT (tiny model)")
-        app.state.whisper = WhisperModel("tiny", device="cpu", compute_type="int8")
+        logger.info("Loading Whisper STT (%s model)", WHISPER_MODEL_NAME)
+        app.state.whisper = WhisperModel(
+            WHISPER_MODEL_NAME,
+            device="cpu",
+            compute_type="int8",
+        )
         logger.info("✅ Whisper STT ready")
     except Exception as e:
         logger.error(f"❌ Whisper STT load failed: {e}")
@@ -386,7 +402,6 @@ app.include_router(audiobooks_router.router)
 app.include_router(ai_router.router)
 app.include_router(ml_router.router)
 app.include_router(helpers_router.router)
-app.include_router(stt.router)
 app.include_router(auth_router.router)
 app.include_router(pred_router.router)
 app.include_router(retrain_router.router)

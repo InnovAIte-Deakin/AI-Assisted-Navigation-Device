@@ -17,7 +17,7 @@ import { matchVoiceCommand, VOICE_COMMAND_HELP } from "../services/VoiceCommandS
 
 const STORAGE_KEY = "@walkbuddy/foreground-wake-enabled";
 const WAKE_PHRASES = ["hey walkbuddy", "hey buddy"];
-const WAKE_CLIP_MS = 3200;
+const WAKE_CLIP_MS = 5000;
 const COMMAND_CLIP_MS = 4200;
 
 type WakeWordContextValue = {
@@ -313,7 +313,9 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (generation !== generationRef.current || !canListen()) {
-        await stt.cancelRecordingNative();
+        // stopActiveListening already cancelled this wake-word recording.
+        // Cancelling again here can stop a newer camera push-to-talk recording
+        // because both features intentionally share the same STT service.
         return;
       }
 
@@ -329,7 +331,8 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       await delay(awaitingCommandRef.current ? COMMAND_CLIP_MS : WAKE_CLIP_MS);
 
       if (generation !== generationRef.current || !canListen()) {
-        await stt.cancelRecordingNative();
+        // The pause/disable path owns cancellation. Do not cancel again after
+        // this stale timer, or it may cancel a recording started by the camera.
         return;
       }
 
@@ -419,8 +422,12 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
 
   const pause = useCallback(
     (reason = "manual") => {
+      const wasAlreadyPaused = pauseReasonsRef.current.size > 0;
       pauseReasonsRef.current.add(reason);
-      stopActiveListening();
+      // Only the first pause request should stop the wake-word recorder.
+      // Repeated requests can arrive after the camera has started its own
+      // recording, so cancelling again would stop camera push-to-talk.
+      if (!wasAlreadyPaused) stopActiveListening();
       if (mountedRef.current && enabledRef.current) setStatus("Voice activation paused");
     },
     [stopActiveListening],

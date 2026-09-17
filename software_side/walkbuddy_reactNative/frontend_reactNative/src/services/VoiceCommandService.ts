@@ -62,7 +62,13 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
     return "help";
   }
 
-  if (matchesAny(text, [/^(read|scan)( the)? text$/, /^read this( text)?$/])) {
+  if (
+    matchesAny(text, [
+      /^(read|scan)( the)? text$/,
+      /^read this( text)?$/,
+      /^(text|text reader|reader|ocr)$/,
+    ])
+  ) {
     return "read-text";
   }
 
@@ -71,12 +77,19 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
       /^(describe|scan)( my)? surroundings$/,
       /^(what|what's|whats) (is )?(around|ahead of|in front of) me$/,
       /^what do you see$/,
+      /^(vision|vision assist|surroundings)$/,
     ])
   ) {
     return "describe-surroundings";
   }
 
-  if (matchesAny(text, [/^(open|show|go to)( the)? camera$/, /^camera$/])) {
+  if (
+    matchesAny(text, [
+      /^(open|show|go to)( the)? camera$/,
+      /^camera$/,
+      /^voice assist(ant)?$/,
+    ])
+  ) {
     return "open-camera";
   }
 
@@ -144,6 +157,7 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
       /^(open|start|go to)( the)? indoor navigation$/,
       /^indoor navigation$/,
       /^navigate indoors$/,
+      /^indoors?$/,
     ])
   ) {
     return "open-indoor-navigation";
@@ -154,6 +168,7 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
       /^(open|start|go to)( the)? outdoor navigation$/,
       /^outdoor navigation$/,
       /^navigate outdoors$/,
+      /^outdoors?$/,
     ])
   ) {
     return "open-outdoor-navigation";
@@ -163,7 +178,13 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
     return "open-predictive-path";
   }
 
-  if (matchesAny(text, [/^(open|start|go to)( the)? ask a friend$/, /^ask a friend$/])) {
+  if (
+    matchesAny(text, [
+      /^(open|start|go to)( the)? ask a friend$/,
+      /^ask a friend$/,
+      /^friend$/,
+    ])
+  ) {
     return "open-ask-a-friend";
   }
 
@@ -181,6 +202,7 @@ export function matchVoiceCommand(input: string): VoiceCommandId | null {
       /^(show|find)( my)? current location$/,
       /^(open|show)( the)? map$/,
       /^location map$/,
+      /^(map|location)$/,
     ])
   ) {
     return "open-location-map";
