@@ -41,40 +41,20 @@ LLM_MODEL_PATH = _model_base / "llama-3.2-1b-instruct-q4_k_m.gguf"
 YOLO_MODEL_PATH = _model_base / "best.pt"
 DEPTH_MODEL_DIR = Path(os.environ["WALKBUDDY_DEPTH_MODEL_DIR"]) if "WALKBUDDY_DEPTH_MODEL_DIR" in os.environ else None
 
-# Expected/approved SHA-256 for the shared YOLO artifact. This is intentionally
-# NOT hardcoded in code: it is sourced (in priority order) from an environment
-# variable, then falling back to the machine-readable approved record that the
-# ML side already maintains. When neither is available the check is skipped
-# (reported as "not checked") rather than failing startup.
+# Expected/approved SHA-256 for the loaded model artifact. This is sourced ONLY
+# from the controlled launcher via WALKBUDDY_EXPECTED_MODEL_SHA256 — the SAME
+# controlled identity source the runtime readiness check uses. It is never read
+# from a historical baseline record: that baseline is a different (older) model
+# artifact, so comparing against it could report a false mismatch for the
+# current candidate. When the env var is not configured, the checksum is
+# reported as "not checked" (null) and is never compared against any artifact.
 _EXPECTED_MODEL_SHA256_ENV = "WALKBUDDY_EXPECTED_MODEL_SHA256"
-_BASELINE_SHA_PATH = PROJECT_ROOT / "ML_side/evaluation/baselines/historical_7class_baseline.json"
-
-
-def _expected_sha_from_baseline() -> str | None:
-    """Read the approved SHA-256 from the committed baseline record, if present.
-
-    Weights are never committed to git, but the ML side already records the
-    approved artifact's SHA-256 in this versioned JSON, so it is a safe single
-    source of truth for the fallback. Any read/parse problem is treated as
-    "unavailable" and must never break startup.
-    """
-    try:
-        with _BASELINE_SHA_PATH.open("r", encoding="utf-8") as baseline_file:
-            record = json.load(baseline_file)
-        sha256 = record.get("model", {}).get("sha256")
-    except (OSError, ValueError, AttributeError):
-        return None
-    if isinstance(sha256, str) and sha256.strip():
-        return sha256.strip()
-    return None
 
 
 def _resolve_expected_model_sha256() -> str | None:
-    """Resolve the expected SHA-256: env var first, then baseline, else None."""
+    """Return the configured expected SHA-256, or None if it is not set."""
     env_value = os.environ.get(_EXPECTED_MODEL_SHA256_ENV, "").strip()
-    if env_value:
-        return env_value
-    return _expected_sha_from_baseline()
+    return env_value or None
 
 
 logging.basicConfig(level=logging.INFO)
@@ -313,7 +293,7 @@ async def lifespan(app: FastAPI):
             else:
                 logger.info(
                     "ℹ️ Model checksum not verified: no expected SHA-256 "
-                    "configured (set %s or provide the baseline record)",
+                    "configured (set %s)",
                     _EXPECTED_MODEL_SHA256_ENV,
                 )
                 app.state.ml_runtime.set_checksum_verification(None)

@@ -1234,23 +1234,26 @@ def test_model_info_endpoint_exposes_checksum_verified(tmp_path: Path) -> None:
     assert payload["taxonomy_compatible"] is False
 
 
-def test_resolve_expected_sha_prefers_env_then_baseline_then_none(
-    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+def test_resolve_expected_sha_uses_env_var_only(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # 1. Environment variable wins.
+    # The expected SHA comes ONLY from the controlled-launcher env var — the
+    # same identity source readiness uses. There is deliberately no baseline
+    # (or any other artifact) fallback.
     monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", "a" * 64)
     assert main_module._resolve_expected_model_sha256() == "a" * 64
 
-    # 2. Without the env var, fall back to the committed baseline record.
-    monkeypatch.delenv("WALKBUDDY_EXPECTED_MODEL_SHA256", raising=False)
-    baseline = tmp_path / "baseline.json"
-    baseline.write_text(json.dumps({"model": {"sha256": "b" * 64}}))
-    monkeypatch.setattr(main_module, "_BASELINE_SHA_PATH", baseline)
-    assert main_module._resolve_expected_model_sha256() == "b" * 64
-
-    # 3. With neither, resolution is None (verification is skipped, not failed).
-    monkeypatch.setattr(main_module, "_BASELINE_SHA_PATH", tmp_path / "missing.json")
+    # Blank / whitespace-only is treated as "not configured".
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", "   ")
     assert main_module._resolve_expected_model_sha256() is None
+
+    # Unset -> None: the checksum is reported as "not checked", never compared.
+    monkeypatch.delenv("WALKBUDDY_EXPECTED_MODEL_SHA256", raising=False)
+    assert main_module._resolve_expected_model_sha256() is None
+
+    # The removed baseline fallback must not come back.
+    assert not hasattr(main_module, "_BASELINE_SHA_PATH")
+    assert not hasattr(main_module, "_expected_sha_from_baseline")
 
 
 class _FakeYolo:
@@ -1321,9 +1324,8 @@ def test_lifespan_skips_checksum_when_not_configured(
     main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     artifact = tmp_path / "best.pt"
+    # No expected SHA configured -> nothing to check (never compared).
     monkeypatch.delenv("WALKBUDDY_EXPECTED_MODEL_SHA256", raising=False)
-    # No baseline record available either -> nothing to check.
-    monkeypatch.setattr(main_module, "_BASELINE_SHA_PATH", tmp_path / "missing.json")
 
     result = _run_lifespan_with_loaded_model(main_module, monkeypatch, artifact)
 
