@@ -25,12 +25,19 @@
       "bundleIdentifier": "com.anonymous.frontend-reactNative"
     },
     "android": {
-        "package": "com.innovaite.walkbuddy",
-        "adaptiveIcon": {
-            "foregroundImage": "./assets/images/icon.png",
-            "backgroundColor": "#FFFFFF"
-        },
-    "predictiveBackGestureEnabled": false},
+      "package": "com.innovaite.walkbuddy",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
+    },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png",
