@@ -16,9 +16,10 @@ import { getTTSService, RiskLevel } from "../services/TTSService";
 import { matchVoiceCommand, VOICE_COMMAND_HELP } from "../services/VoiceCommandService";
 
 const STORAGE_KEY = "@walkbuddy/foreground-wake-enabled";
-const WAKE_PHRASES = ["hey walkbuddy", "hey buddy"];
 const WAKE_CLIP_MS = 5000;
 const COMMAND_CLIP_MS = 4200;
+const COMMAND_WINDOW_MS = 15000;
+const WAKE_PHRASE_PATTERN = /\bhey(?:[\s,.;:!?-]+)(?:walk[\s-]*buddy|buddy)\b/i;
 
 type WakeWordContextValue = {
   enabled: boolean;
@@ -36,15 +37,13 @@ const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
 function findWakePhrase(transcript: string) {
-  const lower = transcript.toLowerCase();
-  let match: { phrase: string; index: number } | null = null;
+  const match = WAKE_PHRASE_PATTERN.exec(transcript);
+  if (!match) return null;
 
-  for (const phrase of WAKE_PHRASES) {
-    const index = lower.indexOf(phrase);
-    if (index >= 0 && (!match || index < match.index)) match = { phrase, index };
-  }
-
-  return match;
+  return {
+    index: match.index,
+    endIndex: match.index + match[0].length,
+  };
 }
 
 export function WakeWordProvider({ children }: { children: React.ReactNode }) {
@@ -60,6 +59,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
   const appActiveRef = useRef(AppState.currentState === "active");
   const processingRef = useRef(false);
   const awaitingCommandRef = useRef(false);
+  const awaitingCommandUntilRef = useRef(0);
   const cycleRunningRef = useRef(false);
   const generationRef = useRef(0);
   const pauseReasonsRef = useRef(new Set<string>());
@@ -71,6 +71,22 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
   const [available] = useState(() => stt.isAvailable());
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("Voice activation is off");
+
+  const clearAwaitingCommand = useCallback(() => {
+    awaitingCommandRef.current = false;
+    awaitingCommandUntilRef.current = 0;
+  }, []);
+
+  const hasActiveCommandWindow = useCallback(() => {
+    if (!awaitingCommandRef.current) return false;
+    if (Date.now() <= awaitingCommandUntilRef.current) return true;
+
+    clearAwaitingCommand();
+    if (mountedRef.current && enabledRef.current) {
+      setStatus("Listening for Hey Buddy or Hey WalkBuddy");
+    }
+    return false;
+  }, [clearAwaitingCommand]);
 
   const canListen = useCallback(
     () =>
@@ -214,15 +230,15 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       if (!cleaned || !canListen()) return;
 
       let commandText = "";
-      if (awaitingCommandRef.current) {
-        awaitingCommandRef.current = false;
+      if (hasActiveCommandWindow()) {
+        clearAwaitingCommand();
         commandText = cleaned;
       } else {
         const wakeMatch = findWakePhrase(cleaned);
         if (!wakeMatch) return;
         commandText = cleaned
-          .slice(wakeMatch.index + wakeMatch.phrase.length)
-          .replace(/^[,\s-]+/, "")
+          .slice(wakeMatch.endIndex)
+          .replace(/^[\s,.;:!?\u2013\u2014-]+/, "")
           .trim();
       }
 
@@ -233,6 +249,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       try {
         if (!commandText) {
           awaitingCommandRef.current = true;
+          awaitingCommandUntilRef.current = Date.now() + COMMAND_WINDOW_MS;
           if (mountedRef.current) setStatus("Listening for a command");
           await tts.speak("I'm listening.", RiskLevel.LOW, true);
           return;
@@ -244,7 +261,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
         processingRef.current = false;
         if (mountedRef.current) {
           setStatus(
-            awaitingCommandRef.current
+            hasActiveCommandWindow()
               ? "Listening for a command"
               : "Listening for Hey Buddy or Hey WalkBuddy",
           );
@@ -252,7 +269,15 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
         if (canListen()) scheduleCycle(700);
       }
     },
-    [canListen, runForegroundCommand, scheduleCycle, stopActiveListening, tts],
+    [
+      canListen,
+      clearAwaitingCommand,
+      hasActiveCommandWindow,
+      runForegroundCommand,
+      scheduleCycle,
+      stopActiveListening,
+      tts,
+    ],
   );
 
   useEffect(() => {
@@ -261,6 +286,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
 
   const runListeningCycle = useCallback(async () => {
     if (!canListen() || cycleRunningRef.current) return;
+    const awaitingCommand = hasActiveCommandWindow();
 
     if (Platform.OS === "web") {
       if (stt.isListening()) {
@@ -290,7 +316,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       if (mountedRef.current) {
         setListening(true);
         setStatus(
-          awaitingCommandRef.current
+          awaitingCommand
             ? "Listening for a command"
             : "Listening for Hey Buddy or Hey WalkBuddy",
         );
@@ -322,13 +348,13 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       if (mountedRef.current) {
         setListening(true);
         setStatus(
-          awaitingCommandRef.current
+          awaitingCommand
             ? "Listening for a command"
             : "Listening for Hey Buddy or Hey WalkBuddy",
         );
       }
 
-      await delay(awaitingCommandRef.current ? COMMAND_CLIP_MS : WAKE_CLIP_MS);
+      await delay(awaitingCommand ? COMMAND_CLIP_MS : WAKE_CLIP_MS);
 
       if (generation !== generationRef.current || !canListen()) {
         // The pause/disable path owns cancellation. Do not cancel again after
@@ -344,14 +370,19 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
 
       if (generation !== generationRef.current || !canListen()) return;
       if (result.text?.trim()) await handleTranscriptRef.current(result.text);
-      else if (result.error && !result.error.toLowerCase().includes("no speech")) {
-        if (mountedRef.current) setStatus(`Transcription unavailable: ${result.error}`);
+      else {
+        // A wake phrase only arms one follow-up clip. Empty audio must not leave
+        // a bare command able to run later without a fresh wake phrase.
+        if (awaitingCommand) clearAwaitingCommand();
+        if (result.error && !result.error.toLowerCase().includes("no speech")) {
+          if (mountedRef.current) setStatus(`Transcription unavailable: ${result.error}`);
+        }
       }
     } finally {
       cycleRunningRef.current = false;
       if (canListen()) scheduleCycle(500);
     }
-  }, [canListen, scheduleCycle, stt]);
+  }, [canListen, clearAwaitingCommand, hasActiveCommandWindow, scheduleCycle, stt]);
 
   useEffect(() => {
     runCycleRef.current = runListeningCycle;
@@ -373,9 +404,10 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
       mountedRef.current = false;
+      clearAwaitingCommand();
       stopActiveListening();
     };
-  }, [available, scheduleCycle, stopActiveListening]);
+  }, [available, clearAwaitingCommand, scheduleCycle, stopActiveListening]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -386,6 +418,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
           scheduleCycle(500);
         }
       } else {
+        clearAwaitingCommand();
         stopActiveListening();
         if (mountedRef.current && enabledRef.current) {
           setStatus("Paused while WalkBuddy is in the background");
@@ -394,7 +427,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => subscription.remove();
-  }, [scheduleCycle, stopActiveListening]);
+  }, [clearAwaitingCommand, scheduleCycle, stopActiveListening]);
 
   const setEnabled = useCallback(
     async (nextEnabled: boolean) => {
@@ -405,7 +438,7 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
 
       enabledRef.current = nextEnabled;
       setEnabledState(nextEnabled);
-      awaitingCommandRef.current = false;
+      clearAwaitingCommand();
       await AsyncStorage.setItem(STORAGE_KEY, String(nextEnabled));
 
       if (nextEnabled) {
@@ -417,20 +450,21 @@ export function WakeWordProvider({ children }: { children: React.ReactNode }) {
       }
       return true;
     },
-    [available, scheduleCycle, stopActiveListening],
+    [available, clearAwaitingCommand, scheduleCycle, stopActiveListening],
   );
 
   const pause = useCallback(
     (reason = "manual") => {
       const wasAlreadyPaused = pauseReasonsRef.current.size > 0;
       pauseReasonsRef.current.add(reason);
+      clearAwaitingCommand();
       // Only the first pause request should stop the wake-word recorder.
       // Repeated requests can arrive after the camera has started its own
       // recording, so cancelling again would stop camera push-to-talk.
       if (!wasAlreadyPaused) stopActiveListening();
       if (mountedRef.current && enabledRef.current) setStatus("Voice activation paused");
     },
-    [stopActiveListening],
+    [clearAwaitingCommand, stopActiveListening],
   );
 
   const resume = useCallback(
