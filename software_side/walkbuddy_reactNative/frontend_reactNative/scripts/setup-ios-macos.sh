@@ -828,3 +828,5 @@ echo "Connect and unlock the iPhone."
 echo ""
 echo "Starting Expo iOS device build..."
 echo ""
+
+npx expo run:ios --device
