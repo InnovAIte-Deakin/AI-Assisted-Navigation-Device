@@ -68,7 +68,7 @@ def train_yolo(base_weights, data_yaml, **train_kwargs):
     fine-tune further). data_yaml is a path to a YOLO dataset config.
 
     Pass one of the CONFIG_* dicts above via **, or your own kwargs, e.g.:
-        train_yolo("yolov8n.pt", "ML_side/config/newdata.yaml", **CONFIG_V8N_STANDARD)
+        train_yolo("yolov8n.pt", "ML_side/config/dataset_v2/newdata.yaml", **CONFIG_V8N_STANDARD)
 
     Returns the ultralytics training results object. The actual weights end
     up at runs/detect/<name>/weights/best.pt — ultralytics decides the run

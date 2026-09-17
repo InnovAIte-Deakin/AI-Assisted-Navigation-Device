@@ -1,0 +1,68 @@
+{
+  "project_root": "../..",
+  "raw_root": "../../datasets/raw",
+  "download_sheet": "../download_sheet.yaml",
+  "workspace_root": "../../datasets/pipeline_sample/workspace",
+  "invalid_root": "../../datasets/pipeline_sample/invalid",
+  "output_root": "../../datasets/pipeline_sample/releases",
+  "release_id": "real-sample-v1",
+  "mode": "sample",
+  "max_assets_per_source": 50,
+  "seed": 42,
+  "taxonomy_version": "1.0.0",
+  "taxonomy": ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"],
+  "dataset_yaml": {"mode": "generate"},
+  "splits": {"train": 0.70, "val": 0.20, "test": 0.10},
+  "image_format": "JPEG",
+  "jpeg_quality": 95,
+  "near_duplicates_enabled": true,
+  "near_duplicate_distance": 6,
+  "near_duplicate_review_distance": 10,
+  "imbalance_ratio": 4.0,
+  "distribution_drift_threshold": 0.25,
+  "qa_sample_per_source": 0,
+  "empty_after_mapping_policy": "retain_negative",
+  "cvat": {"enabled": false, "project_name": "WalkBuddy semantic QA sample"},
+  "sources": [
+    {
+      "id": "indoor_object_detection",
+      "annotation_format": "yolo",
+      "class_names": ["door", "cabinetDoor", "refrigeratorDoor", "window", "chair", "table", "cabinet", "couch", "openedDoor", "pole"],
+      "class_mapping": {"0": "door", "1": "door", "2": "door", "3": null, "4": "chair", "5": "table", "6": null, "7": null, "8": "door", "9": "pole"},
+      "environment_tags": ["indoor"],
+      "grouping": "folder"
+    },
+    {
+      "id": "obstacle_detection_roboflow",
+      "annotation_format": "yolo",
+      "class_names": ["Bicycle", "Bus", "Car", "Dog", "Electric pole", "Motorcycle", "Person", "Traffic signs", "Tree", "Uncovered manhole"],
+      "class_mapping": {"0": "bicycle", "1": "vehicle", "2": "vehicle", "3": null, "4": "pole", "5": "vehicle", "6": "person", "7": null, "8": null, "9": null},
+      "environment_tags": ["outdoor", "road"],
+      "grouping": "folder"
+    },
+    {
+      "id": "stairs_detection",
+      "annotation_format": "yolo",
+      "class_names": ["stairs"],
+      "class_mapping": {"0": "stairs"},
+      "environment_tags": ["unknown"],
+      "grouping": "folder"
+    },
+    {
+      "id": "pedestrian_walk",
+      "annotation_format": "yolo",
+      "class_names": ["B", "F", "M"],
+      "class_mapping": {"0": "person", "1": "person", "2": "person"},
+      "environment_tags": ["outdoor", "pedestrian"],
+      "grouping": "folder"
+    },
+    {
+      "id": "outdoor_objects",
+      "annotation_format": "yolo",
+      "class_names": ["building", "foot path", "person", "plants", "road", "street light", "trees"],
+      "class_mapping": {"0": null, "1": null, "2": "person", "3": null, "4": null, "5": "pole", "6": null},
+      "environment_tags": ["outdoor"],
+      "grouping": "folder"
+    }
+  ]
+}

@@ -81,7 +81,7 @@ When producing a new dataset (new classes, cleaned annotations, additional image
 - Increment the version: `v1 → v2`
 - Keep the same internal folder structure (`train_dataset/`, `val_dataset/`)
 - Update the class distribution table in this README
-- Update `config/newdata.yaml` with the new paths and commit it
+- Update `config/dataset_v2/newdata.yaml` with the new paths and commit it
 
 ### Model Versioning
 
@@ -301,7 +301,11 @@ These are inherited problems that directly affect the reliability of the current
 ```
 ML_side/
 ├── config/
-│   └── newdata.yaml              # YOLO dataset config — 8 classes, train/val paths
+│   ├── download_sheet.yaml       # Shared source registry
+│   ├── dataset_v2/
+│   │   └── newdata.yaml          # Previous dataset configuration
+│   └── dataset_v3/
+│       └── data_pipeline.example.yaml
 ├── data/
 │   └── dataset_analyze.py        # Integrity check script (only dataset artifact in repo)
 │                                 # Images live on Teams SharePoint (see Dataset section)
