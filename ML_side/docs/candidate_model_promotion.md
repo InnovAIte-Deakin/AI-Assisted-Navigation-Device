@@ -90,7 +90,7 @@ Its verdict is deliberately constrained:
   candidate-validation report, or no explicitly supplied gate configuration.
 - `PASS`: a compatible candidate satisfies every explicitly supplied gate.
 
-`ML_side/config/promotion_gates.example.json` demonstrates the supported format
+`ML_side/config/dataset_v2/promotion_gates.example.json` demonstrates the supported format
 only. It is explicitly **not approved WalkBuddy policy** and is never loaded by
 default; supplying it still returns `REVIEW`. Only a separately approved
 configuration with `policy_status` set to `APPROVED_POLICY` is eligible for

@@ -4,7 +4,7 @@
 
 ## Inputs and eligibility
 
-Start from [`../config/training_navigation_mvp.yaml`](../config/training_navigation_mvp.yaml), then use a reviewed local copy. The configuration must reference a repository-relative manifest and local model architecture (`.yaml`/`.yml`) or initial weights (`.pt`), never a URL or a bare Ultralytics model identifier. Exactly one model source is required.
+Start from [`../config/dataset_v2/training_navigation_mvp.yaml`](../config/dataset_v2/training_navigation_mvp.yaml), then use a reviewed local copy. The configuration must reference a repository-relative manifest and local model architecture (`.yaml`/`.yml`) or initial weights (`.pt`), never a URL or a bare Ultralytics model identifier. Exactly one model source is required.
 
 The manifest must pass the bundled validator with `--check-files` semantics, use the approved eight-class taxonomy, have `dataset.release_decision: approved_for_training`, and record an approved licence review that permits machine-learning use. Of the manifest decisions, only `approved_for_training` is accepted; `draft`, `under_review`, `rejected`, `retired`, and `example_only` are rejected. The configuration stage must be `approved_for_internal_training` or `released`; `candidate`, `in_review`, and `rejected` are deliberately ineligible. The YOLO YAML must use the exact same ordered taxonomy and physically contain each manifest sample beneath its declared split. If an inspection report is supplied, its verdict must not be `fail`.
 
@@ -110,7 +110,7 @@ Use an existing controlled local dataset root. The root is not recorded in outpu
 
 ```powershell
 python .\ML_side\training\train_navigation_model.py `
-  --config .\ML_side\config\training_navigation_mvp.yaml `
+  --config .\ML_side\config\dataset_v2\training_navigation_mvp.yaml `
   --dataset-root D:\controlled-datasets\navigation-mvp-v1 `
   --dry-run
 ```

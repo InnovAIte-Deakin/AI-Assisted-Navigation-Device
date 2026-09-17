@@ -17,7 +17,7 @@ Only these classes are allowed in a release manifest, in this exact ID order:
 | 6 | bicycle |
 | 7 | vehicle |
 
-The companion YOLO configuration is [`../config/navigation_mvp.yaml`](../config/navigation_mvp.yaml). Its dataset root is a placeholder; it does not identify an approved local dataset.
+The companion YOLO configuration is [`../config/dataset_v2/navigation_mvp.yaml`](../config/dataset_v2/navigation_mvp.yaml). Its dataset root is a placeholder; it does not identify an approved local dataset.
 
 ## Files and storage boundary
 
@@ -162,7 +162,7 @@ The reports are `dataset_quality_report.json` and `dataset_quality_report.md`; a
 
 `../tools/build_navigation_dataset_release.py` is the controlled bridge from an inspected local YOLO candidate to a copied, versioned WalkBuddy release. It uses the exact approved taxonomy above, rewrites only included label class IDs, and never infers semantic equivalence from source class names. It reads the source dataset, source manifest, inspection report, and reviewed mapping configuration without changing them; the release output must be a controlled external directory, outside both the source root and this Git repository.
 
-Start from [`../config/dataset_release.example.json`](../config/dataset_release.example.json). It is fictional metadata, not a real mapping or approval. Its `source_taxonomy` must exactly match the source YOLO YAML, including class ID, spelling, case, and order. Every source class must have exactly one explicit decision: a mapping to the matching approved ID/name pair, an excluded decision with a reason, or an unresolved decision. Unresolved classes block release creation. Unknown fields, duplicate class decisions, unknown source IDs, and targets outside the approved eight classes are rejected.
+Start from [`../config/dataset_v2/dataset_release.example.json`](../config/dataset_v2/dataset_release.example.json). It is fictional metadata, not a real mapping or approval. Its `source_taxonomy` must exactly match the source YOLO YAML, including class ID, spelling, case, and order. Every source class must have exactly one explicit decision: a mapping to the matching approved ID/name pair, an excluded decision with a reason, or an unresolved decision. Unresolved classes block release creation. Unknown fields, duplicate class decisions, unknown source IDs, and targets outside the approved eight classes are rejected.
 
 An excluded annotation is deliberately removed and counted. `empty_image_policy: retain_negative` retains images that become empty after exclusion with an empty YOLO label file; `exclude_image` omits those images and labels together. Images that were already empty negative samples are retained in their original split under either policy and are reported separately from exclusion-created negatives. Release name and version must be safe single path components containing only letters, numbers, dots, underscores, and hyphens.
 

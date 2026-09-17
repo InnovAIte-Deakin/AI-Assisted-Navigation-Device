@@ -15,7 +15,7 @@ model or dataset.
 
 The verified local artifact documented in `ML_side/models/README.md` has seven
 classes: `book`, `books`, `monitor`, `office-chair`, `whiteboard`, `table`, and
-`tv`. `ML_side/config/newdata.yaml` currently lists an additional `couch` class.
+`tv`. `ML_side/config/dataset_v2/newdata.yaml` currently lists an additional `couch` class.
 Do not assume another `best.pt` has the same taxonomy unless its checksum and
 `model.names` metadata are inspected locally.
 
