@@ -112,6 +112,7 @@ export default function HomePage() {
             appTitle="WalkBuddy"
             onPressProfile={goToProfile}
             showDivider
+            showWakeWordControl
             showLocation
           />
 

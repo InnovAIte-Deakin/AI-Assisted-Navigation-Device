@@ -1,16 +1,18 @@
 // app/settings.tsx
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import HomeHeader from "./HomeHeader";
 import Footer from "./Footer";
 import { Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
+import { useWakeWord } from "@/src/context/ForegroundWakeWordContext";
 
 export default function SettingsPage() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
+  const { enabled, available, listening, status, setEnabled } = useWakeWord();
 
   const contentWidth = useMemo(() => {
     const padding = 24;
@@ -28,12 +30,27 @@ export default function SettingsPage() {
 
         <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-          <Text style={[styles.subtitle, { color: colors.text }]}>
-            This screen is intentionally minimal.
-          </Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.subtitle, { color: colors.text }]}>Hey Buddy / Hey WalkBuddy</Text>
+              <Text style={[styles.note, { color: colors.textMuted }]}>
+                Records short clips for transcription only while WalkBuddy is open.
+              </Text>
+            </View>
+            <Switch
+              value={enabled}
+              disabled={!available}
+              onValueChange={(nextValue) => void setEnabled(nextValue)}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={enabled ? colors.accentText : colors.textMuted}
+              accessibilityLabel="Hey Buddy foreground voice activation"
+              accessibilityHint="Turns foreground wake phrase listening on or off"
+            />
+          </View>
           <Text style={[styles.note, { color: colors.textMuted }]}>
-            It exists to keep navigation stable while the real settings
-            functionality is implemented.
+            {available
+              ? `${listening ? "Active" : "Status"}: ${status}`
+              : "Voice activation is unavailable on this device or browser."}
           </Text>
         </View>
 
@@ -75,11 +92,23 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: Typography.size.sm,
     fontWeight: "700",
-    marginBottom: Spacing.sm,
   },
 
   note: {
     fontSize: Typography.size.xs,
     lineHeight: 16,
+  },
+
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+
+  settingCopy: {
+    flex: 1,
+    gap: Spacing.xs,
   },
 });

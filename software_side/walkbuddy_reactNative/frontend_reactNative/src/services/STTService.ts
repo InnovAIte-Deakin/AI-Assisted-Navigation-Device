@@ -48,6 +48,7 @@ class STTService {
   private recorderRef: AudioRecorder | null = null;
   private isRecording = false;
   private recordingStartTime: number = 0;
+  private recorderTransition: Promise<void> = Promise.resolve();
   private config: STTConfig;
 
   constructor(config: STTConfig = {}) {
@@ -112,13 +113,13 @@ class STTService {
       };
 
       rec.onend = () => {
-        this.recognitionRef = null;
+        if (this.recognitionRef === rec) this.recognitionRef = null;
       };
 
       rec.onerror = (e: any) => {
         const errorMsg = e.error || "Speech recognition error";
         onError?.(errorMsg);
-        this.recognitionRef = null;
+        if (this.recognitionRef === rec) this.recognitionRef = null;
       };
 
       rec.start();
@@ -147,6 +148,29 @@ class STTService {
     }
   }
 
+  /** Restore playback mode after a native recording finishes or is cancelled. */
+  private async resetRecordingAudioMode(): Promise<void> {
+    try {
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+    } catch (error) {
+      console.log("[STT] Error resetting audio mode:", error);
+    }
+  }
+
+  /** Serialize recorder start/stop/cancel operations so audio sessions cannot overlap. */
+  private async acquireRecorderTransition(): Promise<() => void> {
+    const previous = this.recorderTransition;
+    let release!: () => void;
+    this.recorderTransition = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    return release;
+  }
+
   /**
    * Start recording audio (Native - expo-audio)
    */
@@ -155,11 +179,13 @@ class STTService {
       return false;
     }
 
-    if (this.isRecording) {
-      return false;
-    }
+    const release = await this.acquireRecorderTransition();
 
     try {
+      if (this.isRecording) {
+        return false;
+      }
+
       // Request microphone permission (expo-audio replaces expo-av from SDK 55)
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
@@ -189,9 +215,14 @@ class STTService {
       console.log("[STT] Recording started at:", this.recordingStartTime);
       return true;
     } catch (error) {
+      this.recorderRef = null;
+      this.isRecording = false;
+      await this.resetRecordingAudioMode();
       console.error("[STT] Error starting recording:", error);
       Alert.alert("Recording Error", "Failed to start audio recording");
       return false;
+    } finally {
+      release();
     }
   }
 
@@ -199,11 +230,13 @@ class STTService {
    * Stop recording and transcribe (Native)
    */
   async stopRecordingNative(): Promise<STTResult> {
-    if (!this.recorderRef || !this.isRecording) {
-      return { text: "", error: "No active recording" };
-    }
+    const release = await this.acquireRecorderTransition();
 
     try {
+      if (!this.recorderRef || !this.isRecording) {
+        return { text: "", error: "No active recording" };
+      }
+
       // Calculate recording duration
       const durationMs = Date.now() - this.recordingStartTime;
       console.log("[STT] Recording duration:", durationMs, "ms");
@@ -224,6 +257,7 @@ class STTService {
         }
         this.recorderRef = null;
         this.isRecording = false;
+        await this.resetRecordingAudioMode();
         return { text: "", error: errorMsg };
       }
 
@@ -232,6 +266,7 @@ class STTService {
       const uri = this.recorderRef.uri;
       this.recorderRef = null;
       this.isRecording = false;
+      await this.resetRecordingAudioMode();
 
       if (!uri) {
         return { text: "", error: "No audio file recorded" };
@@ -280,11 +315,47 @@ class STTService {
 
       return result;
     } catch (error) {
+      this.recorderRef = null;
       this.isRecording = false;
+      await this.resetRecordingAudioMode();
       const errorMsg =
         error instanceof Error ? error.message : "Recording error";
       console.error("[STT] Error stopping recording:", error);
       return { text: "", error: errorMsg };
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * Cancel a native recording without uploading it for transcription.
+   * Foreground voice activation uses this when it pauses or the app closes.
+   */
+  async cancelRecordingNative(): Promise<void> {
+    if (Platform.OS === "web") return;
+
+    const release = await this.acquireRecorderTransition();
+
+    try {
+      const recorder = this.recorderRef;
+      this.recorderRef = null;
+      this.isRecording = false;
+
+      if (recorder) {
+        try {
+          await recorder.stop();
+          const uri = recorder.uri;
+          if (uri) {
+            await FileSystem.deleteAsync(uri, { idempotent: true });
+          }
+        } catch (error) {
+          console.log("[STT] Error cancelling recording:", error);
+        }
+      }
+
+      await this.resetRecordingAudioMode();
+    } finally {
+      release();
     }
   }
 

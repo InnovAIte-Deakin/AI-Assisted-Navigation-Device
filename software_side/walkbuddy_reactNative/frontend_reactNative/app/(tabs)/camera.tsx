@@ -25,12 +25,14 @@ import {
 
 import { getTTSService, RiskLevel, riskLevelFromString } from "../../src/services/TTSService";
 import { getSTTService } from "../../src/services/STTService";
+import { matchVoiceCommand, VOICE_COMMAND_HELP } from "../../src/services/VoiceCommandService";
 import { uriToBlob } from "../../src/utils/uriToBlob";
 import { API_BASE, API_KEY } from "../../src/config";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { BackButton } from "@/components/ui/BackButton";
+import { useWakeWord } from "@/src/context/ForegroundWakeWordContext";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -107,6 +109,7 @@ export default function CameraAssistScreen() {
   // straight into an OCR capture on arrival instead of making the user tap.
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const tts = useMemo(() => getTTSService({ cooldownSeconds: 1.2 }), []);
+  const { pause: pauseWakeWord, resume: resumeWakeWord } = useWakeWord();
   const [perm, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const autoOcrFiredRef = useRef(false);
@@ -118,6 +121,8 @@ export default function CameraAssistScreen() {
   const isVoiceProcessingRef = useRef(false);
   const isListeningRef = useRef(false);
   const micLockRef = useRef(false);
+  const micPressedRef = useRef(false);
+  const stopAfterMicStartRef = useRef(false);
 
   // Feature 2: Lost & Recovery
   const lastPositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
@@ -138,6 +143,22 @@ export default function CameraAssistScreen() {
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
+  useEffect(() => {
+    const pauseReason = "camera-push-to-talk";
+    if (isListening || isVoiceProcessing) {
+      pauseWakeWord(pauseReason);
+    } else {
+      resumeWakeWord(pauseReason);
+    }
+  }, [isListening, isVoiceProcessing, pauseWakeWord, resumeWakeWord]);
+
+  useEffect(
+    () => () => {
+      resumeWakeWord("camera-push-to-talk");
+    },
+    [resumeWakeWord],
+  );
 
   // ── WebSocket vision streaming ────────────────────────────────────────
   const wsRef = useRef<WebSocket | null>(null);
@@ -200,9 +221,11 @@ export default function CameraAssistScreen() {
 
   const stopListeningHard = useCallback(() => {
     try {
-      sttService.stopListening();
+      if (Platform.OS === "web") sttService.stopListening();
+      else void sttService.cancelRecordingNative();
     } catch {}
     setIsListening(false);
+    setIsVoiceProcessing(false);
   }, [sttService]);
 
   // Auto-start scanning on mount
@@ -406,6 +429,7 @@ export default function CameraAssistScreen() {
         const ws = wsRef.current;
         wsRef.current = null;
         ws?.close(1000, "blur");
+        stopListeningHard();
         tts.stop();
       };
     // connectWebSocket is stable; perm.granted is the only meaningful dep here
@@ -612,6 +636,134 @@ export default function CameraAssistScreen() {
     if (!q) return;
     setIsVoiceProcessing(true);
     try {
+      const command = matchVoiceCommand(q);
+
+      if (command) {
+        const speakAndNavigate = async (message: string, pathname: string) => {
+          await tts.speak(message, RiskLevel.LOW, true);
+          router.push(pathname as any);
+        };
+
+        switch (command) {
+          case "help":
+            await tts.speak(VOICE_COMMAND_HELP, RiskLevel.LOW, true);
+            return;
+
+          case "repeat-guidance": {
+            const previousMessage = tts.getStatus().lastMessage;
+            await tts.speak(
+              previousMessage || "There is no previous guidance to repeat.",
+              RiskLevel.LOW,
+              true,
+            );
+            return;
+          }
+
+          case "read-text":
+            await tts.speak("Reading text.", RiskLevel.LOW, true);
+            await captureOCR();
+            return;
+
+          case "describe-surroundings": {
+            const descriptions = [
+              ...new Set(
+                detectionsRef.current
+                  .filter((d) => d.confidence >= 0.45)
+                  .map((d) => `${d.category}${d.direction ? ` ${d.direction}` : ""}`),
+              ),
+            ].slice(0, 5);
+            const description = descriptions.length
+              ? `I can see ${descriptions.join(", ")}.`
+              : "I cannot see any objects clearly right now.";
+            await tts.speak(description, RiskLevel.LOW, true);
+            return;
+          }
+
+          case "open-camera":
+            await tts.speak("The camera is already open.", RiskLevel.LOW, true);
+            return;
+
+          case "stop-speaking":
+            tts.stop();
+            return;
+
+          case "go-home":
+            await tts.speak("Going home.", RiskLevel.LOW, true);
+            router.replace("/" as any);
+            return;
+
+          case "go-back":
+            await tts.speak("Going back.", RiskLevel.LOW, true);
+            router.back();
+            return;
+
+          case "open-search":
+            await speakAndNavigate("Opening search.", "/search");
+            return;
+
+          case "open-places":
+            await speakAndNavigate("Opening places.", "/places");
+            return;
+
+          case "open-audiobooks":
+            await speakAndNavigate("Opening audiobooks.", "/audiobooks");
+            return;
+
+          case "open-audiobook-favourites":
+            await speakAndNavigate("Opening audiobook favourites.", "/audiobooks-favourites");
+            return;
+
+          case "open-audiobook-history":
+            await speakAndNavigate("Opening audiobook history.", "/audiobooks-history");
+            return;
+
+          case "open-listen-later":
+            await speakAndNavigate("Opening Listen Later.", "/audiobooks-listen-later");
+            return;
+
+          case "open-favourites":
+            await speakAndNavigate("Opening favourites.", "/favourites");
+            return;
+
+          case "open-indoor-navigation":
+            await speakAndNavigate("Opening indoor navigation.", "/indoor");
+            return;
+
+          case "open-outdoor-navigation":
+            await speakAndNavigate("Opening outdoor navigation.", "/exterior");
+            return;
+
+          case "open-predictive-path":
+            await speakAndNavigate("Opening predictive path.", "/predictive-path");
+            return;
+
+          case "open-ask-a-friend":
+            await speakAndNavigate("Opening Ask a Friend.", "/ask-a-friend-web");
+            return;
+
+          case "open-emergency":
+            await tts.speak("Opening the emergency screen.", RiskLevel.HIGH, true);
+            router.push("/emergency" as any);
+            return;
+
+          case "open-profile":
+            await speakAndNavigate("Opening your profile.", "/profile");
+            return;
+
+          case "open-settings":
+            await speakAndNavigate("Opening settings.", "/settings");
+            return;
+
+          case "open-location-map":
+            await speakAndNavigate("Opening your location map.", "/location-map");
+            return;
+
+          case "open-helper":
+            await speakAndNavigate("Opening the helper interface.", "/helper-web");
+            return;
+        }
+      }
+
       const visionEvents = detectionsRef.current.map((d) => ({
         label: d.category,
         direction: d.direction || "ahead",
@@ -635,9 +787,9 @@ export default function CameraAssistScreen() {
     } finally {
       setIsVoiceProcessing(false);
     }
-  }, [tts]);
+  }, [captureOCR, router, tts]);
 
-  const startListening = useCallback(async () => {
+  const startListening = useCallback(async (): Promise<boolean> => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (Platform.OS === "web") {
       const ok = sttService.startListening(
@@ -655,11 +807,12 @@ export default function CameraAssistScreen() {
         },
       );
       if (ok) setIsListening(true);
-      return;
+      return ok;
     }
     const ok = await sttService.startRecordingNative();
     if (ok) setIsListening(true);
     else Alert.alert("Recording Error", "Failed to start recording.");
+    return ok;
   }, [sttService, processQuery, stopListeningHard]);
 
   const stopListening = useCallback(async () => {
@@ -681,22 +834,56 @@ export default function CameraAssistScreen() {
 
   const micStart = useCallback(async () => {
     if (micLockRef.current || isVoiceProcessing || isListening) return;
+    micPressedRef.current = true;
+    stopAfterMicStartRef.current = false;
     micLockRef.current = true;
+    pauseWakeWord("camera-push-to-talk");
     tts.stop(); // interrupt any ongoing guidance speech
     try {
-      setIsListening(true);
-      await startListening();
+      if (!micPressedRef.current) {
+        resumeWakeWord("camera-push-to-talk");
+        return;
+      }
+
+      const started = await startListening();
+      if (!started) {
+        resumeWakeWord("camera-push-to-talk");
+        return;
+      }
+
+      if (!micPressedRef.current || stopAfterMicStartRef.current) {
+        if (Platform.OS === "web") stopListeningHard();
+        else await sttService.cancelRecordingNative();
+        setIsListening(false);
+        setIsVoiceProcessing(false);
+        resumeWakeWord("camera-push-to-talk");
+      }
     } finally {
-      setTimeout(() => { micLockRef.current = false; }, 120);
+      micLockRef.current = false;
+      stopAfterMicStartRef.current = false;
     }
-  }, [startListening, isListening, isVoiceProcessing, tts]);
+  }, [
+    isListening,
+    isVoiceProcessing,
+    pauseWakeWord,
+    resumeWakeWord,
+    startListening,
+    stopListeningHard,
+    sttService,
+    tts,
+  ]);
 
   const micStop = useCallback(async () => {
-    if (micLockRef.current || isVoiceProcessing || !isListening) return;
+    micPressedRef.current = false;
+    if (micLockRef.current) {
+      stopAfterMicStartRef.current = true;
+      return;
+    }
+    if (isVoiceProcessing || (!isListening && !sttService.isListening())) return;
     micLockRef.current = true;
     try { await stopListening(); }
-    finally { setTimeout(() => { micLockRef.current = false; }, 120); }
-  }, [stopListening, isListening, isVoiceProcessing]);
+    finally { micLockRef.current = false; }
+  }, [stopListening, isListening, isVoiceProcessing, sttService]);
 
   // Feature 2: Lost & Recovery Mode
   useEffect(() => {

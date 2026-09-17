@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, Animated, Easing } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useSegments } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 
 import { Radius, Spacing } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
@@ -56,6 +56,7 @@ const PILL_VERTICAL_INSET = 8;
 
 export default function Footer({ navigation, insets }: any) {
   const colors = useThemeColors();
+  const router = useRouter();
   const segments = useSegments();
   const [barWidth, setBarWidth] = useState(0);
 
@@ -106,6 +107,18 @@ export default function Footer({ navigation, insets }: any) {
 
   const isActive = (routeName: string) => currentRoute === routeName;
 
+  const navigateToTab = (routeName: string) => {
+    // The Tabs layout supplies `navigation`, but standalone pages such as
+    // Settings render Footer directly. Use Expo Router as the fallback so
+    // the footer works in both places.
+    if (navigation?.navigate) {
+      navigation.navigate(routeName);
+      return;
+    }
+
+    router.push((routeName === "index" ? "/" : `/${routeName}`) as any);
+  };
+
   return (
     <View
       style={[styles.footWrap, { paddingBottom: insets?.bottom ?? 0 }]}
@@ -138,7 +151,7 @@ export default function Footer({ navigation, insets }: any) {
               styles.bottomItem,
               pressed && styles.pressedItem,
             ]}
-            onPress={() => navigation.navigate(tab.route)}
+            onPress={() => navigateToTab(tab.route)}
           >
             <Ionicons
               name={isActive(tab.route) ? tab.activeIcon : tab.icon}

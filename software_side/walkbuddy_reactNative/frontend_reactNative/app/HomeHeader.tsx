@@ -8,12 +8,14 @@ import { useSession } from "../src/context/SessionContext";
 import { Radius, Spacing, Typography } from "@/constants/theme";
 import { useThemeColors } from "@/hooks/use-theme-colors";
 import { BackButton } from "@/components/ui/BackButton";
+import { useWakeWord } from "@/src/context/ForegroundWakeWordContext";
 
 type Props = {
   appTitle?: string;
   onPressProfile?: () => void;
   showDivider?: boolean;
   showLocation?: boolean;
+  showWakeWordControl?: boolean;
   locationValue?: string;
   /** Replaces the profile icon with a back button, aligned in the same row
    * (for pushed pages like Profile/Places/Favourites where navigating "to
@@ -26,12 +28,14 @@ export default function HomeHeader({
   onPressProfile,
   showDivider = true,
   showLocation = true,
+  showWakeWordControl = false,
   locationValue = "",
   showBackButton = false,
 }: Props) {
   const colors = useThemeColors();
   const router = useRouter();
   const { auth } = useSession();
+  const { enabled, available, listening, status, setEnabled } = useWakeWord();
   const insets = useSafeAreaInsets();
 
   const {
@@ -39,8 +43,6 @@ export default function HomeHeader({
     destination,
     preferDestinationView,
     setPreferDestinationView,
-    latitude,
-    longitude,
   } = useCurrentLocation();
 
   // Only shows the user's actual name when logged in with a profile;
@@ -86,16 +88,6 @@ export default function HomeHeader({
   };
 
   const handleLocationPress = () => {
-    const providerLat =
-      typeof latitude === "number" && Number.isFinite(latitude)
-        ? latitude
-        : undefined;
-
-    const providerLng =
-      typeof longitude === "number" && Number.isFinite(longitude)
-        ? longitude
-        : undefined;
-
     let parsedLat: number | undefined;
     let parsedLng: number | undefined;
 
@@ -110,8 +102,8 @@ export default function HomeHeader({
       }
     }
 
-    const lat = providerLat ?? parsedLat;
-    const lng = providerLng ?? parsedLng;
+    const lat = parsedLat;
+    const lng = parsedLng;
 
     router.push({
       pathname: "/location-map" as any,
@@ -154,6 +146,44 @@ export default function HomeHeader({
       </View>
 
       {showDivider && <View style={[styles.topDivider, { borderBottomColor: colors.accent }]} />}
+
+      {showWakeWordControl && (
+        <View style={styles.wakeWordWrap}>
+          <Text style={[styles.wakeWordLabel, { color: colors.textMuted }]}>VOICE CONTROL</Text>
+          <View
+            style={[
+              styles.wakeWordCard,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            ]}
+          >
+            <View style={[styles.wakeWordIcon, { backgroundColor: `${colors.accent}18` }]}>
+              <Ionicons
+                name={listening ? "mic" : "mic-outline"}
+                size={22}
+                color={colors.accent}
+              />
+            </View>
+            <View style={styles.wakeWordCopy}>
+              <Text style={[styles.wakeWordTitle, { color: colors.text }]}>Hey Buddy</Text>
+              <Text
+                style={[styles.wakeWordStatus, { color: colors.textMuted }]}
+                numberOfLines={2}
+              >
+                {available ? status : "Voice activation unavailable in this browser"}
+              </Text>
+            </View>
+            <Switch
+              value={enabled}
+              disabled={!available}
+              onValueChange={(nextValue) => void setEnabled(nextValue)}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={enabled ? colors.accentText : colors.textMuted}
+              accessibilityLabel="Hey Buddy voice activation"
+              accessibilityHint="Turns foreground voice activation on or off"
+            />
+          </View>
+        </View>
+      )}
 
       {showLocation && (
         <View style={styles.locationWrap}>
@@ -241,6 +271,51 @@ const styles = StyleSheet.create({
   topDivider: {
     borderBottomWidth: 1,
     marginBottom: Spacing.md,
+  },
+
+  wakeWordWrap: {
+    width: "100%",
+    marginBottom: Spacing.md,
+  },
+
+  wakeWordLabel: {
+    fontSize: Typography.size.xs,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: Spacing.sm,
+  },
+
+  wakeWordCard: {
+    borderWidth: 1.5,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+
+  wakeWordIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  wakeWordCopy: {
+    flex: 1,
+  },
+
+  wakeWordTitle: {
+    fontSize: Typography.size.sm,
+    fontWeight: "800",
+  },
+
+  wakeWordStatus: {
+    fontSize: Typography.size.xs,
+    lineHeight: 16,
+    marginTop: 2,
   },
 
   locationWrap: {
