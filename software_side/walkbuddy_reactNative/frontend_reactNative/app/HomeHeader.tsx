@@ -1,53 +1,38 @@
 import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Switch } from "react-native";
-import Icon from "react-native-vector-icons/FontAwesome";
-import { useRouter, useSegments } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useCurrentLocation } from "../src/utils/locationSaver";
+import { useSession } from "../src/context/SessionContext";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+import { BackButton } from "@/components/ui/BackButton";
 
 type Props = {
-  greeting?: string;
   appTitle?: string;
   onPressProfile?: () => void;
   showDivider?: boolean;
   showLocation?: boolean;
   locationValue?: string;
+  /** Replaces the profile icon with a back button, aligned in the same row
+   * (for pushed pages like Profile/Places/Favourites where navigating "to
+   * profile" from within them doesn't make sense). */
+  showBackButton?: boolean;
 };
 
-function titleCaseFromSegment(seg: string) {
-  const cleaned = (seg ?? "").replace(/[-_]/g, " ").trim();
-  if (!cleaned) return "";
-  return cleaned
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function getRouteNameFromSegments(segments: string[]) {
-  const usable = segments.filter((s) => !s.startsWith("(") && s.length > 0);
-  if (usable.length === 0) return "";
-  const last = usable[usable.length - 1];
-  if (last.toLowerCase() === "index") return "Home";
-  return titleCaseFromSegment(last);
-}
-
-function isHomeBySegments(segments: string[]) {
-  const usable = segments.filter((s) => !s.startsWith("(") && s.length > 0);
-  if (usable.length === 0) return true;
-  const last = (usable[usable.length - 1] ?? "").toLowerCase();
-  return last === "home" || last === "index";
-}
-
 export default function HomeHeader({
-  greeting = "Hi there 👋",
   appTitle = "WalkBuddy",
   onPressProfile,
   showDivider = true,
   showLocation = true,
   locationValue = "",
+  showBackButton = false,
 }: Props) {
+  const colors = useThemeColors();
   const router = useRouter();
-  const segments = useSegments();
+  const { auth } = useSession();
+  const insets = useSafeAreaInsets();
 
   const {
     currentLocation,
@@ -58,10 +43,17 @@ export default function HomeHeader({
     longitude,
   } = useCurrentLocation();
 
+  // Only shows the user's actual name when logged in with a profile;
+  // otherwise falls back to "there" rather than showing nothing.
+  const displayName = useMemo(() => {
+    if (auth.status === "loggedInWithProfile" && auth.profile.displayName) {
+      return auth.profile.displayName;
+    }
+    return "there";
+  }, [auth]);
+
   const derived = useMemo(() => {
-    const onHome = isHomeBySegments(segments);
-    const routeName = getRouteNameFromSegments(segments);
-    const leftText = onHome ? greeting : routeName || "Page";
+    const leftText = displayName;
 
     const hasDestination = !!destination && destination.trim().length > 0;
     const showingDestination = hasDestination && preferDestinationView;
@@ -78,8 +70,7 @@ export default function HomeHeader({
       switchValue: hasDestination ? preferDestinationView : false,
     };
   }, [
-    segments,
-    greeting,
+    displayName,
     currentLocation,
     destination,
     preferDestinationView,
@@ -134,32 +125,43 @@ export default function HomeHeader({
   };
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.headerRow}>
-        <Text style={styles.greeting} numberOfLines={1}>
-          {derived.leftText}
-        </Text>
-        <Text style={styles.title} numberOfLines={1}>
-          {appTitle}
-        </Text>
-        <Pressable
-          onPress={handleProfilePress}
-          hitSlop={10}
-          style={styles.profileBtn}
-        >
-          <Icon name="user-circle" size={38} color={tokens.gold} />
-        </Pressable>
+    <View style={[styles.wrap, { paddingTop: insets.top + Spacing.xs }]}>
+      <View style={[styles.headerRow, { backgroundColor: colors.surface }]}>
+        <View style={styles.brandGroup}>
+          {showBackButton ? (
+            <BackButton inline />
+          ) : (
+            <Pressable
+              onPress={handleProfilePress}
+              hitSlop={10}
+              style={styles.profileBtn}
+            >
+              <Ionicons name="person-circle-outline" size={34} color={colors.accent} />
+            </Pressable>
+          )}
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+            {appTitle}
+          </Text>
+        </View>
+        <View style={styles.greetingStack}>
+          <Text style={[styles.welcomeLabel, { color: colors.textMuted }]} numberOfLines={1}>
+            Welcome
+          </Text>
+          <Text style={[styles.greeting, { color: colors.text }]} numberOfLines={1}>
+            {derived.leftText}
+          </Text>
+        </View>
       </View>
 
-      {showDivider && <View style={styles.topDivider} />}
+      {showDivider && <View style={[styles.topDivider, { borderBottomColor: colors.accent }]} />}
 
       {showLocation && (
         <View style={styles.locationWrap}>
-          <Text style={styles.locationLabel}>{derived.label}</Text>
+          <Text style={[styles.locationLabel, { color: colors.textMuted }]}>{derived.label}</Text>
           <Pressable onPress={handleLocationPress}>
-            <View style={styles.locationCard}>
-              <Icon name="map-marker" size={20} color={tokens.gold} style={styles.locationIcon} />
-              <Text style={styles.locationValue} numberOfLines={1}>
+            <View style={[styles.locationCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <Ionicons name="location-outline" size={16} color={colors.accent} style={styles.locationIcon} />
+              <Text style={[styles.locationValue, { color: colors.text }]} numberOfLines={1}>
                 {derived.value || "Current location"}
               </Text>
               <Switch
@@ -169,8 +171,8 @@ export default function HomeHeader({
                   if (!derived.hasDestination) return;
                   setPreferDestinationView(v);
                 }}
-                trackColor={{ false: "#23384d", true: "#2d4b66" }}
-                thumbColor={derived.switchValue ? tokens.gold : "#9aa8b6"}
+                trackColor={{ false: colors.border, true: colors.surfaceElevated }}
+                thumbColor={derived.switchValue ? colors.accent : colors.textMuted}
               />
             </View>
           </Pressable>
@@ -180,102 +182,95 @@ export default function HomeHeader({
   );
 }
 
-const tokens = {
-  bg: "#071a2a",
-  tile: "#0b0f14",
-  text: "#e8eef6",
-  muted: "#b8c6d4",
-  gold: "#f2a900",
-  divider: "#f2a900",
-};
-
 const styles = StyleSheet.create({
   wrap: {
     width: "100%",
-    paddingTop: 12,
-    paddingBottom: 6,
   },
 
-
-// Home Header UI improvements
- headerRow: {
-  width: "100%",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginBottom: 18,
-  paddingVertical: 12,
-  paddingHorizontal: 18,
-  backgroundColor: "#11273a",
-  borderRadius: 18,
-},
-
-// Greeting text styling
-greeting: {
-  color: tokens.text,
-  fontSize: 17,
-  fontWeight: "600",
-  width: 90,
-},
-
-
-// Application title styling
- title: {
-  flex: 1,
-  color: tokens.text,
-  fontSize: 26,
-  fontWeight: "900",
-  textAlign: "center",
-},
-
-// Profile button styling
-profileBtn: {
-  width: 44,
-  alignItems: "flex-end",
-},
-
-  topDivider: {
-    borderBottomWidth: 1.5,
-    borderBottomColor: tokens.divider,
-    marginBottom: 12,
-  },
-// Location section container
-  locationWrap: {
+  headerRow: {
     width: "100%",
-    marginBottom: 16,
-  },
-
-  // Location section label
-  locationLabel: {
-    color: tokens.muted,
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-
-// Location information card
-  locationCard: {
-    backgroundColor: "#0d1f32",
-    borderWidth: 1.5,
-    borderColor: "rgba(242,169,0,0.4)",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "space-between",
+    marginBottom: Spacing.xl,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 
-// Location icon
+  brandGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexShrink: 1,
+  },
+
+  greetingStack: {
+    alignItems: "flex-end",
+    flexShrink: 1,
+    marginLeft: Spacing.sm,
+  },
+
+  welcomeLabel: {
+    fontSize: Typography.size.md,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+
+  greeting: {
+    fontSize: Typography.size.md,
+    fontWeight: "700",
+    textAlign: "right",
+  },
+
+  title: {
+    fontSize: Typography.size.xxl,
+    fontWeight: "900",
+    flexShrink: 1,
+  },
+
+  profileBtn: {
+    paddingVertical: Spacing.xs,
+  },
+
+  topDivider: {
+    borderBottomWidth: 1,
+    marginBottom: Spacing.md,
+  },
+
+  locationWrap: {
+    width: "100%",
+    marginBottom: Spacing.xs,
+  },
+
+  locationLabel: {
+    fontSize: Typography.size.xs,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginBottom: Spacing.sm,
+  },
+
+  locationCard: {
+    borderWidth: 1.5,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+
   locationIcon: {
     marginRight: 2,
   },
 
-  // Location text
   locationValue: {
-    color: tokens.text,
-    fontSize: 15,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
     flex: 1,
   },

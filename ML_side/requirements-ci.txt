@@ -1,0 +1,4 @@
+# Dependencies for the fast, model-free ML safety workflow only.
+pytest==9.1.1
+PyYAML==6.0.3
+jsonschema==4.25.1

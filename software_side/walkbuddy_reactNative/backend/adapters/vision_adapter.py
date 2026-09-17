@@ -1,4 +1,5 @@
 from pathlib import Path
+from adapters.depth_adapter import enrich_detections_with_depth
 import cv2
 from ultralytics import YOLO
 from opentelemetry import trace
@@ -35,8 +36,16 @@ def vision_adapter(model: YOLO, image_path: str) -> dict:
     # get image width for direction calculation
     image_height, image_width = result.orig_shape[:2]
 
-    # Get image dimensions for spatial direction calculation
-    img = cv2.imread(image_path)
+    # Get image dimensions for spatial direction calculation.
+    # ultralytics patches cv2.imread to read via np.fromfile for multilanguage
+    # filename support; unlike stock OpenCV, that patched version raises
+    # FileNotFoundError/OSError for a missing path instead of returning None,
+    # so the missing-file case has to be caught explicitly here too.
+    try:
+        img = cv2.imread(image_path)
+    except (FileNotFoundError, OSError, cv2.error):
+        img = None
+
     if img is not None:
         image_height, image_width = img.shape[:2]
     else:
@@ -68,7 +77,7 @@ def vision_adapter(model: YOLO, image_path: str) -> dict:
                 "direction": direction, # store computed direction instead of hardcoded value
                 "priority": priority,  # NEW: Priority field
             })
-
+    detections = enrich_detections_with_depth(image_path, detections)
     # Sort by deliberate base-severity ranking, then by confidence.
     priority_order = {
         severity.name: -severity_rank(severity) for severity in BaseSeverity

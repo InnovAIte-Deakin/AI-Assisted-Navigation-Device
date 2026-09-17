@@ -46,6 +46,36 @@ that validation result: precision, recall, mAP50, mAP50-95, per-class metrics,
 validation image count, and timing where available. Missing values are written
 as `null` with an explanation; no values are estimated or fabricated.
 
+### Selecting the evaluated split
+
+Labelled evaluation accepts an optional `--split` argument with the values `val`
+and `test`. The training split is deliberately not selectable.
+
+Validation split, which remains the backward-compatible default when `--split`
+is omitted:
+
+```powershell
+& ".\software_side\walkbuddy_reactNative\backend\.venv\Scripts\python.exe" ".\ML_side\tools\evaluate_current_model.py" --model ".\ML_side\models\best.pt" --dataset-yaml ".\path\to\labelled-dataset.yaml" --split val --output ".\ML_side\evaluation_results\labelled-baseline"
+```
+
+Held-out test split, intended for final candidate reporting:
+
+```powershell
+& ".\software_side\walkbuddy_reactNative\backend\.venv\Scripts\python.exe" ".\ML_side\tools\evaluate_current_model.py" --model ".\ML_side\models\best.pt" --dataset-yaml ".\path\to\labelled-dataset.yaml" --split test --output ".\ML_side\evaluation_results\labelled-heldout"
+```
+
+The selected split is recorded in the generated artifacts as `dataset_split`,
+both at the top level of the labelled summary and inside
+`evaluation_settings.validation_ap`, so metrics can always be attributed to the
+split that produced them. The evaluation `mode` remains `labelled_validation`
+for both splits.
+
+Use the validation split for iterative model selection and tuning. Reserve the
+test split for a single final measurement of a chosen candidate: repeatedly
+tuning against the test split erodes its status as held-out evidence and
+inflates the reported result. `--split` applies only to labelled evaluation and
+is rejected when combined with `--images`.
+
 ## Output files
 
 Each run writes these files to the requested output directory:

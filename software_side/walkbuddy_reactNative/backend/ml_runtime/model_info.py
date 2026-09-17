@@ -10,8 +10,15 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+from ml_contract import NAVIGATION_CLASSES
+
 
 CHECKSUM_CHUNK_SIZE = 1024 * 1024
+# Derived from the single canonical contract so this module never becomes a
+# second, independently maintained taxonomy.
+APPROVED_TAXONOMY: tuple[str, ...] = tuple(
+    navigation_class.name for navigation_class in NAVIGATION_CLASSES
+)
 
 
 class ModelMetadataError(ValueError):
@@ -32,6 +39,7 @@ class ModelLineage:
     loaded_at: str
     runtime: dict[str, Any]
     failure_category: str | None = None
+    taxonomy_compatible: bool | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return a copy suitable for the operational model-info endpoint."""
@@ -42,6 +50,7 @@ class ModelLineage:
             "size_bytes": self.size_bytes,
             "num_classes": self.num_classes,
             "classes": list(self.classes),
+            "taxonomy_compatible": self.taxonomy_compatible,
             "load_duration_ms": self.load_duration_ms,
             "loaded_at": self.loaded_at,
             "runtime": dict(self.runtime),
@@ -85,6 +94,17 @@ def normalise_class_names(names: object) -> list[str]:
     if not class_names:
         raise ModelMetadataError("model.names is missing or malformed")
     return [class_names[class_id] for class_id in sorted(class_names)]
+
+
+def is_taxonomy_compatible(class_names: Sequence[str]) -> bool:
+    """Report whether ordered class names exactly match the approved taxonomy.
+
+    Matching is deliberately exact in count, identifier order, and canonical
+    spelling. Legacy aliases such as ``office-chair`` remain valid when
+    interpreting individual detections, but must never allow a differently
+    trained artifact to satisfy the production model contract.
+    """
+    return tuple(class_names) == APPROVED_TAXONOMY
 
 
 def runtime_details() -> dict[str, Any]:
@@ -148,6 +168,7 @@ def capture_model_lineage(
         load_duration_ms=round(float(load_duration_ms), 3),
         loaded_at=datetime.now(timezone.utc).isoformat(),
         runtime=runtime_details(),
+        taxonomy_compatible=is_taxonomy_compatible(class_names),
     )
 
 

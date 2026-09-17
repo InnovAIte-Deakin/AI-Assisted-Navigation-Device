@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -11,15 +11,21 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Audio } from "expo-av";
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer,
+  type AudioStatus,
+} from "expo-audio";
 import Slider from "@react-native-community/slider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
 import * as Speech from "expo-speech";
 import { API_BASE } from "@/src/config";
 import { addToHistory } from "@/src/utils/audiobookStorage";
 import { speakWeb, stopWebSpeech } from "@/src/utils/webTTS";
+import { Radius, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 interface Chapter {
   id: string;
@@ -44,7 +50,23 @@ interface BookDetails {
 const STORAGE_KEY_PREFIX = "@audiobook_progress_";
 const SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
+// expo-audio players load asynchronously and, unlike expo-av's
+// `Audio.Sound.createAsync`, expose no "await until ready". Poll the sync
+// `isLoaded` flag with a ceiling so a dead URL fails fast instead of hanging.
+async function waitUntilPlayerLoaded(
+  player: { isLoaded: boolean },
+  timeoutMs = 12000,
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (player.isLoaded) return true;
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  return player.isLoaded;
+}
+
 export default function AudiobookPlayerScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{
     bookId: string;
     title: string;
@@ -68,7 +90,7 @@ export default function AudiobookPlayerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [sound, setSound] = useState<AudioPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -81,7 +103,11 @@ export default function AudiobookPlayerScreen() {
   const positionUpdateInterval = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<AudioPlayer | null>(null);
+  // Kept in sync with currentChapterIndex so the playback-status listener (which
+  // closes over the value from the render that created it) can persist progress
+  // against the chapter that is actually playing.
+  const currentChapterIndexRef = useRef(0);
   const titleAnnouncedRef = useRef<string | null>(null); // Track which title was already announced
   // Incremented on every loadAudio call; used to discard stale loads after chapter switches
   const activeLoadRef = useRef<number>(0);
@@ -102,15 +128,20 @@ export default function AudiobookPlayerScreen() {
     }
   }, [bookId]);
 
-  // Configure audio mode once on mount (native only — expo-av throws on web)
+  // Keep the chapter-index ref current for the playback-status listener.
+  useEffect(() => {
+    currentChapterIndexRef.current = currentChapterIndex;
+  }, [currentChapterIndex]);
+
+  // Configure audio mode once on mount (native only — expo-audio is not used on web)
   useEffect(() => {
     if (Platform.OS === "web") return;
     const configureAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: "duckOthers",
         });
       } catch (err) {
         console.warn("Error configuring audio mode:", err);
@@ -145,7 +176,11 @@ export default function AudiobookPlayerScreen() {
     return () => {
       const currentSound = soundRef.current || sound;
       if (currentSound) {
-        currentSound.unloadAsync().catch(console.warn);
+        try {
+          currentSound.remove();
+        } catch (e) {
+          console.warn("Error releasing player:", e);
+        }
         setSound(null);
         soundRef.current = null;
       }
@@ -230,8 +265,12 @@ export default function AudiobookPlayerScreen() {
         // This runs when screen loses focus (user navigates away)
         const currentSound = soundRef.current;
         if (currentSound) {
-          currentSound.pauseAsync().catch(console.warn);
-          currentSound.unloadAsync().catch(console.warn);
+          try {
+            if (currentSound.playing) currentSound.pause();
+            currentSound.remove();
+          } catch (e) {
+            console.warn("Error releasing player on blur:", e);
+          }
           soundRef.current = null;
         }
         if (positionUpdateInterval.current) {
@@ -250,7 +289,11 @@ export default function AudiobookPlayerScreen() {
       // This prevents interrupting playback when sound is updated
       const currentSound = soundRef.current;
       if (currentSound) {
-        currentSound.unloadAsync().catch(console.warn);
+        try {
+          currentSound.remove();
+        } catch {
+          // player may already be released
+        }
         soundRef.current = null;
       }
       if (positionUpdateInterval.current) {
@@ -284,12 +327,12 @@ export default function AudiobookPlayerScreen() {
       const currentSound = soundRef.current || sound;
       if (currentSound) {
         try {
-          await currentSound.unloadAsync();
+          currentSound.remove();
           setSound(null);
           soundRef.current = null;
           setIsPlaying(false);
         } catch (unloadErr) {
-          console.warn("Error unloading previous sound:", unloadErr);
+          console.warn("Error releasing previous player:", unloadErr);
         }
       }
 
@@ -387,7 +430,7 @@ export default function AudiobookPlayerScreen() {
   const loadAudio = async (
     chapterIndex: number,
     startPosition: number = 0,
-  ): Promise<Audio.Sound | null> => {
+  ): Promise<AudioPlayer | null> => {
     if (!bookDetails || !bookDetails.chapters[chapterIndex]) {
       console.error("No book details or chapter not found");
       return null;
@@ -403,14 +446,10 @@ export default function AudiobookPlayerScreen() {
       const previousSound = sound;
       if (previousSound) {
         try {
-          // Pause first to avoid "interrupted" errors
-          const prevStatus = await previousSound.getStatusAsync();
-          if (prevStatus.isLoaded && prevStatus.isPlaying) {
-            await previousSound.pauseAsync();
-          }
-          await previousSound.unloadAsync();
+          if (previousSound.playing) previousSound.pause();
+          previousSound.remove();
         } catch (unloadErr) {
-          console.warn("Error unloading previous sound:", unloadErr);
+          console.warn("Error releasing previous player:", unloadErr);
         }
       }
       // Clear sound state immediately to prevent useEffect cleanup from interfering
@@ -433,7 +472,7 @@ export default function AudiobookPlayerScreen() {
 
       console.log("Original audio URL:", audioUrl);
 
-      // Try direct URL first (expo-av supports MP3 URLs directly)
+      // Try direct URL first (expo-audio plays MP3 URLs directly)
       // Only use proxy if direct fails (for CORS issues on web) or if URL doesn't look like a direct audio file
       let finalUrl = audioUrl;
       let useProxy = false;
@@ -506,39 +545,57 @@ export default function AudiobookPlayerScreen() {
         return null; // web doesn't use expo-av Sound object
       }
 
-      // Try to load the audio
-      let newSound: Audio.Sound;
-      try {
-        const result = await Audio.Sound.createAsync(
-          {
-            uri: finalUrl,
-            overrideFileExtensionAndroid: "mp3",
-          },
-          {
-            shouldPlay: false,
-            positionMillis: startPosition * 1000,
-            rate: playbackRate,
-          },
-          (status) => {
-            if (status.isLoaded) {
-              setDuration(status.durationMillis || 0);
-              setPosition(status.positionMillis || 0);
+      // Status handler shared by the direct and proxy attempts. Fires on the
+      // player's updateInterval and on state changes; it drives the progress
+      // bar, progress persistence (this replaces the old setInterval poll) and
+      // chapter auto-advance. expo-audio reports time in seconds; the UI works
+      // in milliseconds, so convert at this boundary.
+      const handleStatus = (status: AudioStatus) => {
+        if (!status.isLoaded) return;
+        if (status.duration) setDuration(status.duration * 1000);
+        setPosition(status.currentTime * 1000);
+        if (status.playing) {
+          saveProgress(
+            currentChapterIndexRef.current,
+            status.currentTime,
+          ).catch(() => {});
+        }
+        if (status.didJustFinish) {
+          // Move to next chapter if available
+          if (chapterIndex < bookDetails.chapters.length - 1) {
+            playChapter(chapterIndex + 1, 0);
+          } else {
+            setIsPlaying(false);
+          }
+        }
+      };
 
-              if (status.didJustFinish) {
-                // Move to next chapter if available
-                if (chapterIndex < bookDetails.chapters.length - 1) {
-                  playChapter(chapterIndex + 1, 0);
-                } else {
-                  setIsPlaying(false);
-                }
-              }
-            } else if (!status.isLoaded && (status as any).error) {
-              console.error("Audio status error:", (status as any).error);
-              setPlaybackError(`Audio error: ${(status as any).error}`);
-            }
-          },
-        );
-        newSound = result.sound;
+      // Create an expo-audio player for `url`, attach the listener, seek to the
+      // resume point, and wait until it has actually loaded. Throws on failure
+      // so the caller can fall back to the proxy URL.
+      const openPlayer = async (url: string): Promise<AudioPlayer> => {
+        const player = createAudioPlayer({ uri: url }, { updateInterval: 500 });
+        player.playbackRate = playbackRate;
+        player.shouldCorrectPitch = true;
+        player.addListener("playbackStatusUpdate", handleStatus);
+        const loaded = await waitUntilPlayerLoaded(player);
+        if (!loaded) {
+          player.remove();
+          throw new Error(`audio did not load: ${url.substring(0, 100)}`);
+        }
+        if (startPosition > 0) {
+          try {
+            await player.seekTo(startPosition);
+          } catch {
+            // non-fatal: playback just starts from the beginning
+          }
+        }
+        return player;
+      };
+
+      let newSound: AudioPlayer;
+      try {
+        newSound = await openPlayer(finalUrl);
       } catch (directError) {
         console.error("Direct URL failed, trying proxy:", directError);
 
@@ -547,35 +604,7 @@ export default function AudiobookPlayerScreen() {
           try {
             const proxyUrl = `${API_BASE}/audiobooks/stream?url=${encodeURIComponent(audioUrl)}`;
             console.log("Trying proxy URL:", proxyUrl.substring(0, 200));
-
-            const proxyResult = await Audio.Sound.createAsync(
-              {
-                uri: proxyUrl,
-                overrideFileExtensionAndroid: "mp3",
-              },
-              {
-                shouldPlay: false,
-                positionMillis: startPosition * 1000,
-                rate: playbackRate,
-              },
-              (status) => {
-                if (status.isLoaded) {
-                  setDuration(status.durationMillis || 0);
-                  setPosition(status.positionMillis || 0);
-                  if (status.didJustFinish) {
-                    if (chapterIndex < bookDetails.chapters.length - 1) {
-                      playChapter(chapterIndex + 1, 0);
-                    } else {
-                      setIsPlaying(false);
-                    }
-                  }
-                } else if (!status.isLoaded && (status as any).error) {
-                  console.error("Proxy audio error:", (status as any).error);
-                  setPlaybackError(`Audio error: ${(status as any).error}`);
-                }
-              },
-            );
-            newSound = proxyResult.sound;
+            newSound = await openPlayer(proxyUrl);
             useProxy = true;
             finalUrl = proxyUrl;
           } catch (proxyError) {
@@ -587,16 +616,12 @@ export default function AudiobookPlayerScreen() {
         }
       }
 
-      // Check status immediately - no delay needed for streaming
-      const status = await newSound.getStatusAsync();
-
-      if (!status.isLoaded) {
-        console.error("Sound not loaded after creation:", status);
-        const errorMsg = (status as any).error || "Unknown error";
+      if (!newSound.isLoaded) {
+        console.error("Player not loaded after creation");
         setPlaybackError(
-          `Failed to load audio: ${errorMsg}. URL: ${finalUrl.substring(0, 100)}...`,
+          `Failed to load audio. URL: ${finalUrl.substring(0, 100)}...`,
         );
-        await newSound.unloadAsync();
+        newSound.remove();
         return null;
       }
 
@@ -605,21 +630,21 @@ export default function AudiobookPlayerScreen() {
 
       console.log(
         "Audio loaded successfully. Duration:",
-        status.durationMillis,
-        "ms",
+        newSound.duration,
+        "s",
       );
 
       // If a newer chapter load started while we were waiting, discard this one
       if (activeLoadRef.current !== loadId) {
-        await newSound.unloadAsync().catch(() => {});
+        newSound.remove();
         return null;
       }
 
-      // Set sound state AFTER ensuring it's loaded (prevents cleanup race conditions)
+      // Set player state AFTER ensuring it's loaded (prevents cleanup race conditions)
       setSound(newSound);
       soundRef.current = newSound; // Also update ref for cleanup
       setCurrentChapterIndex(chapterIndex);
-      setDuration(status.durationMillis || 0);
+      setDuration((newSound.duration || 0) * 1000);
       setPosition(startPosition * 1000);
 
       return newSound;
@@ -730,79 +755,37 @@ export default function AudiobookPlayerScreen() {
         return;
       }
 
-      // Atomic chapter switch: unload previous, load new, play immediately
-      // loadAudio handles setIsLoadingAudio state
+      // Atomic chapter switch: release previous, load new, play immediately.
+      // loadAudio waits for the player to be loaded and manages setIsLoadingAudio.
       const loadedSound = await loadAudio(chapterIndex, startPosition);
-      if (loadedSound) {
-        // Check sound is loaded before playing
-        const status = await loadedSound.getStatusAsync();
-        if (status.isLoaded) {
-          // Start playback immediately - no delays
-          try {
-            await loadedSound.playAsync();
-            setIsPlaying(true);
-            startPositionUpdates();
-            setIsLoadingAudio(false);
-            console.log("Playback started immediately");
+      if (loadedSound && loadedSound.isLoaded) {
+        // expo-audio play() is synchronous and does not throw the
+        // "play() interrupted by pause()" race that expo-av did.
+        try {
+          loadedSound.play();
+          setIsPlaying(true);
+          startPositionUpdates();
+          setIsLoadingAudio(false);
+          console.log("Playback started immediately");
 
-            // Add to history asynchronously (don't block playback)
-            if (bookDetails) {
-              addToHistory({
-                id: bookDetails.id,
-                title: bookDetails.title,
-                author: bookDetails.author,
-                duration: bookDetails.duration,
-                duration_formatted: bookDetails.duration_formatted,
-                language: bookDetails.language,
-                description: bookDetails.description,
-                cover_url: bookDetails.cover_url,
-              }).catch((historyError) => {
-                console.error("Failed to add to history:", historyError);
-              });
-            }
-          } catch (playError: any) {
-            // If play fails, try once more immediately (no delay)
-            if (
-              playError?.message?.includes("interrupted") ||
-              playError?.message?.includes("pause")
-            ) {
-              console.warn("Play was interrupted, retrying immediately...");
-              try {
-                await loadedSound.playAsync();
-                setIsPlaying(true);
-                startPositionUpdates();
-                setIsLoadingAudio(false);
-                console.log("Playback started on retry");
-
-                // Add to history asynchronously
-                if (bookDetails) {
-                  addToHistory({
-                    id: bookDetails.id,
-                    title: bookDetails.title,
-                    author: bookDetails.author,
-                    duration: bookDetails.duration,
-                    duration_formatted: bookDetails.duration_formatted,
-                    language: bookDetails.language,
-                    description: bookDetails.description,
-                    cover_url: bookDetails.cover_url,
-                  }).catch((historyError) => {
-                    console.error("Failed to add to history:", historyError);
-                  });
-                }
-              } catch (retryError) {
-                console.error("Retry play failed:", retryError);
-                setPlaybackError("Failed to start playback. Please try again.");
-                setIsLoadingAudio(false);
-              }
-            } else {
-              console.error("Play failed:", playError);
-              setPlaybackError("Failed to start playback. Please try again.");
-              setIsLoadingAudio(false);
-            }
+          // Add to history asynchronously (don't block playback)
+          if (bookDetails) {
+            addToHistory({
+              id: bookDetails.id,
+              title: bookDetails.title,
+              author: bookDetails.author,
+              duration: bookDetails.duration,
+              duration_formatted: bookDetails.duration_formatted,
+              language: bookDetails.language,
+              description: bookDetails.description,
+              cover_url: bookDetails.cover_url,
+            }).catch((historyError) => {
+              console.error("Failed to add to history:", historyError);
+            });
           }
-        } else {
-          console.error("Sound not loaded, cannot play");
-          setPlaybackError("Audio is not ready. Please try again.");
+        } catch (playError) {
+          console.error("Play failed:", playError);
+          setPlaybackError("Failed to start playback. Please try again.");
           setIsLoadingAudio(false);
         }
       } else {
@@ -863,74 +846,35 @@ export default function AudiobookPlayerScreen() {
     }
 
     try {
-      // Check if sound is loaded
-      const status = await sound.getStatusAsync();
-      if (!status.isLoaded) {
-        console.error("Sound not loaded, reloading...");
+      if (!sound.isLoaded) {
+        console.error("Player not loaded, reloading...");
         await playChapter(currentChapterIndex, position / 1000);
         return;
       }
 
       if (isPlaying) {
-        await sound.pauseAsync();
+        sound.pause();
         setIsPlaying(false);
         stopPositionUpdates();
       } else {
-        // Start playback immediately - no delays
-        try {
-          await sound.playAsync();
-          setIsPlaying(true);
-          startPositionUpdates();
+        sound.play();
+        setIsPlaying(true);
+        startPositionUpdates();
 
-          // Add to history asynchronously (don't block playback)
-          if (bookDetails) {
-            addToHistory({
-              id: bookDetails.id,
-              title: bookDetails.title,
-              author: bookDetails.author,
-              duration: bookDetails.duration,
-              duration_formatted: bookDetails.duration_formatted,
-              language: bookDetails.language,
-              description: bookDetails.description,
-              cover_url: bookDetails.cover_url,
-            }).catch((historyError) => {
-              console.error("Failed to add to history:", historyError);
-            });
-          }
-        } catch (playError: any) {
-          // Handle "play() interrupted by pause()" error - retry immediately
-          if (
-            playError?.message?.includes("interrupted") ||
-            playError?.message?.includes("pause")
-          ) {
-            console.warn("Play was interrupted, retrying immediately...");
-            try {
-              await sound.playAsync();
-              setIsPlaying(true);
-              startPositionUpdates();
-
-              // Add to history asynchronously
-              if (bookDetails) {
-                addToHistory({
-                  id: bookDetails.id,
-                  title: bookDetails.title,
-                  author: bookDetails.author,
-                  duration: bookDetails.duration,
-                  duration_formatted: bookDetails.duration_formatted,
-                  language: bookDetails.language,
-                  description: bookDetails.description,
-                  cover_url: bookDetails.cover_url,
-                }).catch((historyError) => {
-                  console.error("Failed to add to history:", historyError);
-                });
-              }
-            } catch (retryError) {
-              console.error("Retry play failed:", retryError);
-              setPlaybackError("Failed to start playback. Please try again.");
-            }
-          } else {
-            throw playError;
-          }
+        // Add to history asynchronously (don't block playback)
+        if (bookDetails) {
+          addToHistory({
+            id: bookDetails.id,
+            title: bookDetails.title,
+            author: bookDetails.author,
+            duration: bookDetails.duration,
+            duration_formatted: bookDetails.duration_formatted,
+            language: bookDetails.language,
+            description: bookDetails.description,
+            cover_url: bookDetails.cover_url,
+          }).catch((historyError) => {
+            console.error("Failed to add to history:", historyError);
+          });
         }
       }
     } catch (err) {
@@ -955,7 +899,7 @@ export default function AudiobookPlayerScreen() {
     }
     if (sound) {
       try {
-        await sound.setPositionAsync(value);
+        await sound.seekTo(value / 1000);
         setPosition(value);
         await saveProgress(currentChapterIndex, value / 1000);
       } catch (err) {
@@ -973,7 +917,7 @@ export default function AudiobookPlayerScreen() {
     }
     if (sound) {
       try {
-        await sound.setRateAsync(speed, true);
+        sound.setPlaybackRate(speed, "high");
       } catch (err) {
         console.error("Error changing speed:", err);
       }
@@ -981,30 +925,11 @@ export default function AudiobookPlayerScreen() {
     setShowSpeedMenu(false);
   };
 
-  const startPositionUpdates = () => {
-    if (Platform.OS === "web") return; // web uses ontimeupdate event on the HTML audio element
-    if (positionUpdateInterval.current) {
-      clearInterval(positionUpdateInterval.current);
-    }
-    positionUpdateInterval.current = setInterval(async () => {
-      // Use soundRef.current (not the closed-over `sound`) so we always get the latest sound
-      const currentSound = soundRef.current;
-      if (currentSound) {
-        try {
-          const status = await currentSound.getStatusAsync();
-          if (status.isLoaded) {
-            setPosition(status.positionMillis || 0);
-            await saveProgress(
-              currentChapterIndex,
-              (status.positionMillis || 0) / 1000,
-            );
-          }
-        } catch (err) {
-          console.error("Error updating position:", err);
-        }
-      }
-    }, 500);
-  };
+  // Native position + progress persistence is now driven by the expo-audio
+  // `playbackStatusUpdate` listener attached in loadAudio (it fires on the
+  // player's 500ms updateInterval). These stay as thin shims so the existing
+  // call sites (playChapter, togglePlayPause, cleanups) keep working unchanged.
+  const startPositionUpdates = () => {};
 
   const stopPositionUpdates = () => {
     if (positionUpdateInterval.current) {
@@ -1028,14 +953,14 @@ export default function AudiobookPlayerScreen() {
   // Component to render text-based cover when image is missing or fails
   const TextCover = ({ title, author }: { title: string; author: string }) => {
     return (
-      <View style={styles.textCover}>
+      <View style={[styles.textCover, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.textCoverIcon}>
-          <Ionicons name="book" size={48} color="#F9A826" />
+          <Ionicons name="book" size={48} color={colors.accent} />
         </View>
-        <Text style={styles.textCoverTitle} numberOfLines={2}>
+        <Text style={[styles.textCoverTitle, { color: colors.text }]} numberOfLines={2}>
           {title}
         </Text>
-        <Text style={styles.textCoverAuthor} numberOfLines={1}>
+        <Text style={[styles.textCoverAuthor, { color: colors.textMuted }]} numberOfLines={1}>
           {author}
         </Text>
       </View>
@@ -1121,11 +1046,8 @@ export default function AudiobookPlayerScreen() {
     const currentSound = soundRef.current || sound;
     if (currentSound) {
       try {
-        const status = await currentSound.getStatusAsync();
-        if (status.isLoaded && status.isPlaying) {
-          await currentSound.pauseAsync();
-        }
-        await currentSound.unloadAsync();
+        if (currentSound.playing) currentSound.pause();
+        currentSound.remove();
         setSound(null);
         soundRef.current = null;
         setIsPlaying(false);
@@ -1139,28 +1061,28 @@ export default function AudiobookPlayerScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.root} edges={["top"]}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F9A826" />
-          <Text style={styles.loadingText}>Loading audiobook...</Text>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading audiobook...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error || !bookDetails) {
     return (
-      <SafeAreaView style={styles.root} edges={["top"]}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#FF6B6B" />
-          <Text style={styles.errorText}>
+          <Ionicons name="alert-circle" size={48} color={colors.danger} />
+          <Text style={[styles.errorText, { color: colors.danger }]}>
             {error || "Failed to load audiobook"}
           </Text>
-          <Pressable style={styles.backButtonError} onPress={goBack}>
-            <Text style={styles.backButtonErrorText}>Go Back</Text>
+          <Pressable style={[styles.backButtonError, { backgroundColor: colors.accent }]} onPress={goBack}>
+            <Text style={[styles.backButtonErrorText, { color: colors.accentText }]}>Go Back</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -1169,30 +1091,22 @@ export default function AudiobookPlayerScreen() {
   const hasNext = currentChapterIndex < bookDetails.chapters.length - 1;
 
   return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <Pressable onPress={goBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#F9A826" />
-        </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {bookDetails.title}
-        </Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <PageHeader title={bookDetails.title} onBackPress={goBack} />
 
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
       >
         {playbackError && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={20} color="#FF6B6B" />
-            <Text style={styles.errorBannerText}>{playbackError}</Text>
+          <View style={[styles.errorBanner, { backgroundColor: colors.danger + "22" }]}>
+            <Ionicons name="alert-circle" size={20} color={colors.danger} />
+            <Text style={[styles.errorBannerText, { color: colors.danger }]}>{playbackError}</Text>
             <Pressable
               onPress={() => setPlaybackError(null)}
               style={{ padding: 4 }}
             >
-              <Ionicons name="close" size={18} color="#FF6B6B" />
+              <Ionicons name="close" size={18} color={colors.danger} />
             </Pressable>
           </View>
         )}
@@ -1221,9 +1135,9 @@ export default function AudiobookPlayerScreen() {
                 author={bookDetails.author}
               />
             ) : (
-              <View style={styles.coverPlaceholder}>
-                <Ionicons name="book" size={64} color="#888" />
-                <Text style={styles.coverPlaceholderText} numberOfLines={2}>
+              <View style={[styles.coverPlaceholder, { backgroundColor: colors.surfaceElevated }]}>
+                <Ionicons name="book" size={64} color={colors.textMuted} />
+                <Text style={[styles.coverPlaceholderText, { color: colors.textMuted }]} numberOfLines={2}>
                   No Cover
                 </Text>
               </View>
@@ -1233,7 +1147,7 @@ export default function AudiobookPlayerScreen() {
           return (
             <Image
               source={{ uri: finalCoverUrl }}
-              style={styles.coverImage}
+              style={[styles.coverImage, { backgroundColor: colors.surfaceElevated }]}
               onError={(e) => {
                 const error = e.nativeEvent.error;
                 console.error(
@@ -1285,11 +1199,11 @@ export default function AudiobookPlayerScreen() {
           );
         })()}
 
-        <Text style={styles.title}>{bookDetails.title}</Text>
-        <Text style={styles.author}>{bookDetails.author}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{bookDetails.title}</Text>
+        <Text style={[styles.author, { color: colors.textMuted }]}>{bookDetails.author}</Text>
 
         {bookDetails.description && (
-          <Text style={styles.description}>
+          <Text style={[styles.description, { color: colors.textMuted }]}>
             {bookDetails.description
               .replace(/&lt;br\s*\/?&gt;/gi, "\n")
               .replace(/&lt;[^&]*&gt;/gi, "")
@@ -1304,10 +1218,10 @@ export default function AudiobookPlayerScreen() {
           </Text>
         )}
 
-        <View style={styles.playerContainer}>
+        <View style={[styles.playerContainer, { backgroundColor: colors.surface }]}>
           <View style={styles.timeContainer}>
-            <Text style={styles.timeText}>{formatTime(position)}</Text>
-            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+            <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatTime(position)}</Text>
+            <Text style={[styles.timeText, { color: colors.textMuted }]}>{formatTime(duration)}</Text>
           </View>
 
           <Slider
@@ -1316,9 +1230,9 @@ export default function AudiobookPlayerScreen() {
             maximumValue={duration || 1}
             value={position}
             onSlidingComplete={seekTo}
-            minimumTrackTintColor="#F9A826"
-            maximumTrackTintColor="#3A3A3A"
-            thumbTintColor="#F9A826"
+            minimumTrackTintColor={colors.accent}
+            maximumTrackTintColor={colors.border}
+            thumbTintColor={colors.accent}
           />
 
           <View style={styles.controls}>
@@ -1337,7 +1251,7 @@ export default function AudiobookPlayerScreen() {
               <Ionicons
                 name="play-skip-back"
                 size={28}
-                color={hasPrevious ? "#F9A826" : "#666"}
+                color={hasPrevious ? colors.accent : colors.textMuted}
               />
             </Pressable>
 
@@ -1345,17 +1259,18 @@ export default function AudiobookPlayerScreen() {
               onPress={togglePlayPause}
               style={[
                 styles.playButton,
+                { backgroundColor: colors.accent },
                 isLoadingAudio && styles.playButtonDisabled,
               ]}
               disabled={isLoadingAudio}
             >
               {isLoadingAudio ? (
-                <ActivityIndicator size="small" color="#1B263B" />
+                <ActivityIndicator size="small" color={colors.accentText} />
               ) : (
                 <Ionicons
                   name={isPlaying ? "pause" : "play"}
                   size={40}
-                  color="#1B263B"
+                  color={colors.accentText}
                 />
               )}
             </Pressable>
@@ -1375,33 +1290,35 @@ export default function AudiobookPlayerScreen() {
               <Ionicons
                 name="play-skip-forward"
                 size={28}
-                color={hasNext ? "#F9A826" : "#666"}
+                color={hasNext ? colors.accent : colors.textMuted}
               />
             </Pressable>
 
             <Pressable
               onPress={() => setShowSpeedMenu(!showSpeedMenu)}
-              style={styles.speedButton}
+              style={[styles.speedButton, { backgroundColor: colors.surfaceElevated }]}
             >
-              <Text style={styles.speedButtonText}>{playbackRate}x</Text>
+              <Text style={[styles.speedButtonText, { color: colors.accent }]}>{playbackRate}x</Text>
             </Pressable>
           </View>
 
           {showSpeedMenu && (
-            <View style={styles.speedMenu}>
+            <View style={[styles.speedMenu, { backgroundColor: colors.background }]}>
               {SPEED_OPTIONS.map((speed) => (
                 <Pressable
                   key={speed}
                   onPress={() => changeSpeed(speed)}
                   style={[
                     styles.speedOption,
-                    playbackRate === speed && styles.speedOptionActive,
+                    { backgroundColor: colors.surfaceElevated },
+                    playbackRate === speed && { backgroundColor: colors.accent },
                   ]}
                 >
                   <Text
                     style={[
                       styles.speedOptionText,
-                      playbackRate === speed && styles.speedOptionTextActive,
+                      { color: colors.text },
+                      playbackRate === speed && { color: colors.accentText, fontWeight: "600" },
                     ]}
                   >
                     {speed}x
@@ -1411,20 +1328,20 @@ export default function AudiobookPlayerScreen() {
             </View>
           )}
 
-          <Text style={styles.chapterInfo}>
+          <Text style={[styles.chapterInfo, { color: colors.textMuted }]}>
             Chapter {currentChapterIndex + 1} of {bookDetails.chapters.length}
           </Text>
           {currentChapter && (
-            <Text style={styles.chapterTitle}>{currentChapter.title}</Text>
+            <Text style={[styles.chapterTitle, { color: colors.accent }]}>{currentChapter.title}</Text>
           )}
         </View>
 
         <View style={styles.chaptersContainer}>
-          <Text style={styles.chaptersTitle}>Chapters</Text>
+          <Text style={[styles.chaptersTitle, { color: colors.text }]}>Chapters</Text>
           {bookDetails.chapters.length === 0 ? (
             <View style={styles.emptyChaptersContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color="#888" />
-              <Text style={styles.emptyChaptersText}>
+              <Ionicons name="alert-circle-outline" size={48} color={colors.textMuted} />
+              <Text style={[styles.emptyChaptersText, { color: colors.textMuted }]}>
                 No playable chapters available for this audiobook.
               </Text>
             </View>
@@ -1435,15 +1352,16 @@ export default function AudiobookPlayerScreen() {
                 onPress={() => playChapter(index, 0)}
                 style={[
                   styles.chapterItem,
-                  index === currentChapterIndex && styles.chapterItemActive,
+                  { backgroundColor: colors.surface },
+                  index === currentChapterIndex && { backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.accent },
                 ]}
               >
                 <View style={styles.chapterItemInfo}>
                   <Text
                     style={[
                       styles.chapterNumber,
-                      index === currentChapterIndex &&
-                        styles.chapterNumberActive,
+                      { color: colors.textMuted },
+                      index === currentChapterIndex && { color: colors.accent },
                     ]}
                   >
                     {index + 1}
@@ -1452,55 +1370,34 @@ export default function AudiobookPlayerScreen() {
                     <Text
                       style={[
                         styles.chapterName,
+                        { color: colors.text },
                         index === currentChapterIndex &&
-                          styles.chapterNameActive,
+                          { color: colors.accent, fontWeight: "600" },
                       ]}
                       numberOfLines={2}
                     >
                       {chapter.title}
                     </Text>
-                    <Text style={styles.chapterDuration}>
+                    <Text style={[styles.chapterDuration, { color: colors.textMuted }]}>
                       {chapter.duration_formatted}
                     </Text>
                   </View>
                 </View>
                 {index === currentChapterIndex && isPlaying && (
-                  <Ionicons name="volume-high" size={20} color="#F9A826" />
+                  <Ionicons name="volume-high" size={20} color={colors.accent} />
                 )}
               </Pressable>
             ))
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#1B263B",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#2A2A2A",
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "600",
-    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -1508,9 +1405,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   loadingText: {
-    color: "#FFF",
     marginTop: 16,
-    fontSize: 16,
+    fontSize: Typography.size.base,
   },
   errorContainer: {
     flex: 1,
@@ -1519,8 +1415,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   errorText: {
-    color: "#FF6B6B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     textAlign: "center",
     marginTop: 16,
     marginBottom: 24,
@@ -1529,12 +1424,10 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: "#F9A826",
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
   backButtonErrorText: {
-    color: "#1B263B",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
   },
   content: {
@@ -1549,91 +1442,78 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     padding: 12,
-    backgroundColor: "#3A1F1F",
-    borderRadius: 8,
+    borderRadius: Radius.sm,
     borderLeftWidth: 4,
-    borderLeftColor: "#FF6B6B",
     gap: 8,
   },
   errorBannerText: {
     flex: 1,
-    color: "#FF6B6B",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
   },
   coverImage: {
     width: 200,
     height: 200,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     alignSelf: "center",
     marginTop: 20,
     marginBottom: 16,
-    backgroundColor: "#2A2A2A",
   },
   coverPlaceholder: {
     width: 200,
     height: 200,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     alignSelf: "center",
     marginTop: 20,
     marginBottom: 16,
-    backgroundColor: "#2A2A2A",
     alignItems: "center",
     justifyContent: "center",
     padding: 12,
   },
   coverPlaceholderText: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     textAlign: "center",
     marginTop: 8,
   },
   textCover: {
     width: 200,
     height: 200,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     alignSelf: "center",
     marginTop: 20,
     marginBottom: 16,
-    backgroundColor: "#2A2A2A",
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
     borderWidth: 2,
-    borderColor: "#3A3A3A",
   },
   textCoverIcon: {
     marginBottom: 12,
   },
   textCoverTitle: {
-    color: "#FFF",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 24,
     marginBottom: 8,
   },
   textCoverAuthor: {
-    color: "#AAA",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
   },
   title: {
-    color: "#FFF",
-    fontSize: 24,
+    fontSize: Typography.size.xl,
     fontWeight: "700",
     textAlign: "center",
     marginHorizontal: 16,
     marginBottom: 8,
   },
   author: {
-    color: "#AAA",
-    fontSize: 18,
+    fontSize: Typography.size.md,
     textAlign: "center",
     marginBottom: 16,
   },
   description: {
-    color: "#CCC",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
     marginHorizontal: 16,
     marginBottom: 24,
@@ -1643,8 +1523,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 24,
     padding: 20,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 16,
+    borderRadius: Radius.lg,
   },
   timeContainer: {
     flexDirection: "row",
@@ -1652,8 +1531,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   timeText: {
-    color: "#AAA",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
   slider: {
     width: "100%",
@@ -1680,7 +1558,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#F9A826",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1690,12 +1567,10 @@ const styles = StyleSheet.create({
   speedButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "#3A3A3A",
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
   speedButtonText: {
-    color: "#F9A826",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
   },
   speedMenu: {
@@ -1705,35 +1580,23 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
     padding: 12,
-    backgroundColor: "#1A1A1A",
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
   speedOption: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#2A2A2A",
     borderRadius: 6,
   },
-  speedOptionActive: {
-    backgroundColor: "#F9A826",
-  },
   speedOptionText: {
-    color: "#FFF",
-    fontSize: 14,
-  },
-  speedOptionTextActive: {
-    color: "#1B263B",
-    fontWeight: "600",
+    fontSize: Typography.size.sm,
   },
   chapterInfo: {
-    color: "#AAA",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     textAlign: "center",
     marginBottom: 4,
   },
   chapterTitle: {
-    color: "#F9A826",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
     fontWeight: "600",
   },
@@ -1741,8 +1604,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
   chaptersTitle: {
-    color: "#FFF",
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "700",
     marginBottom: 12,
   },
@@ -1752,13 +1614,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 12,
     marginBottom: 8,
-    backgroundColor: "#2A2A2A",
-    borderRadius: 8,
-  },
-  chapterItemActive: {
-    backgroundColor: "#3A3A3A",
-    borderWidth: 1,
-    borderColor: "#F9A826",
+    borderRadius: Radius.sm,
   },
   chapterItemInfo: {
     flexDirection: "row",
@@ -1766,31 +1622,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chapterNumber: {
-    color: "#888",
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "600",
     width: 32,
     textAlign: "center",
-  },
-  chapterNumberActive: {
-    color: "#F9A826",
   },
   chapterDetails: {
     flex: 1,
     marginLeft: 12,
   },
   chapterName: {
-    color: "#FFF",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     marginBottom: 4,
   },
-  chapterNameActive: {
-    color: "#F9A826",
-    fontWeight: "600",
-  },
   chapterDuration: {
-    color: "#888",
-    fontSize: 12,
+    fontSize: Typography.size.xs,
   },
   emptyChaptersContainer: {
     alignItems: "center",
@@ -1799,8 +1645,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   emptyChaptersText: {
-    color: "#888",
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     textAlign: "center",
     marginTop: 16,
   },

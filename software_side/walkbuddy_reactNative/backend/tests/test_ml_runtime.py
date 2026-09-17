@@ -24,10 +24,12 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from ml_runtime.metrics import InferenceMetrics
+from ml_contract import NAVIGATION_CLASSES
 from ml_runtime.model_info import (
     ModelMetadataError,
     calculate_sha256,
     capture_model_lineage,
+    is_taxonomy_compatible,
     normalise_class_names,
     runtime_details,
 )
@@ -47,11 +49,30 @@ class FakeModel:
     }
 
 
-def _app_with_runtime(*, yolo: object | None, ocr_reader: object | None) -> FastAPI:
+def canonical_class_names() -> list[str]:
+    """Derive the approved ordered names from the single canonical contract."""
+    return [navigation_class.name for navigation_class in NAVIGATION_CLASSES]
+
+
+class CanonicalTaxonomyModel:
+    """A model whose names exactly match the approved navigation taxonomy."""
+
+    names = {index: name for index, name in enumerate(canonical_class_names())}
+
+
+def _app_with_runtime(
+    *,
+    yolo: object | None,
+    ocr_reader: object | None,
+    expected_model_sha256: str | None = None,
+) -> FastAPI:
     app = FastAPI()
     app.state.yolo = yolo
     app.state.ocr_reader = ocr_reader
-    app.state.ml_runtime = MLRuntimeState(latency_window_capacity=4)
+    app.state.ml_runtime = MLRuntimeState(
+        latency_window_capacity=4,
+        expected_model_sha256=expected_model_sha256,
+    )
     app.include_router(ml_runtime_router)
     return app
 
@@ -152,14 +173,14 @@ def test_ml_health_reports_degraded_components() -> None:
     assert response.json()["vision"] == {"loaded": False}
 
 
-def test_ml_ready_returns_200_only_when_yolo_is_available() -> None:
+def test_ml_ready_requires_startup_lineage_even_when_yolo_is_available() -> None:
     app = _app_with_runtime(yolo=object(), ocr_reader=None)
 
     with TestClient(app) as client:
         response = client.get("/ml/ready")
 
-    assert response.status_code == 200
-    assert response.json() == {"ready": True}
+    assert response.status_code == 503
+    assert response.json() == {"ready": False, "reason": "not_initialized"}
 
 
 def test_ml_ready_returns_503_when_yolo_is_unavailable() -> None:
@@ -169,7 +190,95 @@ def test_ml_ready_returns_503_when_yolo_is_unavailable() -> None:
         response = client.get("/ml/ready")
 
     assert response.status_code == 503
-    assert response.json() == {"ready": False}
+    assert response.json() == {"ready": False, "reason": "not_initialized"}
+
+
+def test_ml_ready_accepts_canonical_startup_lineage(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"ready": True, "reason": "ready"}
+
+
+def test_ml_ready_reports_model_load_failure_without_private_details(tmp_path: Path) -> None:
+    app = _app_with_runtime(yolo=None, ocr_reader=None)
+    private_path = tmp_path / "private" / "best.pt"
+    app.state.ml_runtime.set_model_load_failure(
+        private_path, 1.0, "model_load_failed"
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"ready": False, "reason": "model_not_loaded"}
+    assert str(private_path.parent) not in response.text
+
+
+def test_ml_ready_reports_metadata_failure_without_private_details(tmp_path: Path) -> None:
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    private_path = tmp_path / "private" / "best.pt"
+    app.state.ml_runtime.set_model_metadata_failure(private_path, 1.0)
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "ready": False,
+        "reason": "model_metadata_unavailable",
+    }
+    assert str(private_path.parent) not in response.text
+
+
+def test_ml_ready_requires_matching_optional_expected_sha256(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    sha256 = calculate_sha256(artifact)
+    app = _app_with_runtime(
+        yolo=object(),
+        ocr_reader=None,
+        expected_model_sha256=sha256,
+    )
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"ready": True, "reason": "ready"}
+
+
+@pytest.mark.parametrize("expected_model_sha256", ("0" * 64, "not-a-sha"))
+def test_ml_ready_rejects_mismatched_or_malformed_expected_sha256(
+    tmp_path: Path, expected_model_sha256: str
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(
+        yolo=object(),
+        ocr_reader=None,
+        expected_model_sha256=expected_model_sha256,
+    )
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"ready": False, "reason": "model_identity_mismatch"}
 
 
 def test_model_info_endpoint_reports_captured_lineage(tmp_path: Path) -> None:
@@ -366,12 +475,14 @@ class _WebSocket:
         self.client = None
         self._messages = iter(messages)
         self.sent: list[dict[str, object]] = []
+        self.send_attempts = 0
         self.close_code: int | None = None
 
     async def accept(self) -> None:
         pass
 
     async def send_text(self, message: str) -> None:
+        self.send_attempts += 1
         self.sent.append(json.loads(message))
 
     async def close(self, code: int) -> None:
@@ -382,6 +493,18 @@ class _WebSocket:
             return next(self._messages)
         except StopIteration as exc:
             raise WebSocketDisconnect() from exc
+
+
+class _ClosedOnSendWebSocket(_WebSocket):
+    """Simulate a peer closing after a frame is accepted but before send."""
+
+    def __init__(self, *args: object, send_error: Exception) -> None:
+        super().__init__(*args)
+        self._send_error = send_error
+
+    async def send_text(self, _message: str) -> None:
+        self.send_attempts += 1
+        raise self._send_error
 
 
 _AI_STUB_MODULES = (
@@ -410,6 +533,7 @@ _MAIN_STUB_MODULES = (
     "slow_lane",
     "predictive_path",
     "predictive_path.router",
+    "predictive_path.retrain_router",
     "telemetry",
 )
 
@@ -498,6 +622,7 @@ def main_module() -> Iterator[ModuleType]:
     routers.ai_service = router_module("routers.ai_service")
     routers.helpers = router_module("routers.helpers")
     routers.auth = router_module("routers.auth")
+    routers.ml_inference = router_module("routers.ml_inference")
 
     internal = ModuleType("internal")
     internal.__path__ = []
@@ -512,6 +637,7 @@ def main_module() -> Iterator[ModuleType]:
     predictive_path = ModuleType("predictive_path")
     predictive_path.__path__ = []
     predictive_path.router = router_module("predictive_path.router")
+    predictive_path.retrain_router = router_module("predictive_path.retrain_router")
 
     telemetry = ModuleType("telemetry")
     telemetry.init_telemetry = lambda _app: None
@@ -525,11 +651,13 @@ def main_module() -> Iterator[ModuleType]:
         "routers.ai_service": routers.ai_service,
         "routers.helpers": routers.helpers,
         "routers.auth": routers.auth,
+    "routers.ml_inference": routers.ml_inference,
         "internal": internal,
         "internal.state": internal_state,
         "slow_lane": slow_lane,
         "predictive_path": predictive_path,
         "predictive_path.router": predictive_path.router,
+        "predictive_path.retrain_router": predictive_path.retrain_router,
         "telemetry": telemetry,
     })
 
@@ -614,6 +742,28 @@ def test_lifespan_records_missing_model_without_preventing_startup(
     assert main_module.app.state.yolo is None
     assert model_info["loaded"] is False
     assert model_info["failure_category"] == "model_file_missing"
+
+
+def test_lifespan_binds_expected_model_sha256_from_environment(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", calculate_sha256(artifact))
+    main_module.YOLO_MODEL_PATH = artifact
+    main_module.YOLO = lambda _path: CanonicalTaxonomyModel()
+    main_module.init_database = lambda: None
+    monkeypatch.setattr(main_module, "_cleanup_sessions_loop", lambda: None)
+    monkeypatch.setattr(main_module.asyncio, "create_task", lambda _coroutine: None)
+
+    async def start_with_candidate_model() -> dict[str, bool | str]:
+        async with main_module.lifespan(main_module.app):
+            return main_module.app.state.ml_runtime.readiness()
+
+    assert asyncio.run(start_with_candidate_model()) == {
+        "ready": True,
+        "reason": "ready",
+    }
 
 
 def test_rest_model_unavailable_response_uses_stable_error_code(
@@ -726,6 +876,8 @@ def test_websocket_inference_failure_hides_raw_exception_text(
     assert websocket.sent[-1]["code"] == "inference_failed"
     assert "private model failure detail" not in json.dumps(websocket.sent[-1])
     assert app.state.ml_runtime.metrics.snapshot()["failed_inferences"] == 1
+    assert app.state.ml_runtime.metrics.snapshot()["successful_inferences"] == 0
+    assert websocket.send_attempts == 1
 
 
 def test_websocket_tracks_only_frames_the_server_actually_skips(
@@ -772,3 +924,200 @@ def test_successful_websocket_detection_result_shape_is_preserved(
         "inference_time_ms", "server_timestamp_ms",
     }
     assert app.state.ml_runtime.metrics.snapshot()["successful_inferences"] == 1
+    assert app.state.ml_runtime.metrics.snapshot()["failed_inferences"] == 0
+    assert websocket.send_attempts == 1
+
+
+def test_websocket_disconnect_before_result_send_is_not_inference_failure(
+    ai_service_module: ModuleType,
+) -> None:
+    temporary_paths: list[Path] = []
+
+    def successful_adapter(_model: object, image_path: str) -> dict[str, object]:
+        temporary_paths.append(Path(image_path))
+        return {
+            "detections": [],
+            "image_id": "frame",
+            "metadata": {"image_shape": [480, 640]},
+        }
+
+    ai_service_module.vision_adapter = successful_adapter
+    ai_service_module._guidance_payload = lambda *_args, **_kwargs: ("Path clear", "CLEAR")
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            yolo=object(), vision_limiter=_AsyncLimiter(), ml_runtime=MLRuntimeState()
+        )
+    )
+    websocket = _ClosedOnSendWebSocket(
+        app,
+        [
+            {"text": json.dumps({"type": "frame_meta", "frame_id": "frame-1"}), "bytes": None},
+            {"text": None, "bytes": b"image-bytes"},
+        ],
+        send_error=WebSocketDisconnect(),
+    )
+
+    asyncio.run(ai_service_module.vision_ws_endpoint(websocket))
+
+    metrics = app.state.ml_runtime.metrics.snapshot()
+    assert websocket.sent == []
+    assert websocket.send_attempts == 1
+    assert metrics["successful_inferences"] == 1
+    assert metrics["failed_inferences"] == 0
+    assert temporary_paths and not temporary_paths[0].exists()
+
+
+def test_websocket_send_after_close_runtime_error_is_not_inference_failure(
+    ai_service_module: ModuleType,
+) -> None:
+    ai_service_module.vision_adapter = lambda *_args: {
+        "detections": [],
+        "image_id": "frame",
+        "metadata": {"image_shape": [480, 640]},
+    }
+    ai_service_module._guidance_payload = lambda *_args, **_kwargs: ("Path clear", "CLEAR")
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            yolo=object(), vision_limiter=_AsyncLimiter(), ml_runtime=MLRuntimeState()
+        )
+    )
+    websocket = _ClosedOnSendWebSocket(
+        app,
+        [
+            {"text": json.dumps({"type": "frame_meta", "frame_id": "frame-1"}), "bytes": None},
+            {"text": None, "bytes": b"image-bytes"},
+        ],
+        send_error=RuntimeError("Cannot call send once a close message has been sent."),
+    )
+
+    asyncio.run(ai_service_module.vision_ws_endpoint(websocket))
+
+    metrics = app.state.ml_runtime.metrics.snapshot()
+    assert websocket.sent == []
+    assert websocket.send_attempts == 1
+    assert metrics["successful_inferences"] == 1
+    assert metrics["failed_inferences"] == 0
+
+
+def test_model_info_before_startup_reports_unknown_taxonomy_compatibility() -> None:
+    runtime = MLRuntimeState()
+
+    model_info = runtime.model_info()
+
+    assert model_info["loaded"] is False
+    assert model_info["failure_category"] == "not_initialized"
+    assert model_info["taxonomy_compatible"] is None
+
+
+def test_model_info_endpoint_serialises_compatible_taxonomy(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/model-info")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["taxonomy_compatible"] is True
+    assert payload["num_classes"] == len(NAVIGATION_CLASSES)
+    assert payload["classes"] == canonical_class_names()
+    assert payload["loaded"] is True
+    assert payload["failure_category"] is None
+
+
+def test_model_info_endpoint_serialises_incompatible_taxonomy(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/ml/model-info")
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["taxonomy_compatible"] is False
+    # A taxonomy mismatch must never be reported as a load or metadata failure.
+    assert payload["loaded"] is True
+    assert payload["failure_category"] is None
+    assert payload["num_classes"] == 7
+
+
+def test_model_info_endpoint_preserves_existing_lineage_fields(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        payload = client.get("/ml/model-info").json()
+
+    assert set(payload) == {
+        "loaded",
+        "filename",
+        "sha256",
+        "size_bytes",
+        "num_classes",
+        "classes",
+        "taxonomy_compatible",
+        "load_duration_ms",
+        "loaded_at",
+        "runtime",
+        "failure_category",
+    }
+    assert payload["filename"] == "best.pt"
+    assert payload["sha256"] == calculate_sha256(artifact)
+    assert payload["size_bytes"] == artifact.stat().st_size
+    assert payload["load_duration_ms"] == 3.5
+    assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_incompatible_taxonomy_blocks_navigation_readiness(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=object())
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        ready = client.get("/ml/ready")
+        health = client.get("/ml/health")
+        model_info = client.get("/ml/model-info").json()
+
+    assert model_info["taxonomy_compatible"] is False
+    assert ready.status_code == 503
+    assert ready.json() == {"ready": False, "reason": "taxonomy_incompatible"}
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+    assert app.state.yolo is not None
+
+
+def test_readiness_uses_captured_startup_lineage(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=None, ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, CanonicalTaxonomyModel(), 3.5)
+    )
+
+    with TestClient(app) as client:
+        ready = client.get("/ml/ready")
+        model_info = client.get("/ml/model-info").json()
+
+    assert model_info["taxonomy_compatible"] is True
+    assert ready.status_code == 200
+    assert ready.json() == {"ready": True, "reason": "ready"}
+
+
+def test_taxonomy_compatibility_helper_matches_the_canonical_contract() -> None:
+    assert is_taxonomy_compatible(canonical_class_names()) is True
+    assert is_taxonomy_compatible(list(FakeModel.names.values())) is False

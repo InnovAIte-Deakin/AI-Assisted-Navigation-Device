@@ -12,8 +12,7 @@ import {
   Alert,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import HomeHeader from "../HomeHeader";
@@ -25,23 +24,13 @@ import {
   PlaceItem,
   PlaceKind,
 } from "../../src/utils/placesStore";
-
-/* ─── TOKENS (same as index.tsx) ──────────────────────────── */
-
-const tokens = {
-  bg: "#071a2a",
-  tile: "#0b0f14",
-  card: "#0d141c",
-  text: "#e8eef6",
-  muted: "#b8c6d4",
-  gold: "#f2a900",
-  green: "#2ecc71",
-  red: "#e74c3c",
-};
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 /* ─── MAIN COMPONENT ─────────────────────────────────────── */
 
 export default function FavouritesPage() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
@@ -121,10 +110,10 @@ export default function FavouritesPage() {
   /* ── Render item ───────────────────────────────────────── */
 
   const renderFavItem = ({ item }: { item: PlaceItem }) => (
-    <View style={styles.favCard}>
+    <View style={[styles.favCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Kind badge */}
-      <View style={styles.kindBadge}>
-        <Text style={styles.kindText}>{item.kind}</Text>
+      <View style={[styles.kindBadge, { borderColor: colors.accent }]}>
+        <Text style={[styles.kindText, { color: colors.accent }]}>{item.kind}</Text>
       </View>
 
       {/* Title — tappable to navigate */}
@@ -133,10 +122,10 @@ export default function FavouritesPage() {
         style={styles.titleArea}
         accessibilityLabel={`Navigate to ${item.title}`}
       >
-        <Text style={styles.favTitle} numberOfLines={1}>
+        <Text style={[styles.favTitle, { color: colors.text }]} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={styles.favSub}>
+        <Text style={[styles.favSub, { color: colors.textMuted }]}>
           {item.kind === "I" ? "Interior" : "Exterior"} · Tap to navigate
         </Text>
       </Pressable>
@@ -148,7 +137,7 @@ export default function FavouritesPage() {
         style={styles.iconBtn}
         accessibilityLabel={`View ${item.title} on map`}
       >
-        <Icon name="map" size={16} color={tokens.gold} />
+        <Ionicons name="map-outline" size={16} color={colors.accent} />
       </Pressable>
 
       {/* Remove favourite */}
@@ -158,7 +147,7 @@ export default function FavouritesPage() {
         style={styles.iconBtn}
         accessibilityLabel={`Remove ${item.title} from favourites`}
       >
-        <Icon name="heart" size={18} color={tokens.red} />
+        <Ionicons name="heart" size={18} color={colors.danger} />
       </Pressable>
     </View>
   );
@@ -166,47 +155,48 @@ export default function FavouritesPage() {
   /* ── UI ─────────────────────────────────────────────────── */
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.outerContent, { width: contentWidth }]}>
         <HomeHeader
-          greeting="Favourites"
           appTitle="WalkBuddy"
           showDivider
           showLocation
+          showBackButton
         />
 
         {/* Add‑favourite toggle button */}
         <Pressable
           onPress={() => setShowAddForm((v) => !v)}
-          android_ripple={{ color: "#f2a90022" }}
+          android_ripple={{ color: colors.accent + "22" }}
           style={({ pressed }) => [
             styles.addToggleBtn,
+            { backgroundColor: colors.accent },
             pressed && styles.pressed,
           ]}
         >
-          <Icon
-            name={showAddForm ? "minus" : "plus"}
+          <Ionicons
+            name={showAddForm ? "remove-outline" : "add-outline"}
             size={16}
-            color={tokens.bg}
+            color={colors.background}
           />
-          <Text style={styles.addToggleText}>
+          <Text style={[styles.addToggleText, { color: colors.background }]}>
             {showAddForm ? "CANCEL" : "ADD FAVOURITE LOCATION"}
           </Text>
         </Pressable>
 
         {/* Inline add form */}
         {showAddForm && (
-          <View style={styles.addFormCard}>
-            <Text style={styles.formLabel}>NEW FAVOURITE</Text>
+          <View style={[styles.addFormCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent }]}>
+            <Text style={[styles.formLabel, { color: colors.textMuted }]}>NEW FAVOURITE</Text>
 
-            <View style={styles.inputRow}>
-              <Icon name="map-marker" size={16} color={tokens.muted} />
+            <View style={[styles.inputRow, { backgroundColor: colors.surface }]}>
+              <Ionicons name="location-outline" size={16} color={colors.textMuted} />
               <TextInput
                 value={newName}
                 onChangeText={setNewName}
                 placeholder="Location name"
-                placeholderTextColor={tokens.muted}
-                style={styles.textInput}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.textInput, { color: colors.text }]}
                 autoCapitalize="words"
                 autoCorrect={false}
                 returnKeyType="done"
@@ -220,18 +210,20 @@ export default function FavouritesPage() {
                 onPress={() => setNewKind("I")}
                 style={[
                   styles.kindOption,
-                  newKind === "I" && styles.kindOptionActive,
+                  { backgroundColor: colors.surface, borderColor: "transparent" },
+                  newKind === "I" && { backgroundColor: colors.accent, borderColor: colors.accent },
                 ]}
               >
-                <Icon
-                  name="building"
+                <Ionicons
+                  name="business-outline"
                   size={14}
-                  color={newKind === "I" ? tokens.bg : tokens.muted}
+                  color={newKind === "I" ? colors.background : colors.textMuted}
                 />
                 <Text
                   style={[
                     styles.kindOptionText,
-                    newKind === "I" && styles.kindOptionTextActive,
+                    { color: colors.textMuted },
+                    newKind === "I" && { color: colors.background },
                   ]}
                 >
                   INTERIOR
@@ -242,18 +234,20 @@ export default function FavouritesPage() {
                 onPress={() => setNewKind("E")}
                 style={[
                   styles.kindOption,
-                  newKind === "E" && styles.kindOptionActive,
+                  { backgroundColor: colors.surface, borderColor: "transparent" },
+                  newKind === "E" && { backgroundColor: colors.accent, borderColor: colors.accent },
                 ]}
               >
-                <Icon
-                  name="globe"
+                <Ionicons
+                  name="globe-outline"
                   size={14}
-                  color={newKind === "E" ? tokens.bg : tokens.muted}
+                  color={newKind === "E" ? colors.background : colors.textMuted}
                 />
                 <Text
                   style={[
                     styles.kindOptionText,
-                    newKind === "E" && styles.kindOptionTextActive,
+                    { color: colors.textMuted },
+                    newKind === "E" && { color: colors.background },
                   ]}
                 >
                   EXTERIOR
@@ -265,11 +259,12 @@ export default function FavouritesPage() {
               onPress={handleAddFavourite}
               style={({ pressed }) => [
                 styles.saveBtn,
+                { backgroundColor: colors.success },
                 pressed && styles.pressed,
               ]}
             >
-              <Icon name="heart" size={14} color={tokens.bg} />
-              <Text style={styles.saveBtnText}>SAVE TO FAVOURITES</Text>
+              <Ionicons name="heart" size={14} color={colors.background} />
+              <Text style={[styles.saveBtnText, { color: colors.background }]}>SAVE TO FAVOURITES</Text>
             </Pressable>
           </View>
         )}
@@ -286,9 +281,9 @@ export default function FavouritesPage() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Icon name="heart-o" size={40} color={tokens.muted} />
-              <Text style={styles.emptyTitle}>No Favourites Yet</Text>
-              <Text style={styles.emptySub}>
+              <Ionicons name="heart-outline" size={40} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Favourites Yet</Text>
+              <Text style={[styles.emptySub, { color: colors.textMuted }]}>
                 Tap the button above to add your favourite locations for quick
                 access.
               </Text>
@@ -296,22 +291,22 @@ export default function FavouritesPage() {
           }
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
-/* ─── STYLES ──────────────────────────────────────────────── */
+/* ─── STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). ──────────────────────────────── */
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
   },
 
   outerContent: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingTop: 0,
   },
 
@@ -327,32 +322,27 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.gold,
     borderRadius: 14,
-    paddingVertical: 14,
-    marginBottom: 14,
+    paddingVertical: Spacing.md + 2,
+    marginBottom: Spacing.md + 2,
   },
 
   addToggleText: {
-    color: tokens.bg,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "900",
   },
 
   /* ── Add form card ─────────────────────────────── */
 
   addFormCard: {
-    backgroundColor: tokens.card,
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
-    marginBottom: 14,
+    borderRadius: Radius.lg,
+    padding: Spacing.md + 4,
+    gap: Spacing.md + 2,
+    marginBottom: Spacing.md + 2,
     borderWidth: 1,
-    borderColor: tokens.gold,
   },
 
   formLabel: {
-    color: tokens.muted,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
@@ -362,16 +352,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: tokens.tile,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md + 2,
+    paddingVertical: Spacing.md,
   },
 
   textInput: {
     flex: 1,
-    color: tokens.text,
-    fontSize: 15,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
   },
 
@@ -385,41 +373,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: tokens.tile,
-    borderRadius: 12,
-    paddingVertical: 12,
+    gap: Spacing.sm,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
     borderWidth: 1,
-    borderColor: "transparent",
-  },
-
-  kindOptionActive: {
-    backgroundColor: tokens.gold,
-    borderColor: tokens.gold,
   },
 
   kindOptionText: {
-    color: tokens.muted,
     fontSize: 12,
     fontWeight: "800",
   },
 
-  kindOptionTextActive: {
-    color: tokens.bg,
-  },
-
   saveBtn: {
     flexDirection: "row",
-    gap: 8,
+    gap: Spacing.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.green,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md + 2,
   },
 
   saveBtnText: {
-    color: tokens.bg,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -429,7 +403,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: 4,
     paddingBottom: 120,
-    gap: 10,
+    gap: Spacing.sm + 2,
   },
 
   listContentEmpty: {
@@ -441,13 +415,11 @@ const styles = StyleSheet.create({
   favCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: tokens.tile,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md + 2,
+    paddingHorizontal: Spacing.md + 2,
     gap: 10,
     borderWidth: 1,
-    borderColor: "#1a2a3a",
   },
 
   kindBadge: {
@@ -455,13 +427,11 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
   },
 
   kindText: {
-    color: tokens.gold,
     fontWeight: "900",
     fontSize: 12,
   },
@@ -472,13 +442,11 @@ const styles = StyleSheet.create({
   },
 
   favTitle: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "800",
   },
 
   favSub: {
-    color: tokens.muted,
     fontSize: 11,
     fontWeight: "600",
   },
@@ -492,20 +460,18 @@ const styles = StyleSheet.create({
 
   emptyWrap: {
     alignItems: "center",
-    gap: 12,
+    gap: Spacing.md,
     paddingHorizontal: 30,
     paddingTop: 60,
   },
 
   emptyTitle: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900",
   },
 
   emptySub: {
-    color: tokens.muted,
-    fontSize: 13,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
     textAlign: "center",
     lineHeight: 20,

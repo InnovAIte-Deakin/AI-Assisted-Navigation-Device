@@ -167,7 +167,7 @@ export function createWebFrameCaptureHandler(
   onFrame: (base64Image: string) => void,
   intervalMs: number = 500
 ): () => void {
-  let intervalId: NodeJS.Timeout | null = null;
+  let intervalId: ReturnType<typeof setInterval> | null = null;
   let isCapturing = false;
 
   const captureLoop = async () => {

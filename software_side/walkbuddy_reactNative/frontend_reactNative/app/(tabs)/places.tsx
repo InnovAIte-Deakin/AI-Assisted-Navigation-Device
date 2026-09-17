@@ -7,11 +7,12 @@ import {
   FlatList,
   useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import HomeHeader from "../HomeHeader";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 import {
   getPlacesSorted,
@@ -38,6 +39,7 @@ async function seedPlacesOnce() {
 }
 
 export default function PlacesPage() {
+  const colors = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
@@ -75,13 +77,13 @@ export default function PlacesPage() {
   };
 
   const renderPlaceItem = ({ item: placeItem }: { item: PlaceItem }) => (
-    <Pressable style={styles.placeCard} onPress={() => selectPlace(placeItem)}>
+    <Pressable style={[styles.placeCard, { backgroundColor: colors.surface, borderColor: colors.accent }]} onPress={() => selectPlace(placeItem)}>
       {/* Kind Badge */}
-      <View style={styles.placeType}>
-        <Text style={styles.placeLabelText}>{placeItem.kind}</Text>
+      <View style={[styles.placeType, { borderColor: colors.accent, backgroundColor: colors.accent + "1F" }]}>
+        <Text style={[styles.placeLabelText, { color: colors.accent }]}>{placeItem.kind}</Text>
       </View>
 
-      <Text style={styles.placeTitle} numberOfLines={1}>
+      <Text style={[styles.placeTitle, { color: colors.text }]} numberOfLines={1}>
         {placeItem.title}
       </Text>
 
@@ -94,46 +96,32 @@ export default function PlacesPage() {
         style={styles.favPlaceButton}
         accessibilityLabel={placeItem.isFav ? "Unfavourite place" : "Favourite place"}
       >
-        <Icon
-          name={placeItem.isFav ? "heart" : "heart-o"}
+        <Ionicons
+          name={placeItem.isFav ? "heart" : "heart-outline"}
           size={18}
-          color={placeItem.isFav ? tokens.gold : tokens.muted}
+          color={placeItem.isFav ? colors.accent : colors.textMuted}
         />
       </Pressable>
     </Pressable>
   );
 
-  const handleBack = () => {
-    const canGoBack = (router as any)?.canGoBack?.() ?? false;
-    if (canGoBack) router.back();
-    else router.replace("/" as any);
-  };
-
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
-      <Pressable
-        onPress={handleBack}
-        style={styles.backBtnFloating}
-        accessibilityLabel="Go back"
-      >
-        <Icon name="arrow-left" size={20} color="#FCA311" />
-      </Pressable>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
-          greeting="Places"
           appTitle="WalkBuddy"
-          onPressProfile={() => router.push("/profile" as any)}
           showDivider
           showLocation
+          showBackButton
         />
 
         {/* Section Title */}
         {savedPlacesList.length > 0 && (
           <View style={styles.sectionHeader}>
-            <Icon name="map-marker" size={14} color={tokens.gold} />
-            <Text style={styles.sectionTitle}>SAVED PLACES</Text>
-            <View style={styles.sectionBadge}>
-              <Text style={styles.sectionBadgeText}>{savedPlacesList.length}</Text>
+            <Ionicons name="location-outline" size={14} color={colors.accent} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>SAVED PLACES</Text>
+            <View style={[styles.sectionBadge, { backgroundColor: colors.accent }]}>
+              <Text style={[styles.sectionBadgeText, { color: colors.background }]}>{savedPlacesList.length}</Text>
             </View>
           </View>
         )}
@@ -148,85 +136,60 @@ export default function PlacesPage() {
           ]}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconWrapper}>
-                <Icon name="map-marker" size={36} color={tokens.gold} />
+              <View style={[styles.emptyIconWrapper, { backgroundColor: colors.accent + "1A", borderColor: colors.accent + "4D" }]}>
+                <Ionicons name="location-outline" size={36} color={colors.accent} />
               </View>
-              <Text style={styles.emptyTitle}>No Saved Places</Text>
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No Saved Places</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 Places you save will appear here for quick access.
               </Text>
             </View>
           }
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const tokens = {
-  bg: "#0D1B2A",
-  card: "#0b1520",
-  border: "#FCA311",
-  gold: "#FCA311",
-  text: "#e8eef6",
-  muted: "#6b7f99",
-};
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
     position: "relative",
   },
 
   content: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingTop: 14,
-  },
-
-  backBtnFloating: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(27,38,59,0.65)",
-    borderWidth: 1.5,
-    borderColor: "#FCA311",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
   },
 
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Spacing.sm,
     paddingHorizontal: 14,
     paddingTop: 18,
     paddingBottom: 10,
   },
 
   sectionTitle: {
-    color: tokens.text,
-    fontSize: 13,
+    fontSize: Typography.size.sm,
     fontWeight: "900",
     letterSpacing: 0.8,
     flex: 1,
   },
 
   sectionBadge: {
-    backgroundColor: tokens.gold,
-    borderRadius: 999,
-    paddingHorizontal: 8,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
   },
 
   sectionBadgeText: {
-    color: tokens.bg,
     fontSize: 11,
     fontWeight: "900",
   },
@@ -234,7 +197,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 14,
     paddingBottom: 120,
-    gap: 12,
+    gap: Spacing.md,
   },
 
   listContentEmpty: {
@@ -245,10 +208,8 @@ const styles = StyleSheet.create({
 
   placeCard: {
     borderWidth: 2,
-    borderColor: tokens.border,
     borderRadius: 18,
-    backgroundColor: tokens.card,
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -262,25 +223,21 @@ const styles = StyleSheet.create({
   placeType: {
     width: 30,
     height: 30,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     borderWidth: 2,
-    borderColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
-    backgroundColor: "rgba(252,163,17,0.12)",
+    marginRight: Spacing.md,
   },
 
   placeLabelText: {
-    color: tokens.gold,
     fontWeight: "900",
     fontSize: 12,
   },
 
   placeTitle: {
     flex: 1,
-    color: tokens.text,
-    fontSize: 15,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
   },
 
@@ -292,31 +249,27 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: "center",
     paddingHorizontal: 32,
-    gap: 12,
+    gap: Spacing.md,
   },
 
   emptyIconWrapper: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(252,163,17,0.1)",
     borderWidth: 2,
-    borderColor: "rgba(252,163,17,0.3)",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
   },
 
   emptyTitle: {
-    color: tokens.text,
     fontSize: 17,
     fontWeight: "900",
     letterSpacing: 0.3,
   },
 
   emptyText: {
-    color: tokens.muted,
-    fontSize: 13,
+    fontSize: Typography.size.sm,
     fontWeight: "600",
     textAlign: "center",
     lineHeight: 20,

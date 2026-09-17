@@ -69,6 +69,25 @@ def _record_dropped_vision_frame(app) -> None:
         logger.exception("Unable to record dropped vision frame")
 
 
+async def _send_ws_text(websocket: WebSocket, message: str) -> bool:
+    """Send a prepared WebSocket message, treating a closed peer as normal.
+
+    A client can leave while an inference is running.  In that case the
+    inference result is still valid for runtime accounting, but there is no
+    peer left to receive it.  Keep that lifecycle event separate from an ML
+    inference failure so callers do not try to send a second error payload.
+    """
+    try:
+        await websocket.send_text(message)
+        return True
+    except (WebSocketDisconnect, RuntimeError):
+        # Starlette raises WebSocketDisconnect for transport closure.  Some
+        # ASGI servers instead raise RuntimeError after a close message has
+        # already been sent.  Both mean this connection has ended.
+        logger.info("[WS Vision] Outbound message skipped: client disconnected")
+        return False
+
+
 def normalize_vision_events(raw_events):
     if not isinstance(raw_events, list):
         return []
@@ -151,6 +170,12 @@ def _event_from_detection(detection: dict) -> dict:
     return {
         "label": detection["category"],
         "direction": detection.get("direction", "ahead"),
+        # relative_depth is a unitless proxy score (bbox size/position
+        # heuristic), not a calibrated metre distance. Mapping it directly
+        # into distance_m would make downstream navigation memory / LLM
+        # context present it as a real physical distance. Keep this None
+        # until a calibrated metre-producing estimator exists; if the proxy
+        # needs to reach memory, it should use its own honestly-named field.
         "distance_m": None,
         "confidence": detection["confidence"],
         "track_id": detection.get("track_id"),
@@ -375,12 +400,14 @@ async def vision_ws_endpoint(websocket: WebSocket):
 
     Protocol (per frame):
       Client → text:   {"type": "frame_meta", "frame_id": str, "width": int,
-                         "height": int, "timestamp_ms": int}
+                         "height": int, "timestamp_ms": int,
+                         "latitude": float|null, "longitude": float|null}
       Client → binary: raw JPEG bytes
       Server → text:   {"type": "detection_result", "frame_id": str,
                          "detections": [...], "guidance_message": str,
                          "risk_level": str, "inference_time_ms": int,
-                         "server_timestamp_ms": int}
+                         "server_timestamp_ms": int,
+                         "location": {"latitude": float, "longitude": float}|null}
                     OR {"type": "frame_dropped", "frame_id": str, "reason": str}
                     OR {"type": "error", "code": str, "frame_id": str|null,
                         "message": str}
@@ -445,6 +472,8 @@ async def vision_ws_endpoint(websocket: WebSocket):
                 client_ts = frame_meta.get("timestamp_ms", 0)
                 saved_meta = frame_meta
                 frame_meta = None  # clear before any await so next message is clean
+                latitude = saved_meta.get("latitude")
+                longitude = saved_meta.get("longitude")
 
                 temp_path = None
 
@@ -503,7 +532,7 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                     int(time.time() * 1000) - client_ts,
                                 )
 
-                            await websocket.send_text(json.dumps({
+                            sent = await _send_ws_text(websocket, json.dumps({
                                 "type": "detection_result",
                                 "frame_id": fid,
                                 "detections": result["detections"],
@@ -511,7 +540,13 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                 "risk_level": risk_level_str,
                                 "inference_time_ms": inference_ms,
                                 "server_timestamp_ms": int(time.time() * 1000),
+                                "location": {
+                                    "latitude": latitude,
+                                    "longitude": longitude,
+                                } if latitude is not None and longitude is not None else None,
                             }))
+                            if not sent:
+                                return
 
                         except Exception:
                             if not metrics_finished:
@@ -519,9 +554,12 @@ async def vision_ws_endpoint(websocket: WebSocket):
                                     websocket.app, metrics_started_at, successful=False
                                 )
                             logger.exception("[WS Vision] Inference error (frame %s)", fid)
-                            await websocket.send_text(
-                                json.dumps(websocket_error_payload("inference_failed", fid))
+                            sent = await _send_ws_text(
+                                websocket,
+                                json.dumps(websocket_error_payload("inference_failed", fid)),
                             )
+                            if not sent:
+                                return
 
                         finally:
                             if temp_path and os.path.exists(temp_path):

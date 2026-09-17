@@ -125,6 +125,54 @@ reports whatever `app.state.yolo.names` contains. Mock mode reports the approved
 contract taxonomy. Reconciling the weights vs. config vs. contract lineage is
 separate follow-up work. See `ML_side/docs/current_model_baseline.md`.
 
+### `taxonomy_compatible` in `GET /ml/model-info`
+
+`ml_runtime` records whether the loaded artifact implements the approved
+navigation taxonomy and exposes the result as `taxonomy_compatible`. The
+expected ordered names are derived from `ml_contract.navigation_semantics`, so
+there is no second taxonomy definition.
+
+- `true` — the loaded model's `names` exactly match the approved ordered
+  eight-class taxonomy in class count, identifier order, and canonical spelling.
+- `false` — the model loaded and its `names` are structurally valid, but the
+  taxonomy differs. A reordered, renamed, extended, reduced, or case-changed
+  taxonomy is incompatible. The legacy `office-chair` alias remains valid when
+  interpreting individual detections, but does not satisfy the production model
+  contract.
+- `null` — compatibility could not be determined, because the model failed to
+  load, its metadata was unavailable, or the runtime is not yet initialised.
+
+`false` and `null` are deliberately distinct: a taxonomy mismatch is not a
+deserialisation failure, and is reported with `loaded: true` and no
+`failure_category`.
+
+## ML runtime operational endpoints
+
+- `GET /ping` is basic process reachability.
+- `GET /ml/health` is component/liveness-style status. It remains `200` while
+  reporting whether the vision and OCR components are loaded, and does not make
+  a model-quality, lifecycle, or production-authorization decision.
+- `GET /ml/ready` is technical navigation-model readiness. It returns `200`
+  only when startup lineage proves a loaded model, usable metadata, and the
+  exact approved ordered navigation taxonomy. Otherwise it returns `503` with
+  a stable `reason` category and no filesystem paths or exception text.
+- `GET /ml/model-info` remains the detailed safe active-lineage endpoint.
+
+The Docker `HEALTHCHECK` probes `/ml/ready`, because this is an ML-serving
+container whose operational health requires a technically ready navigation
+model. This still does not grant production approval, lifecycle promotion,
+model-quality approval, or deployment authorization.
+
+When `WALKBUDDY_EXPECTED_MODEL_SHA256` is set by a controlled launcher,
+`/ml/ready` additionally requires that exact startup-captured SHA-256. An absent
+variable retains taxonomy-only technical readiness; a malformed or mismatched
+value returns `model_identity_mismatch`. The SHA is calculated once during
+startup lineage capture, never per readiness request.
+
+Technical readiness is not production approval, promotion approval, held-out
+evaluation approval, model-quality approval, or deployment authorization. The
+Candidate lifecycle remains authoritative in the model registry.
+
 ## Tests
 
 - `tests/test_ml_inference.py` — router-isolated tests: mounts only this router
