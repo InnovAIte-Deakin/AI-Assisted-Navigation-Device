@@ -39,8 +39,12 @@ Given ground truth boxes and a set of predictions for the same images, it:
 | `ML_side/evaluation/predictors.py` | `MockPredictor` (fixture-backed) and `load_yolo_predict_fn` (real Ultralytics model) |
 | `ML_side/evaluation/report.py` | Builds and writes the JSON + Markdown reports |
 | `ML_side/evaluation/run_eval.py` | CLI entrypoint tying it all together |
+| `ML_side/evaluation/geometry.py` | Size / aspect bucketing; `evaluate_by_geometry()` calls `evaluate()` per bucket |
+| `ML_side/evaluation/geometry_report.py` | Geometry JSON (source of truth), CSV, and Markdown reports |
+| `ML_side/evaluation/run_geometry_eval.py` | CLI for the geometry breakdown (`--split` required; held-out test refused) |
 | `ML_side/tests/` | pytest suite, all currently run against `MockPredictor` and the fixtures below |
 | `ML_side/tests/fixtures/eval/` | Small synthetic ground truth + predictions JSON (no real images) |
+| `ML_side/tests/fixtures/eval/geometry/` | Synthetic size / aspect fixtures for the geometry tool |
 
 ## Determinism
 
@@ -89,6 +93,91 @@ tests through a stubbed `ultralytics` module; only a run against a real
 `.pt` file and the real Ultralytics package is left to do manually once a
 trained model exists.
 
+## Geometry breakdown (size and aspect ratio)
+
+Reusable overlay on the same JSON and the same `evaluate()` call. It does
+not reimplement IoU matching. Ground-truth and prediction boxes are filtered
+independently into size and aspect buckets (COCO-style), then `evaluate()`
+is run on each slice.
+
+Size and aspect buckets filter ground-truth and predictions independently
+(COCO-style), then reuse `evaluate()`; a medium ground-truth box whose
+matching prediction is large is a false negative in the medium bucket and
+a false positive in the large bucket.
+
+Default size buckets (bbox area in pixel², configurable):
+
+- small: area < 32² (1024)
+- medium: 32² ≤ area < 96² (9216)
+- large: area ≥ 96²
+
+Default aspect buckets (height / width, configurable, pole-justified):
+
+- tall_thin: h/w ≥ 3.0
+- tall: 1.5 ≤ h/w < 3.0
+- square_ish: 2/3 ≤ h/w < 1.5
+- wide: h/w < 2/3
+
+`--split` is required. Allowed values are `train` and `val` (aliases:
+`validation`, `eval`). The held-out `test` split is refused, as is any
+input path whose components name `test` or `held-out` / `heldout`. There
+is no override flag. Reports always record `held_out_test_used: false`.
+
+The tool is class-agnostic (`--classes` defaults to the full taxonomy) and
+always leads the Markdown summary with a Pole focus section when `pole` is
+among the requested classes.
+
+```bash
+cd ML_side
+python -m evaluation.run_geometry_eval \
+  --ground-truth tests/fixtures/eval/geometry/ground_truth.json \
+  --predictions tests/fixtures/eval/geometry/predictions.json \
+  --split val \
+  --out-dir reports/geometry_mock \
+  --model-name "mock (dev fixture)"
+```
+
+Writes `geometry_eval_report.json`, `geometry_eval_report.csv`, and
+`geometry_eval_report.md`. Inputs must be the same pixel-xyxy JSON schema
+`evaluate()` already uses (not Ultralytics `predictions.json`, and not
+normalized YOLO `class x y w h` rows).
+
+## Rerunning for Candidate 2 (and later models)
+
+Use train / validation evidence only. Do not point this tool at the held-out
+test split, at `evaluate_current_model.py --split test` artifacts, or at
+`ML_side/evaluation/candidates/...-heldout-test-corrected/`.
+
+1. Export val-split ground truth and predictions as `evaluate()` JSON
+   (each record: `image_id`, `boxes` with `class`, `bbox` `[x_min,y_min,x_max,y_max]`,
+   and `score` on predictions). Pixel xyxy, same unit as `run_eval`.
+2. Score overall error analysis if you want it:
+
+```bash
+cd ML_side
+python -m evaluation.run_eval \
+  --ground-truth <path to val-split annotations JSON> \
+  --predictions <path to val-split predictions JSON> \
+  --out-dir reports/candidate2 \
+  --model-name "candidate_2"
+```
+
+3. Score the geometry breakdown on the **same val JSON** (never `--split test`):
+
+```bash
+cd ML_side
+python -m evaluation.run_geometry_eval \
+  --ground-truth <path to val-split annotations JSON> \
+  --predictions <path to val-split predictions JSON> \
+  --split val \
+  --out-dir reports/candidate2_geometry \
+  --model-name "candidate_2"
+```
+
+Optional: `--classes pole` for a pole-only report; omit it to score every
+class with a pole-focused Markdown section on top. Later candidates use the
+same commands with a new `--model-name` and new prediction JSON.
+
 ## Tests
 
 ```bash
@@ -96,13 +185,18 @@ cd ML_side
 pytest tests/ -v
 ```
 
-43 tests, against `MockPredictor`, a stubbed model, and the small JSON
-fixtures in `tests/fixtures/eval/`. The fixtures are deliberately constructed to
-exercise every code path: clean matches (true positives), a missed
-CRITICAL-severity hazard for both `stairs` and `vehicle`, and false
-detections for two classes (`chair`, `bicycle`) that have zero ground
-truth boxes in the fixture at all, to check the pipeline doesn't divide
-by zero or crash when a class has no support.
+Tests cover `MockPredictor`, a stubbed model, the small JSON fixtures in
+`tests/fixtures/eval/`, and the geometry fixtures in
+`tests/fixtures/eval/geometry/`. The original eval fixtures exercise clean
+matches (true positives), a missed CRITICAL-severity hazard for both
+`stairs` and `vehicle`, and false detections for two classes (`chair`,
+`bicycle`) that have zero ground truth boxes in the fixture at all, to
+check the pipeline doesn't divide by zero or crash when a class has no
+support. The geometry fixtures add known small/medium/large and
+tall_thin/square_ish/wide boxes, an independent-filtering cross-size pair,
+empty-bucket handling, the `--classes pole` subset, determinism, and the
+held-out split/path guard. Geometry PR evidence is those synthetic
+fixtures plus the passing tests, not a re-score of held-out Candidate 1.
 
 ## What's intentionally not in scope for this first pass
 
