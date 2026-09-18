@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from internal import state
 
@@ -26,5 +26,6 @@ def predict(body: SensorInput):
     return {
         "overall_risk": report["overall_risk"],
         "first_alert": report["first_alert"],
-        "alerts": report["alerts"]
+        "alerts": report["alerts"],
+        "path": report["path"]
     }

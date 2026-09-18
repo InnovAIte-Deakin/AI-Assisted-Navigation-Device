@@ -2,6 +2,8 @@
 **AI-Assisted Navigation Device | ML Stream | Bravine Cheruiyot**
 *Last updated: 2026-05-05*
 
+> Historical record: the `test_priority.py` and `test_api.py` results, 15-class priority metrics, and FastAPI endpoint measurements below are preserved from isolated demo code that fabricated detections and used duplicated/obsolete class-policy logic. The related demo surfaces were retired in 2026 T2 and do not measure current production behaviour.
+
 ---
 
 ## 1. Test Suite Results

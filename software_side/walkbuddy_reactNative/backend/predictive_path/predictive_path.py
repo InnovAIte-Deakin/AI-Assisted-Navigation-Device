@@ -13,7 +13,11 @@ Components
 """
  
 import math
-from ml_predictor import MLPredictor
+
+if __package__:
+    from .ml_predictor import MLPredictor
+else:
+    from ml_predictor import MLPredictor
  
  
 # ── PathPredictor ─────────────────────────────────────────────────────────────

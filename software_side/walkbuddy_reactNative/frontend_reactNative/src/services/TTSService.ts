@@ -41,6 +41,10 @@ class TTSService {
   private messageHistory: MessageContext[] = [];
   private maxHistory: number = 10;
   private config: TTSConfig;
+  private isSpeaking: boolean = false;
+  private activeMessageId: string | null = null;
+  private activeRiskLevel: RiskLevel = RiskLevel.CLEAR;
+  private speechToken: number = 0;
 
   constructor(config: Partial<TTSConfig> = {}) {
     this.cooldownSeconds = config.cooldownSeconds ?? 3.0;
@@ -112,18 +116,40 @@ class TTSService {
     return hash.toString();
   }
 
+    private nativeSpeechTimeoutMs(message: string): number {
+    const FLOOR_MS = 15_000;
+    const CEIL_MS = 180_000;
+    const BASE_WPM = 150; // approx expo-speech words/min at rate 1.0
+    const words = message.trim().split(/\s+/).filter(Boolean).length || 1;
+    const rate = this.config.rate && this.config.rate > 0 ? this.config.rate : 1;
+    const expectedMs = (words / (BASE_WPM * rate)) * 60_000;
+    // 50% margin plus a 10s pad covers rate estimate error and TTS engine warm-up.
+    const withMargin = expectedMs * 1.5 + 10_000;
+    return Math.min(CEIL_MS, Math.max(FLOOR_MS, withMargin));
+  }
+
   private shouldSpeak(
-    message: string,
+    messageId: string,
     riskLevel: RiskLevel,
     force: boolean = false,
   ): boolean {
     if (force) return true;
 
     const currentTime = Date.now() / 1000;
-    const messageId = this.generateMessageId(message);
+
+    if (this.isSpeaking) {
+      // Never restart the exact same sentence.
+      if (messageId === this.activeMessageId) return false;
+      // A distinct hazard at HIGH or above must still be announced even when the
+      // sentence already playing is the same priority. Only equal/lower-priority
+      // guidance below HIGH is treated as interruptible chatter.
+      if (riskLevel < RiskLevel.HIGH && riskLevel <= this.activeRiskLevel) {
+        return false;
+      }
+    }
 
     const timeSinceLast = currentTime - this.lastSpokenTime;
-    if (timeSinceLast < this.cooldownSeconds) {
+    if (timeSinceLast < this.cooldownSeconds && riskLevel < RiskLevel.HIGH) {
       if (riskLevel <= this.lastRiskLevel) return false;
     }
 
@@ -143,14 +169,20 @@ class TTSService {
     force: boolean = false,
   ): Promise<boolean> {
     if (!message || !message.trim()) return false;
-    if (!this.shouldSpeak(message, riskLevel, force)) return false;
+    const messageId = this.generateMessageId(message);
+    if (!this.shouldSpeak(messageId, riskLevel, force)) return false;
+
+    const token = ++this.speechToken;
+    this.isSpeaking = true;
+    this.activeMessageId = messageId;
+    this.activeRiskLevel = riskLevel;
 
     try {
       if (Platform.OS === "web") {
         await this.speakWeb(message);
       } else {
         Speech.stop();
-        await new Promise<void>((resolve, reject) => {
+        const speechPromise = new Promise<void>((resolve, reject) => {
           Speech.speak(message, {
             language: this.config.language,
             pitch: this.config.pitch,
@@ -161,7 +193,25 @@ class TTSService {
             onError: (error) => reject(error),
           });
         });
+
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeoutPromise = new Promise<void>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            Speech.stop();
+            reject(new Error("Native speech timed out before a completion callback."));
+          }, this.nativeSpeechTimeoutMs(message));
+        });
+
+        try {
+          await Promise.race([speechPromise, timeoutPromise]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
       }
+
+      // An urgent message may have interrupted this one while it was waiting
+      // for onStopped. Only the newest speech call may update service state.
+      if (token !== this.speechToken) return false;
 
       const currentTime = Date.now() / 1000;
       this.lastSpokenTime = currentTime;
@@ -172,7 +222,7 @@ class TTSService {
         message,
         riskLevel,
         timestamp: currentTime,
-        messageId: this.generateMessageId(message),
+        messageId,
       };
       this.messageHistory.push(context);
       if (this.messageHistory.length > this.maxHistory)
@@ -185,6 +235,12 @@ class TTSService {
     } catch (error) {
       console.error(`[TTS Service] Failed to speak: '${message}'`, error);
       return false;
+    } finally {
+      if (token === this.speechToken) {
+        this.isSpeaking = false;
+        this.activeMessageId = null;
+        this.activeRiskLevel = RiskLevel.CLEAR;
+      }
     }
   }
 
@@ -199,6 +255,10 @@ class TTSService {
   }
 
   stop(): void {
+    this.speechToken += 1;
+    this.isSpeaking = false;
+    this.activeMessageId = null;
+    this.activeRiskLevel = RiskLevel.CLEAR;
     if (Platform.OS === "web") {
       const w = globalThis as any;
       w?.speechSynthesis?.cancel?.();

@@ -18,6 +18,17 @@ from typing import Dict, Any, List, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
+try:
+    from ml_contract.navigation_semantics import get_base_severity, get_spoken_name
+except ModuleNotFoundError as exc:
+    if exc.name != "ml_contract":
+        raise
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from ml_contract.navigation_semantics import get_base_severity, get_spoken_name
+
 # Import RiskLevel from tts_service (relative import)
 try:
     from .tts_service import RiskLevel
@@ -58,19 +69,15 @@ class ObjectType(Enum):
     NAVIGATION = "navigation"  # Navigation aids
 
 
-# Object type mapping (from detection categories)
+# Object type mapping for legacy non-MVP categories. Approved navigation
+# classes resolve through ml_contract.navigation_semantics instead.
 OBJECT_TYPE_MAP = {
-    # Obstacles (high priority)
-    "chair": ObjectType.OBSTACLE,
-    "office-chair": ObjectType.OBSTACLE,
-    "table": ObjectType.OBSTACLE,
     "desk": ObjectType.OBSTACLE,
     "monitor": ObjectType.OBSTACLE,
     "tv": ObjectType.OBSTACLE,
     "books": ObjectType.OBSTACLE,
     "bookshelf": ObjectType.OBSTACLE,
     "whiteboard": ObjectType.OBSTACLE,
-    "person": ObjectType.OBSTACLE, ## A person is treated as obstacle because they can block paths, even though they are not dangerous
     
     # Signs (medium priority)
     "exit": ObjectType.SIGN,
@@ -159,15 +166,37 @@ def assess_risk_level(
     Returns:
         Risk level for the detection
     """
-    # Base risk on object type
+    # Legacy object types retain their existing base risks. Approved MVP
+    # classes use _assess_navigation_risk_level below.
     if object_type == ObjectType.OBSTACLE:
         base_risk = RiskLevel.MEDIUM
     elif object_type == ObjectType.SIGN:
         base_risk = RiskLevel.LOW
     else:
         base_risk = RiskLevel.CLEAR
-    
-    # Increase risk if nearby
+
+    return _apply_existing_context_adjustments(
+        base_risk,
+        confidence,
+        proximity,
+        is_moving=is_moving,
+        approaching=approaching,
+        motion_direction=motion_direction,
+    )
+
+
+def _apply_existing_context_adjustments(
+    base_risk: RiskLevel,
+    confidence: float,
+    proximity: str,
+    *,
+    is_moving: bool,
+    approaching: bool,
+    motion_direction: str,
+) -> RiskLevel:
+    """Preserve existing contextual adjustments without defining new policy."""
+
+    # Existing proximity, motion, and confidence behavior remains unchanged.
     if proximity == "nearby":
         if base_risk == RiskLevel.MEDIUM:
             base_risk = RiskLevel.HIGH
@@ -191,6 +220,30 @@ def assess_risk_level(
     return base_risk
 
 
+def _assess_navigation_risk_level(
+    category: str,
+    confidence: float,
+    proximity: str,
+    *,
+    is_moving: bool,
+    approaching: bool,
+    motion_direction: str,
+) -> RiskLevel | None:
+    """Apply existing context adjustments to a canonical contract severity."""
+
+    base_severity = get_base_severity(category)
+    if base_severity is None:
+        return None
+    return _apply_existing_context_adjustments(
+        RiskLevel[base_severity.name],
+        confidence,
+        proximity,
+        is_moving=is_moving,
+        approaching=approaching,
+        motion_direction=motion_direction,
+    )
+
+
 def format_object_name(category: str) -> str:
     """
     Format object category name for natural speech.
@@ -200,26 +253,15 @@ def format_object_name(category: str) -> str:
         "whiteboard" -> "whiteboard"
         "EXIT" -> "exit sign"
     """
-    # Normalize to lowercase
+    spoken_name = get_spoken_name(category)
+    if spoken_name is not None:
+        return spoken_name
+
+    # Preserve explicit legacy sign wording, without substring or length
+    # heuristics that could mislabel navigation classes.
     category_lower = category.lower().strip()
-    
-    # Handle compound names
-    if "chair" in category_lower:
-        return "chair"
-    elif "table" in category_lower:
-        return "table"
-    elif "monitor" in category_lower:
-        return "monitor"
-    elif "book" in category_lower:
-        return "books" if category_lower.endswith("s") else "book"
-    elif "whiteboard" in category_lower:
-        return "whiteboard"
-    elif "exit" in category_lower or "entrance" in category_lower:
+    if category_lower in {"exit", "entrance"}:
         return f"{category_lower} sign"
-    elif category_lower.isupper() or len(category_lower) <= 5:
-        # Likely a sign text
-        return f"{category_lower} sign"
-    
     return category_lower
 
 
@@ -239,37 +281,31 @@ def generate_guidance_message(
     Returns:
         GuidanceMessage or None if detection should be ignored
     """
-    # Get object type
+    # Approved navigation classes use their contract base severity. Legacy
+    # categories retain exact object-type lookup; no fuzzy matching is used.
     category_lower = detection.category.lower().strip()
-    object_type = None
-    
-    # Check direct mapping
-    if category_lower in OBJECT_TYPE_MAP:
-        object_type = OBJECT_TYPE_MAP[category_lower]
-    else:
-        # Try partial matching
-        for key, obj_type in OBJECT_TYPE_MAP.items():
-            if key in category_lower or category_lower in key:
-                object_type = obj_type
-                break
-    
-    # Default to OBSTACLE if unknown (safer assumption)
-    if object_type is None:
-        object_type = ObjectType.OBSTACLE
-    
     # Calculate spatial information
     position = detection.direction or calculate_spatial_position(detection.bbox, image_width)
     proximity = calculate_proximity(detection.bbox, image_width, image_height)
     
-    # Assess risk
-    risk_level = assess_risk_level(
-        object_type,
+    risk_level = _assess_navigation_risk_level(
+        detection.category,
         detection.confidence,
         proximity,
         is_moving=detection.is_moving,
         approaching=detection.approaching,
         motion_direction=detection.motion_direction,
     )
+    if risk_level is None:
+        object_type = OBJECT_TYPE_MAP.get(category_lower, ObjectType.OBSTACLE)
+        risk_level = assess_risk_level(
+            object_type,
+            detection.confidence,
+            proximity,
+            is_moving=detection.is_moving,
+            approaching=detection.approaching,
+            motion_direction=detection.motion_direction,
+        )
     
     # Format object name
     object_name = format_object_name(detection.category)

@@ -5,10 +5,9 @@ import * as Speech from "expo-speech";
 import * as Haptics from "expo-haptics";
 
 import { POIS, V2_GRAPH, type NodeId } from "../../src/nav/v2_graph";
-
-const GOLD = "#f9b233";
-const BG = "#1B263B";
-const CARD = "#102030";
+import { Radius, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Adj = Record<string, Array<{ to: NodeId; cost: number }>>;
 
@@ -108,6 +107,7 @@ function turnWord(diff: number): string {
 }
 
 export default function IndoorNavScreen() {
+  const colors = useThemeColors();
   const adj = useMemo(() => buildAdjacency(), []);
 
   const [start, setStart] = useState<NodeId>("N1");
@@ -237,124 +237,131 @@ export default function IndoorNavScreen() {
   const poiList = useMemo(() => Object.values(POIS), []);
 
   return (
-    <ScrollView style={styles.wrap} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text style={styles.title}>Indoor Navigation Demo</Text>
-
+    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <PageHeader title="Interior Navigation" />
+      <ScrollView style={styles.wrap} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Current location */}
-      <View style={styles.card}>
-        <Text style={styles.h}>Current Location</Text>
+      <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+        <Text style={[styles.h, { color: colors.accent }]}>Current Location</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {poiList.map((p) => (
             <Pressable
               key={p.id}
               onPress={() => setStart(p.id)}
-              style={[styles.pill, start === p.id && styles.pillActive]}
+              style={[
+                styles.pill,
+                { borderColor: colors.accent },
+                start === p.id && { backgroundColor: colors.accent },
+              ]}
             >
-              <Text style={[styles.pillText, start === p.id && styles.pillTextActive]}>{p.name}</Text>
+              <Text style={[styles.pillText, { color: start === p.id ? colors.accentText : colors.accent }]}>{p.name}</Text>
             </Pressable>
           ))}
         </ScrollView>
       </View>
 
       {/* Destination */}
-      <View style={styles.card}>
-        <Text style={styles.h}>Destination</Text>
+      <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+        <Text style={[styles.h, { color: colors.accent }]}>Destination</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {poiList.map((p) => (
             <Pressable
               key={p.id}
               onPress={() => setDest(p.id)}
-              style={[styles.pill, dest === p.id && styles.pillActive]}
+              style={[
+                styles.pill,
+                { borderColor: colors.accent },
+                dest === p.id && { backgroundColor: colors.accent },
+              ]}
             >
-              <Text style={[styles.pillText, dest === p.id && styles.pillTextActive]}>{p.name}</Text>
+              <Text style={[styles.pillText, { color: dest === p.id ? colors.accentText : colors.accent }]}>{p.name}</Text>
             </Pressable>
           ))}
         </ScrollView>
       </View>
 
       {/* Instruction */}
-      <View style={styles.card}>
-        <Text style={styles.h}>Instruction</Text>
-        <Text style={styles.big}>{instruction}</Text>
+      <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+        <Text style={[styles.h, { color: colors.accent }]}>Instruction</Text>
+        <Text style={[styles.big, { color: colors.text }]}>{instruction}</Text>
         {path.length > 0 && (
-          <Text style={styles.sub}>
+          <Text style={[styles.sub, { color: colors.textMuted }]}>
             Path: {path.map((id) => id).join(" → ")}
           </Text>
         )}
       </View>
 
       {/* Simulator */}
-      <View style={styles.card}>
-        <Text style={styles.h}>Simulator</Text>
-        <Text style={styles.sub}>
+      <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+        <Text style={[styles.h, { color: colors.accent }]}>Simulator</Text>
+        <Text style={[styles.sub, { color: colors.textMuted }]}>
           Position: ({pos.x.toFixed(1)}, {pos.y.toFixed(1)}) | Heading: {Math.round(heading)}°
         </Text>
 
         <View style={styles.row}>
-          <Pressable style={styles.btn} onPress={walkOneStep}>
-            <Text style={styles.btnText}>Walk 1 step</Text>
+          <Pressable style={[styles.btn, { backgroundColor: colors.accent }]} onPress={walkOneStep}>
+            <Text style={[styles.btnText, { color: colors.accentText }]}>Walk 1 step</Text>
           </Pressable>
 
-          <Pressable style={styles.btnOutline} onPress={reset}>
-            <Text style={styles.btnOutlineText}>Reset</Text>
+          <Pressable style={[styles.btnOutline, { borderColor: colors.accent }]} onPress={reset}>
+            <Text style={[styles.btnOutlineText, { color: colors.accent }]}>Reset</Text>
           </Pressable>
         </View>
 
         <View style={styles.row}>
-          <Pressable style={styles.smallBtn} onPress={rotateLeft}>
-            <Text style={styles.smallBtnText}>⟲</Text>
+          <Pressable style={[styles.smallBtn, { borderColor: colors.accent }]} onPress={rotateLeft}>
+            <Text style={[styles.smallBtnText, { color: colors.accent }]}>⟲</Text>
           </Pressable>
-          <Pressable style={styles.smallBtn} onPress={rotateRight}>
-            <Text style={styles.smallBtnText}>⟳</Text>
+          <Pressable style={[styles.smallBtn, { borderColor: colors.accent }]} onPress={rotateRight}>
+            <Text style={[styles.smallBtnText, { color: colors.accent }]}>⟳</Text>
           </Pressable>
-          <Text style={[styles.sub, { marginLeft: 8 }]}>Rotate to see Left/Right change</Text>
+          <Text style={[styles.sub, { color: colors.textMuted, marginLeft: 8 }]}>Rotate to see Left/Right change</Text>
         </View>
 
         {Platform.OS === "web" && (
-          <Text style={styles.sub}>Web keys: ↑ walk, ← rotate left, → rotate right, R reset</Text>
+          <Text style={[styles.sub, { color: colors.textMuted }]}>Web keys: ↑ walk, ← rotate left, → rotate right, R reset</Text>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
+
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: BG, padding: 14 },
-  title: { color: GOLD, fontWeight: "900", fontSize: 18, marginTop: 6, marginBottom: 10 },
+  safeArea: { flex: 1 },
+  wrap: { flex: 1, paddingHorizontal: 14 },
 
   card: {
     borderWidth: 1,
-    borderColor: GOLD,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     padding: 12,
-    backgroundColor: CARD,
     marginBottom: 10,
     gap: 8,
   },
 
-  h: { color: GOLD, fontWeight: "900" },
-  big: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  sub: { color: "#cfd8e3", marginTop: 4 },
+  h: { fontWeight: "900" },
+  big: { fontSize: Typography.size.md, fontWeight: "800" },
+  sub: { marginTop: 4 },
 
-  pill: { borderWidth: 1, borderColor: GOLD, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999 },
-  pillActive: { backgroundColor: GOLD },
-  pillText: { color: GOLD, fontWeight: "800" },
-  pillTextActive: { color: BG },
+  pill: { borderWidth: 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: Radius.pill },
+  pillText: { fontWeight: "800" },
 
   row: { flexDirection: "row", gap: 10, alignItems: "center", marginTop: 8, flexWrap: "wrap" },
-  btn: { backgroundColor: GOLD, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12 },
-  btnText: { color: BG, fontWeight: "900" },
-  btnOutline: { borderWidth: 1, borderColor: GOLD, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12 },
-  btnOutlineText: { color: GOLD, fontWeight: "900" },
+  btn: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: Radius.md },
+  btnText: { fontWeight: "900" },
+  btnOutline: { borderWidth: 1, paddingVertical: 12, paddingHorizontal: 14, borderRadius: Radius.md },
+  btnOutlineText: { fontWeight: "900" },
 
   smallBtn: {
     borderWidth: 1,
-    borderColor: GOLD,
     borderRadius: 10,
     width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  smallBtnText: { color: GOLD, fontWeight: "900", fontSize: 18 },
+  smallBtnText: { fontWeight: "900", fontSize: Typography.size.md },
 });

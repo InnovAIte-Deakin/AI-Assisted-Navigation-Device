@@ -13,8 +13,11 @@ Usage
 import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
- 
-from ml_predictor import MLPredictor
+
+if __package__:
+    from .ml_predictor import MLPredictor
+else:
+    from ml_predictor import MLPredictor
  
  
 def predict_single(speed: float, heading: float, gyro: float) -> None:

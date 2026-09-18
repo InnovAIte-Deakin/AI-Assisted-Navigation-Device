@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "policy_status": "EXAMPLE_NOT_APPROVED_POLICY",
+  "purpose": "Illustrates the optional comparison-gate format. These values are not approved WalkBuddy promotion policy.",
+  "gates": {
+    "aggregate_minimum_deltas": {
+      "mAP50": -0.02,
+      "mAP50_95": -0.02
+    },
+    "per_class_minimum_deltas": {
+      "recall": {
+        "stairs": -0.03,
+        "door": -0.03,
+        "person": -0.03
+      }
+    },
+    "required_classes": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ],
+    "maximum_latency_increase_ms": 5.0
+  }
+}

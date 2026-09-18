@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "model_id": "WB-OD-LEGACY-001",
+  "model_version": "1.0",
+
+  "identity": {
+    "name": "WalkBuddy Legacy Object Detection Model",
+    "architecture": "YOLO",
+    "framework": "Ultralytics",
+    "task": "object_detection"
+  },
+
+  "taxonomy": {
+    "taxonomy_id": "legacy-best-pt-taxonomy",
+    "classes": [
+      "book",
+      "books",
+      "monitor",
+      "office-chair",
+      "whiteboard",
+      "table",
+      "tv"
+    ]
+  },
+
+  "dataset": {
+    "release_id": null,
+    "manifest_reference": null
+  },
+
+  "training": {
+    "training_date": null,
+    "configuration_reference": null
+  },
+
+  "artifact": {
+    "filename": "best.pt",
+    "location": null,
+    "sha256": null
+  },
+
+  "evaluation": {
+    "evidence_reference": null
+  },
+
+  "lifecycle": {
+    "status": "experimental"
+  },
+
+  "limitations": [
+    "Exact source dataset release is not currently recorded.",
+    "Exact training configuration is not currently recorded.",
+    "The model uses a legacy seven-class taxonomy and does not match the approved eight-class WalkBuddy MVP taxonomy.",
+    "Evaluation evidence is not currently linked in the registry."
+  ]
+}

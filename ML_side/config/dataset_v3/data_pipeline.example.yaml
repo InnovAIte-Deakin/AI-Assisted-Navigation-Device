@@ -1,0 +1,107 @@
+# Copy this file and review every source-specific value before running.
+project_root: ../..
+raw_root: ../../datasets/raw
+download_sheet: ../download_sheet.yaml  # shared authoritative source/provider/URL/version/folder/licence/status registry
+workspace_root: ../../datasets/pipeline_workspace
+invalid_root: ../../datasets/invalid
+output_root: ../../datasets
+
+release_id: navigation-v3
+mode: full                 # full | sample
+# max_assets_per_source: 100  # required only when mode: sample
+seed: 42
+
+taxonomy_version: 1.0.0
+taxonomy:
+  - person
+  - stairs
+  - door
+  - chair
+  - table
+  - pole
+  - bicycle
+  - vehicle
+
+# generate: create release/data.yaml from the taxonomy above
+# supplied: validate and copy path as release/data.yaml
+# none: do not include a training YAML (audit/package-only output)
+dataset_yaml:
+  mode: generate
+  # path: existing_data.yaml
+
+splits:
+  train: 0.70
+  val: 0.20
+  test: 0.10
+
+image_format: JPEG
+jpeg_quality: 95
+near_duplicate_distance: 6
+near_duplicate_review_distance: 10
+near_duplicates_enabled: true
+imbalance_ratio: 4.0
+distribution_drift_threshold: 0.25
+qa_sample_per_source: 50
+empty_after_mapping_policy: retain_negative
+
+cvat:
+  enabled: true
+  project_name: WalkBuddy semantic QA
+
+sources:
+  - id: obstacle_detection_roboflow
+    # This ID must exist under download_sheet.yaml -> datasets.
+    # Download location, provenance and governance must not be repeated here.
+    annotation_format: yolo # auto, yolo, coco, voc/pascal_voc
+    # metadata_file: metadata.csv  # relative_path, group_id, environment_tags (pipe-separated)
+    class_names:
+      - Bicycle
+      - Bus
+      - Car
+      - Dog
+      - Electric pole
+      - Motorcycle
+      - Person
+      - Traffic signs
+      - Tree
+      - Uncovered manhole
+    class_mapping:
+      0: bicycle
+      1: vehicle
+      2: vehicle
+      3: null
+      4: pole
+      5: vehicle
+      6: person
+      7: null
+      8: null
+      9: null
+    environment_tags:
+      - outdoor
+      - road
+    grouping: folder        # dataset, folder, filename-regex, metadata-column, or none
+    # group_pattern: "(?P<group>session_[0-9]+)"
+
+  # Example raw-video source. Uncomment only after adding its ID and source
+  # facts to ../download_sheet.yaml. Each video is paired with one CSV.
+  # - id: pedestrian_video_source
+  #   annotation_format: yolo  # extracted labels are always standard YOLO boxes
+  #   class_names: [pedestrian]
+  #   class_mapping:
+  #     0: person
+  #   environment_tags: [outdoor]
+  #   grouping: none  # ignored for extracted frames; source video ID is automatic
+  #   video_extraction:
+  #     enabled: true
+  #     video_extensions: [.avi, .mp4, .mov, .mkv]
+  #     annotation_pattern: "{stem}.csv"  # also supports e.g. "labels/{stem}.csv"
+  #     annotation_format: csv
+  #     coordinate_format: xywh_pixels   # xywh_pixels | xyxy_pixels | yolo_normalized
+  #     frame_column: frame              # omit/null when CSV row N describes frame N
+  #     frame_index_base: 0              # use 1 when the CSV counts frames from 1
+  #     class_column: class_id            # omit/null for a one-class video source
+  #     default_class_id: 0
+  #     x_column: x
+  #     y_column: y
+  #     width_column: w
+  #     height_column: h

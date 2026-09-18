@@ -1,0 +1,14 @@
+path: datasets\dataset_v2
+train: images/train
+val: images/val
+test: images/test
+nc: 8
+names:
+- person
+- stairs
+- door
+- chair
+- table
+- pole
+- bicycle
+- vehicle

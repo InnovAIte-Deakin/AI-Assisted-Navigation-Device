@@ -1,19 +1,26 @@
 from typing import Dict, List, Optional
 
-# Navigation hazards (general)
-_NAV_HAZARDS = {
-    "stairs", "stair", "wall", "door", "person", "obstacle", "pole", "edge",
-}
+from ml_contract.navigation_semantics import get_spoken_name, is_potential_hazard
 
-# Indoor obstacles detected by the YOLO model (8 trained classes)
-_YOLO_OBSTACLES = {
-    "table", "monitor", "office-chair", "whiteboard", "tv", "couch", "books",
-}
 
-HAZARD_KEYWORDS = _NAV_HAZARDS | _YOLO_OBSTACLES
+# Existing non-MVP labels this gate historically recognized: ``stair``,
+# ``wall``, ``obstacle``, and ``edge`` came from its general-hazard list;
+# ``monitor``, ``whiteboard``, ``tv``, ``couch``, and ``books`` came from its
+# legacy indoor-model list. They are compatibility labels, not aliases, and do
+# not acquire canonical MVP semantics through this fallback.
+_LEGACY_HAZARD_LABELS = frozenset(
+    {"stair", "wall", "obstacle", "edge", "monitor", "whiteboard", "tv", "couch", "books"}
+)
 
-# Only flag detections above this confidence as hazards
+# Potential-hazard identity alone is not activation. Preserve the existing
+# direction/confidence gate; proximity and temporal policy remain future seams.
 HAZARD_CONFIDENCE_THRESHOLD = 0.5
+
+
+def _is_hazard_identity(label: str) -> bool:
+    """Match canonical/aliased MVP labels exactly, with explicit legacy support."""
+
+    return is_potential_hazard(label) or label.strip().casefold() in _LEGACY_HAZARD_LABELS
 
 
 def extract_hazards(events: List[Dict]) -> List[str]:
@@ -31,7 +38,7 @@ def extract_hazards(events: List[Dict]) -> List[str]:
         if not is_ahead:
             continue
 
-        if any(h in label for h in HAZARD_KEYWORDS) and confidence >= HAZARD_CONFIDENCE_THRESHOLD:
+        if _is_hazard_identity(label) and confidence >= HAZARD_CONFIDENCE_THRESHOLD:
             hazards.append(_format_hazard(e))
             continue
 
@@ -41,7 +48,8 @@ def extract_hazards(events: List[Dict]) -> List[str]:
 
 
 def _format_hazard(event: Dict) -> str:
-    label = event.get("label") or event.get("category") or "object"
+    raw_label = event.get("label") or event.get("category") or "object"
+    label = get_spoken_name(raw_label) or raw_label
     direction = event.get("direction", "ahead")
     if event.get("approaching"):
         return f"{label} approaching {direction}"

@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useCurrentLocation } from "../src/utils/locationSaver";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 // This screen is web-safe.
 // Web uses a Leaflet iframe (same concept as the working exterior map panel).
@@ -23,7 +24,17 @@ function toNumber(s?: string) {
   return Number.isFinite(n) ? n : undefined;
 }
 
-function generateMapHTML(lat: number, lng: number, label: string, value: string) {
+type MapColors = {
+  accent: string;
+  text: string;
+  textMuted: string;
+  surface: string;
+};
+
+// Note: this HTML is rendered inside a WebView/iframe (a separate document,
+// not part of the React tree), so it can't use useThemeColors() reactively —
+// the current palette is threaded in as plain strings at generation time.
+function generateMapHTML(lat: number, lng: number, label: string, value: string, colors: MapColors) {
   const safeLabel = (label || "LOCATION").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const safeValue = (value || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -42,12 +53,12 @@ function generateMapHTML(lat: number, lng: number, label: string, value: string)
       left: 12px;
       bottom: 12px;
       z-index: 9999;
-      background: rgba(11, 15, 20, 0.92);
-      border: 2px solid #f2a900;
+      background: ${colors.surface}EB;
+      border: 2px solid ${colors.accent};
       border-radius: 12px;
       padding: 10px 12px;
       max-width: calc(100% - 24px);
-      color: #e8eef6;
+      color: ${colors.text};
       font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       box-sizing: border-box;
     }
@@ -55,7 +66,7 @@ function generateMapHTML(lat: number, lng: number, label: string, value: string)
       font-size: 11px;
       letter-spacing: 0.6px;
       font-weight: 800;
-      color: #b8c6d4;
+      color: ${colors.textMuted};
       margin-bottom: 4px;
     }
     .badge .value {
@@ -82,7 +93,7 @@ function generateMapHTML(lat: number, lng: number, label: string, value: string)
     const marker = L.marker([${lat}, ${lng}], {
       icon: L.divIcon({
         className: 'current-location-marker',
-        html: '<div style="background-color:#f2a900;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>',
+        html: '<div style="background-color:${colors.accent};width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>',
         iconSize: [18, 18],
         iconAnchor: [9, 9]
       })
@@ -96,6 +107,7 @@ function generateMapHTML(lat: number, lng: number, label: string, value: string)
 }
 
 export default function LocationMapScreen() {
+  const colors = useThemeColors();
   const router = useRouter();
   const params = useLocalSearchParams<Params>();
 
@@ -146,7 +158,7 @@ export default function LocationMapScreen() {
       return;
     }
 
-    const html = generateMapHTML(finalLat, finalLng, derivedLabel, derivedValue);
+    const html = generateMapHTML(finalLat, finalLng, derivedLabel, derivedValue, colors);
 
     containerRef.current.innerHTML = "";
     const iframe = document.createElement("iframe");
@@ -159,7 +171,7 @@ export default function LocationMapScreen() {
     containerRef.current.appendChild(iframe);
 
     setWebReady(true);
-  }, [finalLat, finalLng, derivedLabel, derivedValue]);
+  }, [finalLat, finalLng, derivedLabel, derivedValue, colors]);
 
   const handleClose = () => {
     router.back();
@@ -168,71 +180,63 @@ export default function LocationMapScreen() {
   const coordsReady = typeof finalLat === "number" && typeof finalLng === "number";
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.mapWrap}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.mapWrap, { backgroundColor: colors.background }]}>
         {Platform.OS === "web" ? (
-          <View style={styles.webHost}>
+          <View style={[styles.webHost, { backgroundColor: colors.background }]}>
             <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
           </View>
         ) : coordsReady ? (
           <WebView
             style={{ flex: 1 }}
-            source={{ html: generateMapHTML(finalLat!, finalLng!, derivedLabel, derivedValue) }}
+            source={{ html: generateMapHTML(finalLat!, finalLng!, derivedLabel, derivedValue, colors) }}
             originWhitelist={["*"]}
             javaScriptEnabled
           />
         ) : (
-          <View style={styles.nativePlaceholder}>
-            <Text style={[styles.nativeNote, { marginBottom: 0 }]}>Getting your location…</Text>
+          <View style={[styles.nativePlaceholder, { backgroundColor: colors.background }]}>
+            <Text style={[styles.nativeNote, { color: colors.text, marginBottom: 0 }]}>Getting your location…</Text>
           </View>
         )}
 
         <Pressable
           onPress={handleClose}
-          style={styles.closeBtn}
+          style={[styles.closeBtn, { backgroundColor: colors.accent }]}
           accessibilityLabel="Close map"
         >
-          <Icon name="times" size={22} color="#000" />
+          <Ionicons name="close-outline" size={22} color={colors.accentText} />
         </Pressable>
       </View>
 
       {Platform.OS === "web" && coordsReady && !webReady && (
-        <View style={styles.bottomBanner}>
-          <Text style={styles.bottomBannerText}>Loading map…</Text>
+        <View style={[styles.bottomBanner, { backgroundColor: colors.surface + "EB", borderColor: colors.accent }]}>
+          <Text style={[styles.bottomBannerText, { color: colors.text }]}>Loading map…</Text>
         </View>
       )}
     </View>
   );
 }
 
-const tokens = {
-  bg: "#071a2a",
-  gold: "#f2a900",
-  tile: "#0b0f14",
-  text: "#e8eef6",
-};
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
   },
 
   mapWrap: {
     flex: 1,
-    backgroundColor: tokens.bg,
   },
 
   webHost: {
     flex: 1,
-    backgroundColor: tokens.bg,
   },
 
   nativePlaceholder: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.bg,
   },
 
   nativeTriangle: {
@@ -243,12 +247,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 40,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
-    borderBottomColor: tokens.gold,
     marginBottom: 10,
   },
 
   nativeNote: {
-    color: tokens.text,
     fontSize: 12,
     opacity: 0.9,
   },
@@ -260,7 +262,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: tokens.gold,
     alignItems: "center",
     justifyContent: "center",
     elevation: 5,
@@ -271,16 +272,13 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     bottom: 12,
-    backgroundColor: "rgba(11, 15, 20, 0.92)",
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
 
   bottomBannerText: {
-    color: tokens.text,
     fontSize: 12,
     fontWeight: "700",
   },

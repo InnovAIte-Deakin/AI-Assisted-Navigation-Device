@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0.0",
+  "dataset": {
+    "id": "example-navigation-mvp-v1",
+    "name": "Fictional navigation MVP manifest example",
+    "source_version": "fictional-source-v1.0",
+    "description": "A non-sensitive, fictional manifest that demonstrates WalkBuddy dataset metadata only.",
+    "release_date": "2026-08-05",
+    "release_decision": "example_only"
+  },
+  "source_provenance": {
+    "source_reference": "example://walkbuddy/fictional-navigation-source-v1",
+    "accessed_on": "2026-08-05",
+    "original_source": "Fictional source used solely to demonstrate the manifest format.",
+    "publisher": "Example dataset steward"
+  },
+  "licence": {
+    "name": "Example licence (fictional)",
+    "evidence_reference": "example://walkbuddy/licensing/example-evidence",
+    "machine_learning_use_permitted": true,
+    "modification_permitted": true,
+    "redistribution_permitted": false,
+    "attribution_required": true,
+    "attribution_requirements": "Example attribution requirement for documentation only.",
+    "restrictions": "This fictional example is not a real licence decision.",
+    "reviewer": "Example dataset governance reviewer",
+    "review_date": "2026-08-05",
+    "review_decision": "example_only"
+  },
+  "taxonomy": {
+    "target_classes": [
+      { "id": 0, "name": "person" },
+      { "id": 1, "name": "stairs" },
+      { "id": 2, "name": "door" },
+      { "id": 3, "name": "chair" },
+      { "id": 4, "name": "table" },
+      { "id": 5, "name": "pole" },
+      { "id": 6, "name": "bicycle" },
+      { "id": 7, "name": "vehicle" }
+    ],
+    "class_mappings": [
+      { "source_class": "pedestrian", "target_class_id": 0, "target_class_name": "person", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "staircase", "target_class_id": 1, "target_class_name": "stairs", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "entry-door", "target_class_id": 2, "target_class_name": "door", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "seat-chair", "target_class_id": 3, "target_class_name": "chair", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "desk-table", "target_class_id": 4, "target_class_name": "table", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "support-pole", "target_class_id": 5, "target_class_name": "pole", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "bike", "target_class_id": 6, "target_class_name": "bicycle", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" },
+      { "source_class": "road-vehicle", "target_class_id": 7, "target_class_name": "vehicle", "mapping_rationale": "Explicit source-to-target review.", "review_decision": "mapped" }
+    ],
+    "excluded_source_classes": [
+      { "source_class": "ceiling", "reason": "Not an approved MVP navigation target class." }
+    ],
+    "unmapped_source_classes": [
+      { "source_class": "unclear-reflection", "reason": "Requires explicit review before any target mapping." }
+    ],
+    "bounding_box_coordinate_format": "normalized_xywh"
+  },
+  "splits": {
+    "train": {
+      "samples": [
+        {
+          "sample_id": "example-train-person-001",
+          "image_path": "train/images/person_001.jpg",
+          "label_path": "train/labels/person_001.txt",
+          "group_id": "example-sequence-train-a",
+          "labelled": true,
+          "width": 1280,
+          "height": 720,
+          "annotation_summary": { "bounding_box_count": 1, "class_ids": [0] }
+        },
+        {
+          "sample_id": "example-train-stairs-001",
+          "image_path": "train/images/stairs_001.jpg",
+          "label_path": "train/labels/stairs_001.txt",
+          "group_id": "example-sequence-train-b",
+          "labelled": true,
+          "width": 1280,
+          "height": 720,
+          "annotation_summary": { "bounding_box_count": 1, "class_ids": [1] }
+        }
+      ]
+    },
+    "validation": {
+      "samples": [
+        {
+          "sample_id": "example-validation-door-001",
+          "image_path": "validation/images/door_001.jpg",
+          "label_path": "validation/labels/door_001.txt",
+          "group_id": "example-sequence-validation-a",
+          "labelled": true,
+          "width": 1280,
+          "height": 720,
+          "annotation_summary": { "bounding_box_count": 1, "class_ids": [2] }
+        }
+      ]
+    },
+    "test": {
+      "samples": [
+        {
+          "sample_id": "example-test-chair-001",
+          "image_path": "test/images/chair_001.jpg",
+          "label_path": "test/labels/chair_001.txt",
+          "group_id": "example-sequence-test-a",
+          "labelled": true,
+          "width": 1280,
+          "height": 720,
+          "annotation_summary": { "bounding_box_count": 1, "class_ids": [3] }
+        }
+      ]
+    }
+  },
+  "quality": {
+    "image_count": 4,
+    "annotation_count": 4,
+    "duplicate_count": 0,
+    "corrupt_file_count": 0,
+    "invalid_annotation_count": 0,
+    "excluded_sample_count": 0,
+    "quality_review_status": "example_only",
+    "known_limitations": [
+      "This is a fictional metadata-only example, not a candidate dataset release.",
+      "The placeholder paths are intentionally not checked unless a dataset root is supplied."
+    ]
+  },
+  "storage_release": {
+    "authoritative_storage_reference": "example://walkbuddy/controlled-storage/example-navigation-mvp-v1",
+    "git_safe_metadata_only": true,
+    "release_version": "v0.0-example",
+    "associated_git_commit": "not-applicable-example-only"
+  }
+}

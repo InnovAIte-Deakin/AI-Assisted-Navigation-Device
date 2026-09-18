@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0.0",
+  "source_taxonomy": [
+    { "id": 0, "name": "fictional-pedestrian" },
+    { "id": 1, "name": "fictional-ceiling" }
+  ],
+  "class_mapping": [
+    {
+      "source_class_id": 0,
+      "target_class_id": 0,
+      "target_class_name": "person",
+      "mapping_rationale": "Fictional reviewed semantic-equivalence example only."
+    }
+  ],
+  "excluded_source_classes": [
+    {
+      "source_class_id": 1,
+      "reason": "Fictional example class outside the approved WalkBuddy taxonomy."
+    }
+  ],
+  "unmapped_source_classes": [],
+  "empty_image_policy": "retain_negative",
+  "release_metadata": {
+    "dataset": {
+      "id": "example-navigation-release",
+      "name": "Fictional canonical navigation release example",
+      "source_version": "fictional-release-v1",
+      "description": "Fictional metadata-only release-builder configuration.",
+      "release_date": "2026-08-05"
+    },
+    "source_provenance": {
+      "source_reference": "example://walkbuddy/fictional-source",
+      "accessed_on": "2026-08-05",
+      "original_source": "Fictional source for documentation and tests only.",
+      "publisher": "Example dataset steward"
+    },
+    "licence": {
+      "name": "Fictional example licence",
+      "evidence_reference": "example://walkbuddy/fictional-licence",
+      "machine_learning_use_permitted": true,
+      "modification_permitted": true,
+      "redistribution_permitted": false,
+      "attribution_required": true,
+      "attribution_requirements": "Fictional attribution instruction.",
+      "restrictions": "Example only.",
+      "reviewer": "Example reviewer",
+      "review_date": "2026-08-05",
+      "review_decision": "approved"
+    },
+    "storage_release": {
+      "authoritative_storage_reference": "example://walkbuddy/controlled-fictional-release",
+      "git_safe_metadata_only": true,
+      "release_version": "overwritten-by-cli"
+    },
+    "quality_review_status": "not_reviewed",
+    "known_limitations": [
+      "This is fictional mapping metadata and does not approve a dataset or release."
+    ]
+  }
+}

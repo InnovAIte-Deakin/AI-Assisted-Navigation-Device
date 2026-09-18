@@ -9,29 +9,36 @@
 import React from "react";
 import { StyleSheet, Text, View, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Icon from "react-native-vector-icons/FontAwesome";
+import { Ionicons } from "@expo/vector-icons";
+import { Radius, Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
 
 export default function EmergencyScreen() {
+  const colors = useThemeColors();
   const isEmergency = false;
 
-  const statusColor = isEmergency ? tokens.red : tokens.green;
-  const alertCardBg = isEmergency ? tokens.alertBg : tokens.safeBg;
-  const topBarBg = isEmergency ? tokens.alertSoft : tokens.safeSoft;
+  // Safety screen: alert/danger state maps to colors.danger, the "all
+  // clear" state maps to colors.success. Card/pill backgrounds are a low
+  // alpha tint of the status color over the screen background so the two
+  // states stay visually distinct while remaining theme-reactive.
+  const statusColor = isEmergency ? colors.danger : colors.success;
+  const alertCardBg = statusColor + "14";
+  const topBarBg = statusColor + "26";
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.simpleHeader}>
-          <Text style={styles.headerGreeting}>Emergency</Text>
-          <Text style={styles.simpleHeaderTitle}>WalkBuddy</Text>
-          <Icon name="user-circle" size={34} color={tokens.gold} />
+        <View style={[styles.simpleHeader, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.headerGreeting, { color: colors.text }]}>Emergency</Text>
+          <Text style={[styles.simpleHeaderTitle, { color: colors.text }]}>WalkBuddy</Text>
+          <Ionicons name="person-circle-outline" size={34} color={colors.accent} />
         </View>
 
-        <View style={styles.topDivider} />
+        <View style={[styles.topDivider, { borderBottomColor: colors.accent }]} />
 
         <View style={styles.mainArea}>
           <View style={styles.statusRow}>
@@ -73,8 +80,8 @@ export default function EmergencyScreen() {
                 },
               ]}
             >
-              <Icon
-                name={isEmergency ? "exclamation-triangle" : "smile-o"}
+              <Ionicons
+                name={isEmergency ? "warning-outline" : "happy-outline"}
                 size={46}
                 color={statusColor}
               />
@@ -84,35 +91,35 @@ export default function EmergencyScreen() {
               {isEmergency ? "Emergency Detected" : "No Emergency Detected"}
             </Text>
 
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, { color: colors.text }]}>
               {isEmergency
                 ? "Safety guidance is now active"
                 : "Everything is fine. No danger detected."}
             </Text>
           </View>
 
-          <View style={[styles.statusCard, { borderColor: statusColor }]}>
-            <Text style={styles.cardLabel}>
+          <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: statusColor }]}>
+            <Text style={[styles.cardLabel, { color: colors.accent }]}>
               {isEmergency ? "Detected Situation" : "Current Status"}
             </Text>
 
-            <Text style={styles.cardTitle}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
               {isEmergency ? "Possible hazard nearby" : "Everything is clear"}
             </Text>
 
-            <Text style={styles.cardText}>
+            <Text style={[styles.cardText, { color: colors.textMuted }]}>
               {isEmergency
                 ? "Stay calm and follow the safety instructions shown on screen."
                 : "No threat has been detected. The user can continue moving safely."}
             </Text>
           </View>
 
-          <View style={styles.voiceCard}>
-            <Icon name="volume-up" size={22} color={tokens.gold} />
+          <View style={[styles.voiceCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent }]}>
+            <Ionicons name="volume-high-outline" size={22} color={colors.accent} />
 
             <View style={styles.voiceTextBlock}>
-              <Text style={styles.voiceTitle}>Voice assistant ready</Text>
-              <Text style={styles.voiceText}>
+              <Text style={[styles.voiceTitle, { color: colors.text }]}>Voice assistant ready</Text>
+              <Text style={[styles.voiceText, { color: colors.textMuted }]}>
                 {isEmergency
                   ? "Emergency instructions will be read aloud for the user."
                   : "Voice guidance is available if the user needs assistance."}
@@ -120,12 +127,12 @@ export default function EmergencyScreen() {
             </View>
           </View>
 
-          <View style={styles.instructionCard}>
-            <Text style={styles.cardLabel}>
+          <View style={[styles.instructionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.cardLabel, { color: colors.accent }]}>
               {isEmergency ? "Next Step" : "Safe Message"}
             </Text>
 
-            <Text style={styles.instructionText}>
+            <Text style={[styles.instructionText, { color: colors.text }]}>
               {isEmergency
                 ? "Move away from the detected danger and wait for safe navigation guidance."
                 : "No action is needed right now. Keep following the normal navigation guidance."}
@@ -137,26 +144,12 @@ export default function EmergencyScreen() {
   );
 }
 
-const tokens = {
-  bg: "#071a2a",
-  card: "#08131f",
-  cardDark: "#0b0f14",
-  text: "#e8eef6",
-  muted: "#b8c6d4",
-  gold: "#f2a900",
-  red: "#ff3b30",
-  green: "#34c759",
-
-  alertBg: "#120d14",
-  alertSoft: "#1b1014",
-  safeBg: "#0b1714",
-  safeSoft: "#102019",
-};
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
   },
 
   scroll: {
@@ -164,8 +157,8 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingBottom: 120,
   },
 
@@ -173,25 +166,22 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#11273a",
-    borderRadius: 12,
+    borderRadius: Radius.md,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
     elevation: 5,
   },
 
   headerGreeting: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "700",
     flex: 1,
     zIndex: 1,
   },
 
   simpleHeaderTitle: {
-    color: tokens.text,
-    fontSize: 30,
+    fontSize: Typography.size.xxl,
     fontWeight: "900",
     position: "absolute",
     left: 0,
@@ -201,14 +191,13 @@ const styles = StyleSheet.create({
 
   topDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: tokens.gold,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
 
   mainArea: {
     width: "100%",
-    paddingHorizontal: 12,
-    paddingTop: 20,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.xl,
   },
 
   statusRow: {
@@ -221,27 +210,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderRadius: 999,
+    borderRadius: Radius.pill,
     paddingVertical: 9,
     paddingHorizontal: 14,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 
   liveDot: {
     width: 9,
     height: 9,
     borderRadius: 5,
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
 
   topBarText: {
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "900",
     letterSpacing: 0.8,
   },
 
   lastCheckedText: {
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "700",
     marginTop: 2,
   },
@@ -250,10 +239,10 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     borderWidth: 1.5,
-    borderRadius: 22,
+    borderRadius: Radius.xl,
     paddingVertical: 28,
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
 
   iconCircle: {
@@ -274,40 +263,35 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    color: tokens.text,
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "700",
     textAlign: "center",
-    marginTop: 8,
+    marginTop: Spacing.sm,
   },
 
   statusCard: {
     width: "100%",
-    backgroundColor: tokens.card,
     borderWidth: 1.5,
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
 
   cardLabel: {
-    color: tokens.gold,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     fontWeight: "900",
     letterSpacing: 0.8,
     textTransform: "uppercase",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 
   cardTitle: {
-    color: tokens.text,
-    fontSize: 20,
+    fontSize: Typography.size.lg,
     fontWeight: "900",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
 
   cardText: {
-    color: tokens.muted,
     fontSize: 15,
     fontWeight: "700",
     lineHeight: 22,
@@ -315,14 +299,12 @@ const styles = StyleSheet.create({
 
   voiceCard: {
     width: "100%",
-    backgroundColor: tokens.cardDark,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 20,
     padding: 18,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
 
   voiceTextBlock: {
@@ -331,14 +313,12 @@ const styles = StyleSheet.create({
   },
 
   voiceTitle: {
-    color: tokens.text,
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "900",
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
 
   voiceText: {
-    color: tokens.muted,
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 19,
@@ -346,16 +326,13 @@ const styles = StyleSheet.create({
 
   instructionCard: {
     width: "100%",
-    backgroundColor: "#0a121a",
     borderWidth: 1.5,
-    borderColor: "#29445f",
     borderRadius: 20,
     padding: 18,
   },
 
   instructionText: {
-    color: tokens.text,
-    fontSize: 16,
+    fontSize: Typography.size.base,
     fontWeight: "800",
     lineHeight: 23,
   },

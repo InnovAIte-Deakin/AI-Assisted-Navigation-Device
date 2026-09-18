@@ -1,0 +1,17 @@
+# Placeholder configuration for the proposed navigation-model MVP taxonomy.
+# It does not identify an approved or locally available dataset release.
+path: datasets/releases/navigation_mvp_v1
+train: train/images
+val: validation/images
+test: test/images
+
+nc: 8
+names:
+  0: person
+  1: stairs
+  2: door
+  3: chair
+  4: table
+  5: pole
+  6: bicycle
+  7: vehicle

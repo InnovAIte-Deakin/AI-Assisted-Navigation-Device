@@ -1,0 +1,18 @@
+[
+  {
+    "image_id": "img001",
+    "boxes": [
+      { "class": "person", "bbox": [105, 155, 215, 445], "score": 0.92 },
+      { "class": "door", "bbox": [55, 60, 145, 390], "score": 0.81 },
+      { "class": "chair", "bbox": [400, 300, 480, 400], "score": 0.55 }
+    ]
+  },
+  {
+    "image_id": "img002",
+    "boxes": [
+      { "class": "table", "bbox": [205, 305, 395, 415], "score": 0.88 },
+      { "class": "pole", "bbox": [498, 105, 522, 465], "score": 0.77 },
+      { "class": "bicycle", "bbox": [50, 50, 150, 150], "score": 0.40 }
+    ]
+  }
+]

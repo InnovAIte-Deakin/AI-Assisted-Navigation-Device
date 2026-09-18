@@ -1,0 +1,28 @@
+# Smoke-only configuration. Supply an approved external release manifest with --manifest-path.
+schema_version: "1.0.0"
+experiment_name: "navigation-mvp-smoke"
+dataset:
+  yaml_path: "dataset.yaml"
+  inspection_report_path: null
+  stage: "released"
+model:
+  architecture_path: null
+  initial_weights_path: "ML_side/models/yolo26n.pt"
+training:
+  epochs: 1
+  image_size: 640
+  batch_size: 2
+  device: "auto"
+  workers: 0
+  seed: 42
+  optimizer: "AdamW"
+  learning_rate: 0.001
+  confidence: 0.001
+  iou: 0.7
+  deterministic: true
+  fraction: 0.002
+  val: false
+  resume_behavior: "never"
+output:
+  root: "ML_side/artifacts/navigation_mvp"
+notes: "Smoke-only run: use a trusted local YOLO26 nano checkpoint and an approved external manifest supplied with --manifest-path. Not for model promotion or full training."

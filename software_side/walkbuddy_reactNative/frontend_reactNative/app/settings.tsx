@@ -1,21 +1,18 @@
 // app/settings.tsx
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import HomeHeader from "./HomeHeader";
 import Footer from "./Footer";
-
-const tokens = {
-  bg: "#0D1B2A",
-  tile: "#111",
-  text: "#E0E1DD",
-  muted: "#b8c6d4",
-  gold: "#FCA311",
-};
+import { Spacing, Typography } from "@/constants/theme";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+import { useWakeWord } from "@/src/context/ForegroundWakeWordContext";
 
 export default function SettingsPage() {
+  const colors = useThemeColors();
   const { width } = useWindowDimensions();
+  const { enabled, available, listening, status, setEnabled } = useWakeWord();
 
   const contentWidth = useMemo(() => {
     const padding = 24;
@@ -24,22 +21,36 @@ export default function SettingsPage() {
   }, [width]);
 
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={["top"]}>
       <View style={[styles.content, { width: contentWidth }]}>
         <HomeHeader
-          title="Settings"
           showDivider
           showLocation={true}
         />
 
-        <View style={styles.card}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>
-            This screen is intentionally minimal.
-          </Text>
-          <Text style={styles.note}>
-            It exists to keep navigation stable while the real settings
-            functionality is implemented.
+        <View style={[styles.card, { borderColor: colors.accent, backgroundColor: colors.surface }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <Text style={[styles.subtitle, { color: colors.text }]}>Hey Buddy / Hey WalkBuddy</Text>
+              <Text style={[styles.note, { color: colors.textMuted }]}>
+                Records short clips for transcription only while WalkBuddy is open.
+              </Text>
+            </View>
+            <Switch
+              value={enabled}
+              disabled={!available}
+              onValueChange={(nextValue) => void setEnabled(nextValue)}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={enabled ? colors.accentText : colors.textMuted}
+              accessibilityLabel="Hey Buddy foreground voice activation"
+              accessibilityHint="Turns foreground wake phrase listening on or off"
+            />
+          </View>
+          <Text style={[styles.note, { color: colors.textMuted }]}>
+            {available
+              ? `${listening ? "Active" : "Status"}: ${status}`
+              : "Voice activation is unavailable on this device or browser."}
           </Text>
         </View>
 
@@ -49,46 +60,55 @@ export default function SettingsPage() {
   );
 }
 
+/* STYLES — structural only; colors applied inline so they react to
+   light/dark via useThemeColors(). */
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: tokens.bg,
     alignItems: "center",
   },
 
   content: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
   },
 
   card: {
-    marginTop: 12,
+    marginTop: Spacing.md,
     borderWidth: 2,
-    borderColor: tokens.gold,
     borderRadius: 14,
-    backgroundColor: tokens.tile,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
 
   title: {
-    color: tokens.text,
-    fontSize: 18,
+    fontSize: Typography.size.md,
     fontWeight: "900",
     marginBottom: 6,
   },
 
   subtitle: {
-    color: tokens.text,
-    fontSize: 14,
+    fontSize: Typography.size.sm,
     fontWeight: "700",
-    marginBottom: 8,
   },
 
   note: {
-    color: tokens.muted,
-    fontSize: 12,
+    fontSize: Typography.size.xs,
     lineHeight: 16,
+  },
+
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+
+  settingCopy: {
+    flex: 1,
+    gap: Spacing.xs,
   },
 });

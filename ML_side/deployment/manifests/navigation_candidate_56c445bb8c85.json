@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "candidate_id": "WB-OD-NAV-001",
+  "run_id": "navigation-mvp-full-candidate-56c445bb8c85",
+  "expected_lifecycle": "candidate",
+  "expected_artifact_filename": "best.pt",
+  "expected_sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+  "expected_size_bytes": 5364741,
+  "ordered_taxonomy": ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"],
+  "registry_record_reference": "ML_side/model_registry/records/navigation_candidate.json",
+  "training_configuration_reference": "ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml",
+  "evaluation_evidence_reference": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json",
+  "minimum_backend_contract_version": null,
+  "compute_policy": "cuda_preferred",
+  "notes": "Read-only candidate deployment evidence. This manifest does not grant production authorization.",
+  "known_limitations": [
+    "Candidate lifecycle remains authoritative in the model registry.",
+    "Physical-device acceptance testing remains a separate human-reviewed activity."
+  ]
+}

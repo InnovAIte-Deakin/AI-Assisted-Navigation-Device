@@ -1,0 +1,9 @@
+Pillow>=10.0
+PyYAML>=6.0
+
+# Optional collection/review adapters; install only those you use.
+# opencv-python  # required when a source enables video_extraction
+# cvat-sdk
+# kagglehub
+# huggingface-hub
+# roboflow
