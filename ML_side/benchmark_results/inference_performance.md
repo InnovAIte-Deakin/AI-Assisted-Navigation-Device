@@ -2,7 +2,8 @@
 
 ## Model
 
-- Candidate: `navigation-mvp-full-candidate-56c445bb8c85`
+- Candidate ID: `WB-OD-NAV-001`
+- Candidate run: `navigation-mvp-full-candidate-56c445bb8c85`
 - Artifact: `ML_side/models/best.pt`
 - SHA-256: `3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f`
 - Size: 5,364,741 bytes

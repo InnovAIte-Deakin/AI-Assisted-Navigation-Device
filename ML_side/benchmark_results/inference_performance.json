@@ -4,6 +4,20 @@
     "version": "1.0.0"
   },
   "generated_at_utc": "2026-09-15T07:55:53Z",
+  "candidate": {
+    "candidate_id": "WB-OD-NAV-001",
+    "run_id": "navigation-mvp-full-candidate-56c445bb8c85",
+    "ordered_taxonomy": [
+      "person",
+      "stairs",
+      "door",
+      "chair",
+      "table",
+      "pole",
+      "bicycle",
+      "vehicle"
+    ]
+  },
   "model": {
     "path": "ML_side/models/best.pt",
     "filename": "best.pt",

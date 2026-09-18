@@ -77,6 +77,8 @@ ML_side/model_registry/
 ├── records/
 │   ├── legacy_baseline.json
 │   └── navigation_candidate.json
+├── model_cards/
+│   └── WB-OD-NAV-001.md
 ├── tools/
 │   ├── validate.py
 │   └── transition.py
@@ -238,6 +240,10 @@ It records references to the controlled dataset release and manifest produced by
 
 This makes it possible to trace a trained model back to its source data.
 
+Candidate records may additionally capture controlled split counts and an
+explicit `heldout_evaluation_only` flag. These are lineage metadata, not a
+license to inspect or tune on the held-out data.
+
 `dataset.manifest_reference` and `training.configuration_reference` are portable
 lineage references. Use repository-root-relative (`ML_side/...`) or ML-side-relative
 paths with forward slashes. When an approved dataset release intentionally remains
@@ -265,6 +271,11 @@ Example:
 ```
 
 The training date uses the JSON Schema `date` format.
+
+When a durable run identifier is known, `training.run_id` identifies the exact
+training run. Candidate artifact records may also include `artifact.size_bytes`
+alongside the filename and SHA-256. These fields strengthen identity comparison
+without storing model weights.
 
 Date-format validation is enabled by the registry validator.
 

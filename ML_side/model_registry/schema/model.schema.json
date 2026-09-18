@@ -151,6 +151,34 @@
               "$ref": "#/$defs/portable_reference"
             }
           ]
+        },
+        "controlled_split_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "train_images",
+            "validation_images",
+            "heldout_test_images",
+            "heldout_evaluation_only"
+          ],
+          "properties": {
+            "train_images": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "validation_images": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "heldout_test_images": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "heldout_evaluation_only": {
+              "type": "boolean",
+              "const": true
+            }
+          }
         }
       }
     },
@@ -179,6 +207,13 @@
               "$ref": "#/$defs/portable_reference"
             }
           ]
+        },
+        "run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       }
     },
@@ -210,6 +245,13 @@
             "null"
           ],
           "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
         }
       }
     },
