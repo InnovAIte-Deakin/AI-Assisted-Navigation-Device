@@ -218,6 +218,32 @@ class TestCloudFallback:
 
         assert service.speak("Chair ahead") is False
 
+    def test_cloud_fallback_cleans_up_temp_file_even_when_playback_raises(self, monkeypatch):
+        # Previously cleanup only ran on the success path, so a raise from
+        # AudioSegment.from_mp3()/play_audio() left the temporary MP3
+        # behind on disk. This is now handled by a finally block.
+        created_paths = []
+        real_named_temp_file = tts_service_module.tempfile.NamedTemporaryFile
+
+        def recording_named_temp_file(*args, **kwargs):
+            f = real_named_temp_file(*args, **kwargs)
+            created_paths.append(f.name)
+            return f
+
+        def raising_play(audio):
+            raise RuntimeError("synthetic playback failure")
+
+        monkeypatch.setattr(tts_service_module.tempfile, "NamedTemporaryFile", recording_named_temp_file)
+        monkeypatch.setattr(tts_service_module, "play_audio", raising_play)
+
+        service = make_service(use_cloud_fallback=True)
+        service.use_offline = True
+        service.offline_engine = FakeEngine(raise_on_say=True)
+
+        assert service.speak("Chair ahead") is False
+        assert len(created_paths) == 1
+        assert not os.path.exists(created_paths[0])
+
 
 class TestGetStatusResetShutdown:
     def test_get_status_reflects_current_state(self):

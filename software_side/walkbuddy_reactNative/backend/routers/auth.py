@@ -1,73 +1,69 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import sqlite3, hashlib, secrets, time
+import sqlite3
+import uuid
+
+import auth_shared
 
 router = APIRouter(prefix="/auth")
-
-# Iteration count in the same order of magnitude as Django's historical
-# default PBKDF2 hasher; stdlib-only, no new dependency required.
-PBKDF2_ITERATIONS = 260_000
 
 
 class AuthBody(BaseModel):
     email: str
     password: str
-
-
-def _hash_password(password: str, salt: bytes) -> str:
-    return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS).hex()
-
-
-def _ensure_tables(db):
-    # Called from both signup() and login() — previously only signup() did
-    # this, so login() crashed with an unhandled OperationalError instead of
-    # a clean 401 if called before anyone had ever signed up.
-    db.execute(
-        "CREATE TABLE IF NOT EXISTS helpers (id INTEGER PRIMARY KEY, email TEXT UNIQUE, pw TEXT, salt TEXT)"
-    )
-    db.execute(
-        "CREATE TABLE IF NOT EXISTS helper_tokens (token TEXT PRIMARY KEY, helper_id INTEGER, created_at REAL)"
-    )
+    # Optional: the canonical helpers table requires a non-null name. When
+    # this endpoint's caller doesn't supply one, signup() falls back to the
+    # email's local-part rather than rejecting the request, since AuthBody
+    # was never a full profile form the way /helpers/signup's payload is.
+    name: str | None = None
 
 
 @router.post("/signup")
 def signup(body: AuthBody):
-    db = sqlite3.connect("helpers.db")
-    _ensure_tables(db)
-    salt = secrets.token_bytes(16)
-    pw_hash = _hash_password(body.password, salt)
+    # Reuses the exact same database file, "helpers" table schema, and
+    # password hashing as main.py's /helpers/signup -- previously this
+    # router created its own divergent (email/pw/salt) schema in the same
+    # helpers.db file, which either silently failed against the real
+    # schema (CREATE TABLE IF NOT EXISTS does not migrate an existing
+    # table) or wrote to a second, divergent database if the relative path
+    # resolved differently.
+    auth_shared.init_database()
+    name = (body.name or body.email.split("@", 1)[0]).strip() or "helper"
+    db = sqlite3.connect(auth_shared.DB_PATH)
     try:
         db.execute(
-            "INSERT INTO helpers (email, pw, salt) VALUES (?,?,?)",
-            (body.email, pw_hash, salt.hex()),
+            "INSERT INTO helpers (name, email, password_hash) VALUES (?,?,?)",
+            (name, body.email, auth_shared.hash_password(body.password)),
         )
         db.commit()
     except sqlite3.IntegrityError:
         raise HTTPException(409, "Email already registered")
+    finally:
+        db.close()
     return {"ok": True}
 
 
 @router.post("/login")
 def login(body: AuthBody):
-    db = sqlite3.connect("helpers.db")
-    _ensure_tables(db)
-    row = db.execute(
-        "SELECT id, pw, salt FROM helpers WHERE email=?", (body.email,)
-    ).fetchone()
+    auth_shared.init_database()
+    db = sqlite3.connect(auth_shared.DB_PATH)
+    try:
+        row = db.execute(
+            "SELECT id, password_hash FROM helpers WHERE email=?", (body.email,)
+        ).fetchone()
+    finally:
+        db.close()
     if not row:
         raise HTTPException(401, "Invalid credentials")
 
-    helper_id, stored_hash, salt_hex = row
-    if _hash_password(body.password, bytes.fromhex(salt_hex)) != stored_hash:
+    helper_id, stored_hash = row
+    if not auth_shared.verify_password(body.password, stored_hash):
         raise HTTPException(401, "Invalid credentials")
 
-    # Previously this token was generated and returned but never stored
-    # anywhere, so no later request could ever validate it. Now persisted
-    # against the helper it belongs to, so a future auth-check can look it up.
-    token = secrets.token_hex(32)
-    db.execute(
-        "INSERT INTO helper_tokens (token, helper_id, created_at) VALUES (?,?,?)",
-        (token, helper_id, time.time()),
-    )
-    db.commit()
+    # Issued into the same in-memory token store main.py's /helpers/me and
+    # /helpers/delete-account read from -- previously this router persisted
+    # tokens into a second, separate SQLite table nothing else ever
+    # checked, so a token from here could never validate anywhere else.
+    token = str(uuid.uuid4())
+    auth_shared.helper_tokens[token] = helper_id
     return {"ok": True, "token": token}
