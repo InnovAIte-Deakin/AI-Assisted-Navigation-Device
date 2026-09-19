@@ -1717,7 +1717,7 @@
     "network_access": false,
     "read_only_dataset_inspection": true,
     "scope": "train and validation splits only; held-out test data was never accessed by this tool.",
-    "time_utc": "2026-09-19T01:57:27Z"
+    "time_utc": "2026-09-19T14:04:17Z"
   },
   "generic_source_review_candidates": {
     "count": 70,
@@ -1795,6 +1795,43 @@
     ],
     "method": "Pole-containing images whose source-dataset name (encoded in the filename as <source>_wb_<sequence>) contains 'indoor', as a proxy for coming from a generic object-detection dataset rather than a pole-specific outdoor capture. Visual spot-checking during this investigation found some of these are architectural columns/pilasters mislabeled as 'pole'; this list is a manual-review candidate set, not a claim that every listed image is mislabeled.",
     "total_pole_images_scanned": 4087
+  },
+  "manually_verified_examples": {
+    "examples": [
+      {
+        "finding": "Visually confirmed as two different real poles in two different locations (one with a ladder against an overcast sky, one with palm trees and sun flare), despite being flagged as a raw perceptual-hash near-duplicate pair. This is the false-positive case that motivated the label-coordinate verification layer.",
+        "images": [
+          "train/images/kaggle_light_poles_wb_001285.jpg",
+          "train/images/kaggle_light_poles_wb_001336.jpg"
+        ]
+      },
+      {
+        "finding": "Visually confirmed as the same church-doorway photograph, re-published under two different source-dataset names, split across train and validation. Label coordinates for both class-5 boxes match to within floating-point rounding (e.g. 0.386719 vs 0.38671875). Also visually confirmed that both class-5 boxes sit on the doorway's decorative stone pilasters, not a physical pole.",
+        "images": [
+          "train/images/kaggle_indoor_object_detection_wb_000342.jpg",
+          "val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg"
+        ]
+      },
+      {
+        "finding": "Visually confirmed: three class-5 boxes sit on the three ornate stone columns of an embassy entrance, not physical hazard poles.",
+        "images": [
+          "train/images/kaggle_indoor_object_detection_wb_000277.jpg"
+        ]
+      },
+      {
+        "finding": "Visually inspected: the class-5 box sits on a floor lamp's stand in a bedroom photo -- a plausible legitimate pole-like object, not clearly mislabeled.",
+        "images": [
+          "train/images/roboflow_indoor_detection_vineeth_wb_018164.jpg"
+        ]
+      },
+      {
+        "finding": "Visually inspected: an unusually wide, short class-5 box in a rotated window photo -- ambiguous; could plausibly be a horizontal railing/beam rather than a pole, but this was not conclusively determined from the image alone.",
+        "images": [
+          "train/images/roboflow_indoor_detection_vineeth_wb_017389.jpg"
+        ]
+      }
+    ],
+    "method": "The following specific images were opened and visually inspected during this investigation (not just compared by hash or label coordinates), to sanity-check the automated heuristics above before trusting them at scale."
   },
   "pole_duplicate_analysis_warnings": [
     {
@@ -8237,77 +8274,83 @@
       }
     ]
   },
+  "pole_images_not_found_locally": {
+    "count": 0,
+    "images": [],
+    "method": "Every pole-containing label's matching image is looked up directly under dataset_root/{split}/images/ -- this lists any pole-labeled stem whose image file could not be found there (e.g. only a partial local extraction was available), so duplicate-detection coverage gaps are reported rather than silently absorbed into a smaller-than-expected scanned count."
+  },
   "pole_near_duplicate_label_verification": {
-    "confirmed_cross_split_groups": [
+    "groups_with_high_confidence_cross_split_candidate": 82,
+    "high_confidence_cross_split_candidate_groups": [
       {
         "anchor": "train/images/kaggle_indoor_object_detection_wb_000342.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_indoor_object_detection_wb_001075.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_indoor_detection_vineeth_wb_018545.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001250.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_light_poles_wb_001678.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001256.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_light_poles_wb_001677.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001426.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_light_poles_wb_001743.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001518.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_light_poles_wb_001699.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001607.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_light_poles_wb_001316.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001608.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_light_poles_wb_001347.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001661.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_light_poles_wb_001847.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001670.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_light_poles_wb_001910.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_002049.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_light_poles_wb_002048.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_002414.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_006922.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_006925.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_006926.jpg",
@@ -8317,44 +8360,44 @@
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006912.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_006913.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006915.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_006914.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006920.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_006921.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006928.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_006929.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_006930.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006932.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_006933.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006935.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_006934.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006944.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_006945.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_006947.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_006948.jpg",
@@ -8364,13 +8407,13 @@
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006975.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_006974.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006978.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_006979.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_006976.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_006977.jpg"
@@ -8378,7 +8421,7 @@
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006989.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_006990.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_006991.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_012470.jpg",
@@ -8387,19 +8430,19 @@
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_007012.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_007013.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_007022.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_007023.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009004.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_009006.jpg",
           "train/images/kaggle_obstacle_detection_kaggle_wb_009007.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_009005.jpg"
@@ -8407,147 +8450,147 @@
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009078.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009076.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009084.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009085.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009097.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009098.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009101.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009102.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009111.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009112.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009122.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009121.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009142.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_009143.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009169.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009170.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009904.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_009905.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_009906.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010012.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_010013.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010014.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010024.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_010025.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010041.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010039.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010071.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010069.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010070.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010110.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010109.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010117.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010118.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010119.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010150.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010152.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010153.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_010154.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010155.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010159.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010160.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010161.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010162.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_010164.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010163.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010177.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010178.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010181.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010182.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010188.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010186.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010187.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010191.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_010192.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010189.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010190.jpg"
@@ -8555,59 +8598,59 @@
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010204.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/kaggle_obstacle_detection_kaggle_wb_010205.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010203.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010783.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010782.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010788.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010789.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010795.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_002629.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010794.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010798.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010799.jpg"
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_013043.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/kaggle_obstacle_detection_kaggle_wb_010197.jpg",
           "val/images/kaggle_obstacle_detection_kaggle_wb_010199.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_obstacle_detection_roboflow_wb_023948.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_obstacle_detection_roboflow_wb_021536.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_outdoor_objects_wb_026910.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_outdoor_objects_wb_026911.jpg",
           "train/images/roboflow_outdoor_objects_wb_026912.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_outdoor_objects_wb_027237.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_outdoor_objects_wb_027238.jpg",
           "train/images/roboflow_outdoor_objects_wb_027239.jpg",
           "train/images/roboflow_outdoor_objects_wb_027240.jpg",
@@ -8616,7 +8659,7 @@
       },
       {
         "anchor": "train/images/roboflow_outdoor_objects_wb_027426.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_outdoor_objects_wb_027427.jpg",
           "train/images/roboflow_outdoor_objects_wb_027428.jpg",
           "train/images/roboflow_outdoor_objects_wb_027429.jpg",
@@ -8626,105 +8669,105 @@
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033018.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033017.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033028.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033027.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033037.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033038.jpg",
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033035.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033041.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033042.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033058.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033057.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033093.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033094.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033133.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033134.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033308.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033307.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033718.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033717.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033725.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033726.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033755.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033756.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033759.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033760.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033763.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033764.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033875.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033876.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033880.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033879.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034155.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034158.jpg",
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034157.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034175.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034176.jpg",
           "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034180.jpg",
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034177.jpg"
@@ -8732,54 +8775,913 @@
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034178.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034179.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034192.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034191.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034194.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034197.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034217.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034219.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034231.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034232.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034609.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034610.jpg"
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_035325.jpg",
-        "confirmed_members": [
+        "high_confidence_members": [
           "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034167.jpg"
         ]
       }
     ],
-    "groups_with_confirmed_cross_split_duplicate_or_near_duplicate": 82,
-    "method": "Every hash-flagged near-duplicate group's non-anchor images are compared to the group's anchor image's YOLO label coordinates, since perceptual hashing alone is known to false-positive on this class (most pole photos share a generic dark-vertical-shape-on-sky composition). identical_labels = near-certain duplicate; similar_labels = boxes close but not identical (plausible consecutive-capture frames); dissimilar_labels = best explained as a perceptual-hash false positive.",
+    "high_confidence_unique_image_count": {
+      "count": 852,
+      "images": [
+        "train/images/kaggle_indoor_object_detection_wb_000342.jpg",
+        "train/images/kaggle_indoor_object_detection_wb_001075.jpg",
+        "train/images/kaggle_light_poles_wb_001250.jpg",
+        "train/images/kaggle_light_poles_wb_001256.jpg",
+        "train/images/kaggle_light_poles_wb_001371.jpg",
+        "train/images/kaggle_light_poles_wb_001418.jpg",
+        "train/images/kaggle_light_poles_wb_001419.jpg",
+        "train/images/kaggle_light_poles_wb_001425.jpg",
+        "train/images/kaggle_light_poles_wb_001426.jpg",
+        "train/images/kaggle_light_poles_wb_001433.jpg",
+        "train/images/kaggle_light_poles_wb_001482.jpg",
+        "train/images/kaggle_light_poles_wb_001512.jpg",
+        "train/images/kaggle_light_poles_wb_001518.jpg",
+        "train/images/kaggle_light_poles_wb_001593.jpg",
+        "train/images/kaggle_light_poles_wb_001599.jpg",
+        "train/images/kaggle_light_poles_wb_001607.jpg",
+        "train/images/kaggle_light_poles_wb_001608.jpg",
+        "train/images/kaggle_light_poles_wb_001658.jpg",
+        "train/images/kaggle_light_poles_wb_001661.jpg",
+        "train/images/kaggle_light_poles_wb_001668.jpg",
+        "train/images/kaggle_light_poles_wb_001670.jpg",
+        "train/images/kaggle_light_poles_wb_001674.jpg",
+        "train/images/kaggle_light_poles_wb_001677.jpg",
+        "train/images/kaggle_light_poles_wb_001697.jpg",
+        "train/images/kaggle_light_poles_wb_001699.jpg",
+        "train/images/kaggle_light_poles_wb_001718.jpg",
+        "train/images/kaggle_light_poles_wb_001742.jpg",
+        "train/images/kaggle_light_poles_wb_001775.jpg",
+        "train/images/kaggle_light_poles_wb_001805.jpg",
+        "train/images/kaggle_light_poles_wb_001847.jpg",
+        "train/images/kaggle_light_poles_wb_001910.jpg",
+        "train/images/kaggle_light_poles_wb_001976.jpg",
+        "train/images/kaggle_light_poles_wb_001980.jpg",
+        "train/images/kaggle_light_poles_wb_001984.jpg",
+        "train/images/kaggle_light_poles_wb_002049.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_002413.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_002414.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_002628.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_002630.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006908.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006909.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006910.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006911.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006912.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006915.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006916.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006917.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006918.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006919.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006920.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006922.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006925.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006926.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006928.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006929.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006932.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006935.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006936.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006937.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006944.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006945.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006947.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006948.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006949.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006950.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006951.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006960.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006961.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006962.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006963.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006966.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006967.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006968.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006969.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006970.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006971.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006975.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006978.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006979.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006980.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006981.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006982.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006983.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006984.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006985.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006986.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006987.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006989.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006990.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006991.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006994.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006995.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006996.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_006998.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007000.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007001.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007002.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007003.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007004.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007005.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007006.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007007.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007008.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007009.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007012.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007013.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007016.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007017.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007018.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007019.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007020.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007021.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007022.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007026.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007027.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007030.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007031.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007032.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007033.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007034.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007035.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007044.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_007045.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009003.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009004.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009006.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009007.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009008.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009010.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009016.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009017.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009018.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009020.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009021.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009022.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009023.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009038.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009039.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009042.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009044.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009078.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009084.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009097.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009099.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009100.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009101.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009109.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009110.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009111.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009122.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009126.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009127.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009142.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009143.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009153.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009154.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009156.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009157.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009163.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009164.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009165.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009166.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009169.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009172.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009173.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009176.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009177.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009904.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009955.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009956.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009957.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009994.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_009995.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010012.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010013.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010018.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010019.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010020.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010024.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010025.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010041.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010071.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010110.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010117.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010150.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010153.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010154.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010159.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010162.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010164.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010171.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010172.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010174.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010175.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010176.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010177.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010181.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010188.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010191.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010192.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010200.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010202.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010204.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010205.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010753.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010754.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010757.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010758.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010759.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010760.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010763.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010764.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010765.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010766.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010767.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010768.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010772.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010773.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010775.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010776.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010778.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010779.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010783.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010784.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010785.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010786.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010787.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010788.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010790.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010791.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010792.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010795.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010796.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010797.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010798.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010800.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010801.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010802.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010803.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010806.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010807.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010808.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010809.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010810.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010811.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010812.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010813.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010816.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_010817.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_012470.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_012471.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_012864.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_012865.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_012889.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_012890.jpg",
+        "train/images/kaggle_obstacle_detection_kaggle_wb_013043.jpg",
+        "train/images/roboflow_obstacle_detection_roboflow_wb_023948.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026738.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026739.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026740.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026763.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026764.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026771.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026777.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026779.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026781.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026808.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026809.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026810.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026811.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026812.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026813.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026814.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026815.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026816.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026817.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026818.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026819.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026820.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026821.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026822.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026823.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026824.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026826.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026827.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026828.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026865.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026866.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026867.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026868.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026869.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026870.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026871.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026872.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026873.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026880.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026881.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026882.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026889.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026890.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026891.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026910.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026911.jpg",
+        "train/images/roboflow_outdoor_objects_wb_026912.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027213.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027214.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027215.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027216.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027217.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027218.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027219.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027220.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027221.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027222.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027223.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027224.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027225.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027226.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027227.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027228.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027230.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027237.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027238.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027239.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027240.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027241.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027324.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027325.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027326.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027327.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027328.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027329.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027330.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027331.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027332.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027333.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027334.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027335.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027336.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027337.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027338.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027342.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027343.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027344.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027345.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027346.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027347.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027348.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027349.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027350.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027360.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027361.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027362.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027363.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027364.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027365.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027372.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027373.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027374.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027393.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027394.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027395.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027399.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027400.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027401.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027402.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027403.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027404.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027405.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027406.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027407.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027426.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027427.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027428.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027429.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027430.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027431.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027438.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027439.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027440.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027444.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027445.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027446.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027495.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027496.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027497.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027504.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027505.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027506.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027507.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027508.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027509.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027513.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027514.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027515.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027516.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027517.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027518.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027525.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027526.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027527.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027528.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027529.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027530.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027534.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027535.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027536.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027537.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027538.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027539.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027540.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027541.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027542.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027549.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027550.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027551.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027588.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027589.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027590.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027597.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027598.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027599.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027621.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027622.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027623.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027624.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027625.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027626.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027627.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027628.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027629.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027980.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027981.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027982.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027983.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027984.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027985.jpg",
+        "train/images/roboflow_outdoor_objects_wb_027992.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028033.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028034.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028036.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028038.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028039.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028051.jpg",
+        "train/images/roboflow_outdoor_objects_wb_028064.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029220.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029222.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029237.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029239.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029279.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029281.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029309.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029311.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029313.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029314.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029316.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029317.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029320.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029321.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029382.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029383.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029458.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029460.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029466.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_029469.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030622.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030623.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030648.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030649.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030650.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030651.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030949.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_030950.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_031544.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_031545.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_031580.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_031581.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032090.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032091.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032282.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032283.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032300.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032301.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032665.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032666.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032673.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032674.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032822.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032823.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032824.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032825.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032887.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032888.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032929.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032930.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032957.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_032958.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033018.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033028.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033029.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033030.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033037.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033038.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033039.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033040.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033041.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033045.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033046.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033047.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033048.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033058.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033071.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033072.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033077.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033078.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033093.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033097.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033098.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033121.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033122.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033123.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033124.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033133.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033173.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033174.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033191.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033192.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033203.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033204.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033227.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033228.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033229.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033230.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033235.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033236.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033237.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033238.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033261.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033262.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033267.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033268.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033283.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033284.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033305.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033306.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033308.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033525.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033526.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033718.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033725.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033729.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033730.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033745.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033746.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033755.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033759.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033763.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033875.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033880.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033883.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033884.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034155.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034158.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034161.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034162.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034171.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034172.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034175.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034176.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034178.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034179.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034180.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034189.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034190.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034192.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034194.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034196.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034199.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034213.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034214.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034217.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034231.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034413.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034414.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034425.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034426.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034495.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034496.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034504.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034505.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034537.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034538.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034561.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034562.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034585.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034586.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034609.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034611.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034612.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034617.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034618.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034702.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034703.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_035325.jpg",
+        "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_035328.jpg",
+        "val/images/kaggle_light_poles_wb_001316.jpg",
+        "val/images/kaggle_light_poles_wb_001347.jpg",
+        "val/images/kaggle_light_poles_wb_001678.jpg",
+        "val/images/kaggle_light_poles_wb_001743.jpg",
+        "val/images/kaggle_light_poles_wb_002048.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_002629.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006913.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006914.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006921.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006923.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006924.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006930.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006933.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006934.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006946.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006974.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006976.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006977.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_006988.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_007023.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009005.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009076.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009085.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009098.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009102.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009112.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009121.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009170.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009905.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_009906.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010014.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010021.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010022.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010039.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010069.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010070.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010093.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010095.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010109.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010118.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010119.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010144.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010145.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010152.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010155.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010156.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010158.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010160.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010161.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010163.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010178.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010182.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010186.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010187.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010189.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010190.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010197.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010199.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010203.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010782.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010789.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010794.jpg",
+        "val/images/kaggle_obstacle_detection_kaggle_wb_010799.jpg",
+        "val/images/roboflow_indoor_detection_vineeth_wb_018545.jpg",
+        "val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg",
+        "val/images/roboflow_obstacle_detection_roboflow_wb_021536.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026783.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026785.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026786.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026789.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026792.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026793.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026795.jpg",
+        "val/images/roboflow_outdoor_objects_wb_026798.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027635.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027636.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027637.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027641.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027642.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027643.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027653.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027654.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027655.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027656.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027657.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027658.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027659.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027660.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027661.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027662.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027663.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027664.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027665.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027666.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027667.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027668.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027669.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027670.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027671.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027672.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027673.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027674.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027675.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027676.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027704.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027705.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027706.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027707.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027708.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027710.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027711.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027712.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027713.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027714.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027715.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027725.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027726.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027727.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027728.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027729.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027730.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027731.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027732.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027733.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027773.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027774.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027775.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027776.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027777.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027778.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027779.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027780.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027781.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027782.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027783.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027784.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027785.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027786.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027787.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027788.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027789.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027790.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027794.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027795.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027796.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027797.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027798.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027799.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027800.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027801.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027802.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027803.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027805.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027806.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027807.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027808.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027818.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027819.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027820.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027824.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027825.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027826.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027827.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027828.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027829.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027872.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027873.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027874.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027881.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027882.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027883.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027884.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027885.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027886.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027890.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027891.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027892.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027902.jpg",
+        "val/images/roboflow_outdoor_objects_wb_027904.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028069.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028073.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028074.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028075.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028083.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028084.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028085.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028089.jpg",
+        "val/images/roboflow_outdoor_objects_wb_028090.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030672.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030673.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030674.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030675.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030676.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030677.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030768.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030769.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030815.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030816.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030833.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_030834.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032138.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032139.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032434.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032435.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032436.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032437.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032440.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032441.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032476.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032477.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032480.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032481.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032482.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032483.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032514.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032515.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032556.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032557.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032599.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_032600.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033017.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033027.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033035.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033042.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033057.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033094.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033134.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033307.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033569.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033571.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033717.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033726.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033756.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033760.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033764.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033876.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033879.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034157.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034167.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034177.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034191.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034197.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034219.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034232.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034511.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034513.jpg",
+        "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034610.jpg"
+      ],
+      "method": "Unique images that are either the anchor of a group with at least one identical_labels or similar_labels member, or are themselves such a member -- i.e. every distinct image involved in at least one high-confidence duplicate/near-duplicate candidate finding. dissimilar_labels-only groups are excluded entirely.",
+      "of_pole_images_scanned": 4087
+    },
+    "method": "Every hash-flagged near-duplicate group's non-anchor images are compared to the group's anchor image's YOLO label coordinates, since perceptual hashing alone is known to false-positive on this class (most pole photos share a generic dark-vertical-shape-on-sky composition). identical_labels = label coordinates match exactly (rounded to 4 decimal places); similar_labels = boxes close but not identical (within a 0.03 normalized-coordinate tolerance); dissimilar_labels = best explained as a perceptual-hash false positive. IMPORTANT: this is still an automated heuristic (aHash pre-filter + label-coordinate agreement), not independent human verification of every group -- only the specific examples listed under manually_verified_examples below were actually visually inspected. identical_labels/similar_labels are reported as high-confidence duplicate/near-duplicate *candidates*, not as confirmed duplicates.",
     "verdict_counts": {
       "dissimilar_labels": 1450,
       "identical_labels": 293,
       "similar_labels": 265
-    }
+    },
+    "verdict_counts_note": "verdict_counts tallies non-anchor group MEMBERS compared against their group's anchor (i.e. label-coordinate comparisons), not unique images -- an image that is itself a group anchor is not included in these counts. See high_confidence_unique_image_count for a true image count."
   },
   "settings": {
     "extreme_aspect_ratio_threshold": 3.0,

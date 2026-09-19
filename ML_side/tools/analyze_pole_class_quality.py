@@ -10,11 +10,17 @@ complete image set and reviewed metadata) — instead it:
    geometry buckets) directly from every YOLO label file across train and
    validation, for all classes. This needs no image files at all, since a
    YOLO label line already carries normalized width/height.
-2. Runs duplicate and near-duplicate detection scoped to a supplied
-   directory of pole-containing images only — reusing
-   ``inspect_candidate_dataset``'s exact checksum/perceptual-hash/grouping
-   logic, applied to a class-scoped image subset exactly as that module's
-   own near-duplicate helper recommends for a full-corpus dataset.
+2. Finds every pole-containing label, then hashes *only* the matching
+   image files directly under ``dataset_root``'s ``train/images``/
+   ``val/images`` -- reusing ``inspect_candidate_dataset``'s exact
+   checksum/perceptual-hash/grouping logic, applied to a class-scoped image
+   subset exactly as that module's own near-duplicate helper recommends for
+   a full-corpus dataset. This needs only ``--dataset-root`` to point at a
+   normal full dataset export; it never requires a separately pre-filtered
+   "pole-only" image directory. If only a partial local extraction is
+   available (e.g. under a disk-space constraint), any pole-labeled image
+   that cannot be found is reported under
+   ``pole_images_not_found_locally`` rather than silently skipped.
 
 Held-out test data must never be passed to this tool: it only accepts
 train/validation split directories, and does not know how to address a test
@@ -123,23 +129,51 @@ def _build_geometry_records(
     return records, per_split_counts
 
 
-def _build_pole_image_records(
-    pole_images_dir: Path, *, hash_size: int = 8
-) -> list[dict[str, object]]:
-    """Build duplicate/near-duplicate-ready records for a pole-image subset directory.
+def _find_pole_label_stems(dataset_root: Path, taxonomy: dict[int, str]) -> dict[str, list[str]]:
+    """Return {split: [label stems]} for every label file with a pole annotation."""
+    pole_class_ids = {class_id for class_id, name in taxonomy.items() if name == POLE_CLASS_NAME}
+    stems_by_split: dict[str, list[str]] = {split: [] for split in SPLITS}
+    for split in SPLITS:
+        label_dir = dataset_root / split / "labels"
+        if not label_dir.is_dir():
+            raise inspector.CandidateInspectionError(f"Expected label directory missing: {label_dir}")
+        for label_path in sorted(label_dir.glob("*.txt")):
+            for class_id, _width, _height in _iter_label_lines(label_path):
+                if class_id in pole_class_ids:
+                    stems_by_split[split].append(label_path.stem)
+                    break
+    return stems_by_split
 
-    Expects ``pole_images_dir`` to contain ``train/images`` and/or
-    ``val/images`` subdirectories holding *only* pole-containing images
-    (the caller is responsible for having pre-filtered to that subset --
-    see the sibling extraction helper used for this investigation).
+
+def _build_pole_image_records(
+    dataset_root: Path, pole_stems_by_split: dict[str, list[str]], *, hash_size: int = 8
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Hash exactly the images that have a pole label, read directly from dataset_root.
+
+    Every pole-containing stem is looked up as ``dataset_root/{split}/images/{stem}{ext}``
+    for each supported image extension -- no separate pre-filtered "pole-only"
+    image directory is needed, so this works unchanged whether the caller has
+    a full dataset export or only extracted the pole-relevant images locally.
+    Returns (records, missing) where ``missing`` lists
+    ``"{split}/images/{stem}"`` for every pole-labeled stem whose image file
+    could not be found under any supported extension, so a partial local
+    extraction is reported rather than silently under-counted.
     """
     records: list[dict[str, object]] = []
+    missing: list[str] = []
     for split in SPLITS:
-        image_dir = pole_images_dir / split / "images"
-        if not image_dir.is_dir():
-            continue
-        for image_path in sorted(image_dir.iterdir()):
-            if not image_path.is_file() or image_path.suffix.casefold() not in inspector.IMAGE_EXTENSIONS:
+        image_dir = dataset_root / split / "images"
+        for stem in pole_stems_by_split[split]:
+            image_path = next(
+                (
+                    candidate
+                    for ext in sorted(inspector.IMAGE_EXTENSIONS)
+                    if (candidate := image_dir / f"{stem}{ext}").is_file()
+                ),
+                None,
+            )
+            if image_path is None:
+                missing.append(f"{split}/images/{stem}")
                 continue
             checksum = inspector._sha256(image_path)
             try:
@@ -155,7 +189,7 @@ def _build_pole_image_records(
                     "perceptual_hash": perceptual_hash,
                 }
             )
-    return records
+    return records, sorted(missing)
 
 
 def _label_signature(label_path: Path, *, precision: int = 4) -> frozenset[tuple[int, float, float, float, float]]:
@@ -288,7 +322,6 @@ def _generic_source_review_candidates(pole_records: list[dict[str, object]]) -> 
 def analyze(
     dataset_root: Path,
     dataset_yaml_path: Path,
-    pole_images_dir: Path,
     *,
     small_area_threshold: float = 0.01,
     extreme_aspect_ratio_threshold: float = 3.0,
@@ -315,7 +348,8 @@ def analyze(
     for split_counts in per_split_counts.values():
         overall_counts.update(split_counts)
 
-    pole_records = _build_pole_image_records(pole_images_dir)
+    pole_stems_by_split = _find_pole_label_stems(dataset_root, taxonomy)
+    pole_records, missing_pole_images = _build_pole_image_records(dataset_root, pole_stems_by_split)
     errors: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
     duplicate_findings = inspector._analysis_findings(
@@ -328,15 +362,27 @@ def analyze(
     classified_near_duplicates = _classify_near_duplicate_groups(
         duplicate_findings["near_duplicate_images"], dataset_root  # type: ignore[arg-type]
     )
+    # verdict_counts tallies non-anchor group *members* against their
+    # group's anchor -- it is a count of label-coordinate comparisons, not
+    # of unique images. See high_confidence_unique_image_count below for an
+    # actual image count.
     verdict_counts = Counter(
         member["verdict"] for group in classified_near_duplicates for member in group["member_classifications"]
     )
-    cross_split_confirmed = [
+    high_confidence_groups = [
         group
         for group in classified_near_duplicates
-        if len(group["splits"]) > 1
-        and any(member["verdict"] in ("identical_labels", "similar_labels") for member in group["member_classifications"])
+        if any(member["verdict"] in ("identical_labels", "similar_labels") for member in group["member_classifications"])
     ]
+    high_confidence_images: set[str] = set()
+    for group in high_confidence_groups:
+        high_confidence_images.add(str(group["anchor"]))
+        high_confidence_images.update(
+            member["image"]
+            for member in group["member_classifications"]
+            if member["verdict"] in ("identical_labels", "similar_labels")
+        )
+    cross_split_high_confidence = [group for group in high_confidence_groups if len(group["splits"]) > 1]
 
     report: dict[str, object] = {
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
@@ -353,6 +399,17 @@ def analyze(
             "near_duplicate_hash_distance": near_duplicate_hash_distance,
             "pole_images_scanned_for_duplicates": len(pole_records),
         },
+        "pole_images_not_found_locally": {
+            "method": (
+                "Every pole-containing label's matching image is looked up directly under "
+                "dataset_root/{split}/images/ -- this lists any pole-labeled stem whose image file "
+                "could not be found there (e.g. only a partial local extraction was available), so "
+                "duplicate-detection coverage gaps are reported rather than silently absorbed into a "
+                "smaller-than-expected scanned count."
+            ),
+            "count": len(missing_pole_images),
+            "images": missing_pole_images,
+        },
         "class_distribution": {
             "train": dict(sorted(per_split_counts["train"].items())),
             "val": dict(sorted(per_split_counts["val"].items())),
@@ -367,22 +424,101 @@ def analyze(
                 "Every hash-flagged near-duplicate group's non-anchor images are compared to the group's "
                 "anchor image's YOLO label coordinates, since perceptual hashing alone is known to "
                 "false-positive on this class (most pole photos share a generic dark-vertical-shape-on-sky "
-                "composition). identical_labels = near-certain duplicate; similar_labels = boxes close but "
-                "not identical (plausible consecutive-capture frames); dissimilar_labels = best explained as "
-                "a perceptual-hash false positive."
+                "composition). identical_labels = label coordinates match exactly (rounded to 4 decimal "
+                "places); similar_labels = boxes close but not identical (within a 0.03 normalized-coordinate "
+                "tolerance); dissimilar_labels = best explained as a perceptual-hash false positive. "
+                "IMPORTANT: this is still an automated heuristic (aHash pre-filter + label-coordinate "
+                "agreement), not independent human verification of every group -- only the specific examples "
+                "listed under manually_verified_examples below were actually visually inspected. "
+                "identical_labels/similar_labels are reported as high-confidence duplicate/near-duplicate "
+                "*candidates*, not as confirmed duplicates."
+            ),
+            "verdict_counts_note": (
+                "verdict_counts tallies non-anchor group MEMBERS compared against their group's anchor "
+                "(i.e. label-coordinate comparisons), not unique images -- an image that is itself a group "
+                "anchor is not included in these counts. See high_confidence_unique_image_count for a true "
+                "image count."
             ),
             "verdict_counts": dict(verdict_counts),
-            "groups_with_confirmed_cross_split_duplicate_or_near_duplicate": len(cross_split_confirmed),
-            "confirmed_cross_split_groups": [
+            "high_confidence_unique_image_count": {
+                "method": (
+                    "Unique images that are either the anchor of a group with at least one identical_labels "
+                    "or similar_labels member, or are themselves such a member -- i.e. every distinct image "
+                    "involved in at least one high-confidence duplicate/near-duplicate candidate finding. "
+                    "dissimilar_labels-only groups are excluded entirely."
+                ),
+                "count": len(high_confidence_images),
+                "of_pole_images_scanned": len(pole_records),
+                "images": sorted(high_confidence_images),
+            },
+            "groups_with_high_confidence_cross_split_candidate": len(cross_split_high_confidence),
+            "high_confidence_cross_split_candidate_groups": [
                 {
                     "anchor": group["anchor"],
-                    "confirmed_members": [
+                    "high_confidence_members": [
                         member["image"]
                         for member in group["member_classifications"]
                         if member["verdict"] in ("identical_labels", "similar_labels")
                     ],
                 }
-                for group in cross_split_confirmed
+                for group in cross_split_high_confidence
+            ],
+        },
+        "manually_verified_examples": {
+            "method": (
+                "The following specific images were opened and visually inspected during this "
+                "investigation (not just compared by hash or label coordinates), to sanity-check the "
+                "automated heuristics above before trusting them at scale."
+            ),
+            "examples": [
+                {
+                    "images": [
+                        "train/images/kaggle_light_poles_wb_001285.jpg",
+                        "train/images/kaggle_light_poles_wb_001336.jpg",
+                    ],
+                    "finding": (
+                        "Visually confirmed as two different real poles in two different locations "
+                        "(one with a ladder against an overcast sky, one with palm trees and sun "
+                        "flare), despite being flagged as a raw perceptual-hash near-duplicate pair. "
+                        "This is the false-positive case that motivated the label-coordinate "
+                        "verification layer."
+                    ),
+                },
+                {
+                    "images": [
+                        "train/images/kaggle_indoor_object_detection_wb_000342.jpg",
+                        "val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg",
+                    ],
+                    "finding": (
+                        "Visually confirmed as the same church-doorway photograph, re-published under "
+                        "two different source-dataset names, split across train and validation. Label "
+                        "coordinates for both class-5 boxes match to within floating-point rounding "
+                        "(e.g. 0.386719 vs 0.38671875). Also visually confirmed that both class-5 boxes "
+                        "sit on the doorway's decorative stone pilasters, not a physical pole."
+                    ),
+                },
+                {
+                    "images": ["train/images/kaggle_indoor_object_detection_wb_000277.jpg"],
+                    "finding": (
+                        "Visually confirmed: three class-5 boxes sit on the three ornate stone columns "
+                        "of an embassy entrance, not physical hazard poles."
+                    ),
+                },
+                {
+                    "images": ["train/images/roboflow_indoor_detection_vineeth_wb_018164.jpg"],
+                    "finding": (
+                        "Visually inspected: the class-5 box sits on a floor lamp's stand in a bedroom "
+                        "photo -- a plausible legitimate pole-like object, not clearly mislabeled."
+                    ),
+                },
+                {
+                    "images": ["train/images/roboflow_indoor_detection_vineeth_wb_017389.jpg"],
+                    "finding": (
+                        "Visually inspected: an unusually wide, short class-5 box in a rotated window "
+                        "photo -- ambiguous; could plausibly be a horizontal railing/beam rather than a "
+                        "pole, but this was not conclusively determined from the image alone."
+                    ),
+                },
             ],
         },
         "generic_source_review_candidates": {
@@ -450,34 +586,64 @@ def render_markdown_report(report: dict[str, object]) -> str:
     lines.append("## Pole image duplicate / near-duplicate findings")
     lines.append("")
     findings = report["pole_duplicate_findings"]  # type: ignore[index]
+    not_found = report["pole_images_not_found_locally"]  # type: ignore[index]
     lines.append(f"- Pole-containing images scanned: {report['settings']['pole_images_scanned_for_duplicates']}")  # type: ignore[index]
+    if not_found["count"]:
+        lines.append(
+            f"- **{not_found['count']} pole-labeled image(s) could not be found locally and were not "
+            f"scanned** (see `pole_images_not_found_locally` in the JSON report for the exact list)."
+        )
     lines.append(f"- Exact-duplicate checksum groups: {len(findings['duplicate_checksums'])}")
     lines.append(
-        f"- Near-duplicate groups (perceptual hash distance <= "
-        f"{report['settings']['near_duplicate_hash_distance']}): "  # type: ignore[index]
-        f"{len(findings['near_duplicate_images'])}"
+        f"- Raw near-duplicate groups (perceptual hash distance <= "
+        f"{report['settings']['near_duplicate_hash_distance']}, **before** label-coordinate "  # type: ignore[index]
+        f"verification below): {len(findings['near_duplicate_images'])}"
     )
     lines.append("")
 
-    lines.append("### Label-verified breakdown (perceptual hash alone is not trusted as-is)")
+    lines.append("### Label-coordinate verification (perceptual hash alone is not trusted as-is)")
     lines.append("")
     lines.append(
         "Perceptual hashing false-positives on this class: most pole photos share the same generic "
         "composition (a dark vertical shape against open sky), so every hash-flagged group was re-checked "
-        "against its YOLO label coordinates before being treated as a real duplicate."
+        "against its YOLO label coordinates. This is still an automated heuristic, not independent human "
+        "verification of every group — see \"Manually verified examples\" below for the specific images "
+        "that were actually opened and inspected. `identical_labels`/`similar_labels` below are reported "
+        "as high-confidence duplicate/near-duplicate **candidates**, not as confirmed duplicates."
     )
     lines.append("")
     verification = report["pole_near_duplicate_label_verification"]  # type: ignore[index]
     counts = verification["verdict_counts"]
-    lines.append("| Verdict | Count |")
+    lines.append("| Verdict | Count (non-anchor member comparisons) |")
     lines.append("|---|---:|")
     for verdict in ("identical_labels", "similar_labels", "dissimilar_labels"):
         lines.append(f"| {verdict} | {counts.get(verdict, 0)} |")
     lines.append("")
+    unique = verification["high_confidence_unique_image_count"]
     lines.append(
-        f"- Near-duplicate groups with at least one **confirmed** (identical- or similar-label) "
-        f"cross-split match: {verification['groups_with_confirmed_cross_split_duplicate_or_near_duplicate']}"
+        f"- **{unique['count']} unique images** (of {unique['of_pole_images_scanned']} scanned) are "
+        f"involved in at least one high-confidence duplicate/near-duplicate candidate finding "
+        f"(this counts distinct images, including group anchors — not the "
+        f"{counts.get('identical_labels', 0) + counts.get('similar_labels', 0)} member-vs-anchor "
+        f"comparisons tallied above)."
     )
+    lines.append(
+        f"- Groups with at least one high-confidence (identical- or similar-label) candidate match "
+        f"spanning both train and validation: {verification['groups_with_high_confidence_cross_split_candidate']}"
+    )
+    lines.append("")
+
+    lines.append("### Manually verified examples")
+    lines.append("")
+    lines.append(
+        "The automated findings above are a heuristic (perceptual hash + label-coordinate agreement), "
+        "not a claim that every listed group was independently checked. The following specific images "
+        "were actually opened and visually inspected during this investigation:"
+    )
+    lines.append("")
+    for example in report["manually_verified_examples"]["examples"]:  # type: ignore[index]
+        images = ", ".join(f"`{image}`" for image in example["images"])
+        lines.append(f"- {images}: {example['finding']}")
     lines.append("")
 
     lines.append("## Generic-source annotation review candidates")
@@ -508,18 +674,15 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         type=Path,
         help=(
-            "Local root containing train/labels/ and val/labels/. Only label files are read from "
-            "this root -- its train/images/ and val/images/ (if present) are never accessed. Pass "
-            "the full label set here even when only a pole-only image subset was extracted."
+            "Local root containing train/{images,labels}/ and val/{images,labels}/. All label files "
+            "are read in full for the class-distribution/geometry analysis. For duplicate detection, "
+            "only the specific images with a pole label are opened and hashed, looked up directly "
+            "under train/images/ and val/images/ -- a full dataset export works, and so does a local "
+            "extraction containing only those pole-relevant images (anything else is reported under "
+            "pole_images_not_found_locally rather than silently skipped)."
         ),
     )
     parser.add_argument("--dataset-yaml", required=True, type=Path, help="Local YOLO dataset YAML file (for the class-name taxonomy).")
-    parser.add_argument(
-        "--pole-images-dir",
-        required=True,
-        type=Path,
-        help="Local root containing a pre-filtered {train,val}/images/ subset of pole-containing images only.",
-    )
     parser.add_argument("--output-dir", required=True, type=Path, help="Directory to write the JSON report and Markdown summary into.")
     parser.add_argument(
         "--small-area-threshold",
@@ -552,7 +715,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = analyze(
             args.dataset_root,
             args.dataset_yaml,
-            args.pole_images_dir,
             small_area_threshold=args.small_area_threshold,
             extreme_aspect_ratio_threshold=args.extreme_aspect_ratio_threshold,
             near_duplicate_hash_distance=args.near_duplicate_hash_distance,
