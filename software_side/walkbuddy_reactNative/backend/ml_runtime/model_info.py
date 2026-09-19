@@ -40,6 +40,7 @@ class ModelLineage:
     runtime: dict[str, Any]
     failure_category: str | None = None
     taxonomy_compatible: bool | None = None
+    checksum_verified: bool | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return a copy suitable for the operational model-info endpoint."""
@@ -51,6 +52,7 @@ class ModelLineage:
             "num_classes": self.num_classes,
             "classes": list(self.classes),
             "taxonomy_compatible": self.taxonomy_compatible,
+            "checksum_verified": self.checksum_verified,
             "load_duration_ms": self.load_duration_ms,
             "loaded_at": self.loaded_at,
             "runtime": dict(self.runtime),
@@ -65,6 +67,23 @@ def calculate_sha256(path: Path) -> str:
         for chunk in iter(lambda: model_file.read(CHECKSUM_CHUNK_SIZE), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def verify_checksum(lineage_sha: str | None, expected_sha: str | None) -> bool | None:
+    """Compare a loaded artifact's SHA-256 to an expected/approved value.
+
+    Returns ``True`` or ``False`` only when both values are present; returns
+    ``None`` ("not checked") when either side is missing — i.e. no expected
+    value was configured, or the model exposes no checksum. Comparison ignores
+    surrounding whitespace and hex letter-casing.
+
+    This is a pure, side-effect-free helper. It never raises and is deliberately
+    independent of :func:`is_taxonomy_compatible`; checksum integrity and class
+    taxonomy are reported as two separate, orthogonal signals.
+    """
+    if not lineage_sha or not expected_sha:
+        return None
+    return lineage_sha.strip().lower() == expected_sha.strip().lower()
 
 
 def normalise_class_names(names: object) -> list[str]:

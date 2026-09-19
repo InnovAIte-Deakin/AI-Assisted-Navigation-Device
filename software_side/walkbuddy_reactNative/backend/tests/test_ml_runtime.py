@@ -32,6 +32,7 @@ from ml_runtime.model_info import (
     is_taxonomy_compatible,
     normalise_class_names,
     runtime_details,
+    verify_checksum,
 )
 from ml_runtime.router import router as ml_runtime_router
 from ml_runtime.state import MLRuntimeState
@@ -526,6 +527,7 @@ _MAIN_STUB_MODULES = (
     "routers.stt",
     "routers.audiobooks",
     "routers.ai_service",
+    "routers.ml_inference",
     "routers.helpers",
     "routers.auth",
     "internal",
@@ -620,9 +622,9 @@ def main_module() -> Iterator[ModuleType]:
     routers.stt = router_module("routers.stt")
     routers.audiobooks = router_module("routers.audiobooks")
     routers.ai_service = router_module("routers.ai_service")
+    routers.ml_inference = router_module("routers.ml_inference")
     routers.helpers = router_module("routers.helpers")
     routers.auth = router_module("routers.auth")
-    routers.ml_inference = router_module("routers.ml_inference")
 
     internal = ModuleType("internal")
     internal.__path__ = []
@@ -649,9 +651,9 @@ def main_module() -> Iterator[ModuleType]:
         "routers.stt": routers.stt,
         "routers.audiobooks": routers.audiobooks,
         "routers.ai_service": routers.ai_service,
+        "routers.ml_inference": routers.ml_inference,
         "routers.helpers": routers.helpers,
         "routers.auth": routers.auth,
-    "routers.ml_inference": routers.ml_inference,
         "internal": internal,
         "internal.state": internal_state,
         "slow_lane": slow_lane,
@@ -1068,6 +1070,7 @@ def test_model_info_endpoint_preserves_existing_lineage_fields(tmp_path: Path) -
         "num_classes",
         "classes",
         "taxonomy_compatible",
+        "checksum_verified",
         "load_duration_ms",
         "loaded_at",
         "runtime",
@@ -1121,3 +1124,211 @@ def test_readiness_uses_captured_startup_lineage(tmp_path: Path) -> None:
 def test_taxonomy_compatibility_helper_matches_the_canonical_contract() -> None:
     assert is_taxonomy_compatible(canonical_class_names()) is True
     assert is_taxonomy_compatible(list(FakeModel.names.values())) is False
+
+
+# ── Checksum verification (pure addition, independent of taxonomy) ───────────
+
+
+def test_verify_checksum_matches_returns_true() -> None:
+    sha = "198df54da4f6aa071b342bee77b100e78f243df785b325ec364036e106572238"
+    assert verify_checksum(sha, sha) is True
+    # Whitespace and hex letter-casing must not defeat a genuine match.
+    assert verify_checksum(sha, f"  {sha.upper()}  ") is True
+
+
+def test_verify_checksum_mismatch_returns_false() -> None:
+    assert verify_checksum("a" * 64, "b" * 64) is False
+
+
+def test_verify_checksum_not_configured_returns_none() -> None:
+    # "not checked" whenever either side is missing — never a spurious False.
+    assert verify_checksum("a" * 64, None) is None
+    assert verify_checksum("a" * 64, "") is None
+    assert verify_checksum(None, "a" * 64) is None
+    assert verify_checksum(None, None) is None
+
+
+def test_checksum_verified_defaults_to_none_and_is_independent_of_taxonomy(
+    tmp_path: Path,
+) -> None:
+    """A freshly captured lineage reports checksum as 'not checked' (None)."""
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    runtime = MLRuntimeState()
+    runtime.set_model_lineage(capture_model_lineage(artifact, FakeModel(), 1.0))
+
+    model_info = runtime.model_info()
+
+    assert model_info["checksum_verified"] is None
+    # Taxonomy signal is computed and reported entirely separately.
+    assert model_info["taxonomy_compatible"] is False
+    assert model_info["loaded"] is True
+
+
+def test_model_info_before_startup_reports_unchecked_checksum() -> None:
+    assert MLRuntimeState().model_info()["checksum_verified"] is None
+
+
+def test_set_checksum_verification_records_match_without_touching_failure(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    runtime = MLRuntimeState()
+    runtime.set_model_lineage(capture_model_lineage(artifact, FakeModel(), 1.0))
+
+    runtime.set_checksum_verification(True)
+
+    model_info = runtime.model_info()
+    assert model_info["checksum_verified"] is True
+    assert model_info["loaded"] is True
+    # A successful match must not invent a failure category.
+    assert model_info["failure_category"] is None
+
+
+def test_set_checksum_verification_records_mismatch_without_unloading_model(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    runtime = MLRuntimeState()
+    runtime.set_model_lineage(capture_model_lineage(artifact, FakeModel(), 1.0))
+
+    runtime.set_checksum_verification(
+        False, failure_category="model_checksum_mismatch"
+    )
+
+    model_info = runtime.model_info()
+    assert model_info["checksum_verified"] is False
+    assert model_info["failure_category"] == "model_checksum_mismatch"
+    # A mismatch is surfaced but the model stays loaded and usable.
+    assert model_info["loaded"] is True
+
+
+def test_set_checksum_verification_is_a_noop_before_any_lineage() -> None:
+    runtime = MLRuntimeState()
+
+    runtime.set_checksum_verification(False, failure_category="model_checksum_mismatch")
+
+    model_info = runtime.model_info()
+    assert model_info["checksum_verified"] is None
+    assert model_info["failure_category"] == "not_initialized"
+
+
+def test_model_info_endpoint_exposes_checksum_verified(tmp_path: Path) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"model")
+    app = _app_with_runtime(yolo=object(), ocr_reader=None)
+    app.state.ml_runtime.set_model_lineage(
+        capture_model_lineage(artifact, FakeModel(), 3.5)
+    )
+    app.state.ml_runtime.set_checksum_verification(True)
+
+    with TestClient(app) as client:
+        payload = client.get("/ml/model-info").json()
+
+    assert payload["checksum_verified"] is True
+    # Reporting a checksum result must not disturb the taxonomy signal.
+    assert payload["taxonomy_compatible"] is False
+
+
+def test_resolve_expected_sha_uses_env_var_only(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The expected SHA comes ONLY from the controlled-launcher env var — the
+    # same identity source readiness uses. There is deliberately no baseline
+    # (or any other artifact) fallback.
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", "a" * 64)
+    assert main_module._resolve_expected_model_sha256() == "a" * 64
+
+    # Blank / whitespace-only is treated as "not configured".
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", "   ")
+    assert main_module._resolve_expected_model_sha256() is None
+
+    # Unset -> None: the checksum is reported as "not checked", never compared.
+    monkeypatch.delenv("WALKBUDDY_EXPECTED_MODEL_SHA256", raising=False)
+    assert main_module._resolve_expected_model_sha256() is None
+
+    # The removed baseline fallback must not come back.
+    assert not hasattr(main_module, "_BASELINE_SHA_PATH")
+    assert not hasattr(main_module, "_expected_sha_from_baseline")
+
+
+class _FakeYolo:
+    """A stand-in loaded model exposing the legacy 7-class names mapping."""
+
+    def __init__(self, _path: str) -> None:
+        self.names = dict(FakeModel.names)
+
+
+def _run_lifespan_with_loaded_model(
+    main_module: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    artifact: Path,
+) -> dict[str, object]:
+    """Drive the real lifespan with a successfully 'loaded' model artifact."""
+    artifact.write_bytes(b"actual-weights")
+    main_module.YOLO_MODEL_PATH = artifact
+    main_module.init_database = lambda: None
+    monkeypatch.setattr(main_module, "YOLO", _FakeYolo)
+    monkeypatch.setattr(main_module, "_cleanup_sessions_loop", lambda: None)
+    monkeypatch.setattr(main_module.asyncio, "create_task", lambda _coroutine: None)
+
+    async def start() -> dict[str, object]:
+        async with main_module.lifespan(main_module.app):
+            return {
+                "model_info": main_module.app.state.ml_runtime.model_info(),
+                "yolo": main_module.app.state.yolo,
+            }
+
+    return asyncio.run(start())
+
+
+def test_lifespan_verifies_matching_checksum(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    artifact = tmp_path / "best.pt"
+    # Point the expected value at the artifact's real SHA so it matches.
+    artifact.write_bytes(b"actual-weights")
+    monkeypatch.setenv(
+        "WALKBUDDY_EXPECTED_MODEL_SHA256", calculate_sha256(artifact)
+    )
+
+    result = _run_lifespan_with_loaded_model(main_module, monkeypatch, artifact)
+
+    assert result["yolo"] is not None
+    assert result["model_info"]["loaded"] is True
+    assert result["model_info"]["checksum_verified"] is True
+    assert result["model_info"]["failure_category"] is None
+
+
+def test_lifespan_records_checksum_mismatch_without_crashing(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    artifact = tmp_path / "best.pt"
+    # A deliberately wrong expected value forces the mismatch (warning) path.
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", "0" * 64)
+
+    result = _run_lifespan_with_loaded_model(main_module, monkeypatch, artifact)
+
+    # Startup completed and the model remains loaded and usable.
+    assert result["yolo"] is not None
+    assert result["model_info"]["loaded"] is True
+    assert result["model_info"]["checksum_verified"] is False
+    assert result["model_info"]["failure_category"] == "model_checksum_mismatch"
+
+
+def test_lifespan_skips_checksum_when_not_configured(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    artifact = tmp_path / "best.pt"
+    # No expected SHA configured -> nothing to check (never compared).
+    monkeypatch.delenv("WALKBUDDY_EXPECTED_MODEL_SHA256", raising=False)
+
+    result = _run_lifespan_with_loaded_model(main_module, monkeypatch, artifact)
+
+    assert result["yolo"] is not None
+    assert result["model_info"]["loaded"] is True
+    assert result["model_info"]["checksum_verified"] is None
+    # "Not checked" is not a failure.
+    assert result["model_info"]["failure_category"] is None

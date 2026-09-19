@@ -41,6 +41,21 @@ LLM_MODEL_PATH = _model_base / "llama-3.2-1b-instruct-q4_k_m.gguf"
 YOLO_MODEL_PATH = _model_base / "best.pt"
 DEPTH_MODEL_DIR = Path(os.environ["WALKBUDDY_DEPTH_MODEL_DIR"]) if "WALKBUDDY_DEPTH_MODEL_DIR" in os.environ else None
 
+# Expected/approved SHA-256 for the loaded model artifact. This is sourced ONLY
+# from the controlled launcher via WALKBUDDY_EXPECTED_MODEL_SHA256 — the SAME
+# controlled identity source the runtime readiness check uses. It is never read
+# from a historical baseline record: that baseline is a different (older) model
+# artifact, so comparing against it could report a false mismatch for the
+# current candidate. When the env var is not configured, the checksum is
+# reported as "not checked" (null) and is never compared against any artifact.
+_EXPECTED_MODEL_SHA256_ENV = "WALKBUDDY_EXPECTED_MODEL_SHA256"
+
+
+def _resolve_expected_model_sha256() -> str | None:
+    """Return the configured expected SHA-256, or None if it is not set."""
+    env_value = os.environ.get(_EXPECTED_MODEL_SHA256_ENV, "").strip()
+    return env_value or None
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,6 +95,7 @@ from ml_runtime import (
     MLRuntimeState,
     ModelMetadataError,
     capture_model_lineage,
+    verify_checksum,
     router as ml_runtime_router,
 )
 
@@ -241,8 +257,8 @@ async def lifespan(app: FastAPI):
     else:
         load_duration_ms = (time.perf_counter() - yolo_load_started) * 1000
         try:
-            app.state.ml_runtime.set_model_lineage(
-                capture_model_lineage(YOLO_MODEL_PATH, app.state.yolo, load_duration_ms)
+            lineage = capture_model_lineage(
+                YOLO_MODEL_PATH, app.state.yolo, load_duration_ms
             )
         except (ModelMetadataError, OSError):
             # The model is usable even if optional lineage capture fails; retain
@@ -251,6 +267,36 @@ async def lifespan(app: FastAPI):
             app.state.ml_runtime.set_model_metadata_failure(
                 YOLO_MODEL_PATH, load_duration_ms
             )
+        else:
+            app.state.ml_runtime.set_model_lineage(lineage)
+
+            # --- verify checksum against the approved value (never crash) ---
+            # This is a pure addition: it only annotates the recorded lineage and
+            # is independent of the taxonomy compatibility signal. A mismatch is
+            # logged and surfaced via /ml/model-info, but the model stays loaded
+            # and /vision, /ws/vision, and /ml/navigate are unaffected.
+            expected_sha256 = _resolve_expected_model_sha256()
+            checksum_verified = verify_checksum(lineage.sha256, expected_sha256)
+            if checksum_verified is False:
+                logger.error(
+                    "❌ Model checksum verification FAILED: the loaded best.pt "
+                    "SHA-256 does not match the expected approved value. The "
+                    "model remains loaded and usable, but its integrity is "
+                    "UNVERIFIED — investigate the artifact before relying on it."
+                )
+                app.state.ml_runtime.set_checksum_verification(
+                    False, failure_category="model_checksum_mismatch"
+                )
+            elif checksum_verified is True:
+                logger.info("✅ Model checksum verified against expected SHA-256")
+                app.state.ml_runtime.set_checksum_verification(True)
+            else:
+                logger.info(
+                    "ℹ️ Model checksum not verified: no expected SHA-256 "
+                    "configured (set %s)",
+                    _EXPECTED_MODEL_SHA256_ENV,
+                )
+                app.state.ml_runtime.set_checksum_verification(None)
         logger.info("✅ YOLO ready")
 
     # --- load EasyOCR ---
