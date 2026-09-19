@@ -217,12 +217,69 @@ def _whisper_transcribe(model, path: str) -> str:
     )
     return " ".join(seg.text.strip() for seg in segments).strip()
 
+
+def _load_whisper_model():
+    """Construct the optional STT model outside the application startup path."""
+    from faster_whisper import WhisperModel
+
+    return WhisperModel(
+        WHISPER_MODEL_NAME,
+        device="cpu",
+        compute_type="int8",
+    )
+
+
+async def _initialise_optional_whisper(app: FastAPI) -> None:
+    """Load optional STT without delaying navigation-runtime availability."""
+    try:
+        logger.info("Initialising optional Whisper STT (%s model)", WHISPER_MODEL_NAME)
+        whisper = await anyio.to_thread.run_sync(
+            _load_whisper_model, abandon_on_cancel=True
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # Loading may resolve a model remotely. Keep the failure local to the
+        # optional subsystem and avoid logging potentially private loader data.
+        logger.warning("Whisper STT initialization failed; STT remains unavailable.")
+        return
+    app.state.whisper = whisper
+    logger.info("Whisper STT ready")
+
+
+def _start_background_tasks(app: FastAPI) -> None:
+    """Start post-startup optional work and retain tasks for clean shutdown."""
+    app.state.cleanup_task = asyncio.create_task(_cleanup_sessions_loop())
+    app.state.whisper_startup_task = asyncio.create_task(
+        _initialise_optional_whisper(app)
+    )
+
+
+async def _stop_background_task(task: object, *, name: str) -> None:
+    """Cancel and await a task so optional startup work cannot leak on shutdown."""
+    if not isinstance(task, asyncio.Task):
+        return
+    if not task.done():
+        task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        logger.warning("Background %s task ended unexpectedly.", name)
+
 # =========================
 # 5. APP LIFESPAN (PHASE B)
 # =========================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Backend startup")
+
+    # STT is optional. Its background loader may need to resolve a local or
+    # remote Whisper artifact, but that must never delay core navigation.
+    app.state.whisper = None
+    app.state.whisper_startup_task = None
+    app.state.cleanup_task = None
 
     # Runtime state is reset for each application startup and is shared by
     # REST and WebSocket inference worker threads.
@@ -299,6 +356,14 @@ async def lifespan(app: FastAPI):
                 app.state.ml_runtime.set_checksum_verification(None)
         logger.info("✅ YOLO ready")
 
+    # Core navigation execution state must exist before optional subsystems are
+    # allowed to initialize in the background.
+    app.state.vision_limiter = anyio.CapacityLimiter(1)
+    app.state.depth_estimator = MetricDepthEstimator(DEPTH_MODEL_DIR, interval_s=0.5)
+    await anyio.to_thread.run_sync(app.state.depth_estimator.load)
+    app.state.ocr_limiter = anyio.CapacityLimiter(1)
+    app.state.llm_limiter = anyio.CapacityLimiter(1)
+
     # --- load EasyOCR ---
     try:
         # 检测GPU可用性
@@ -345,36 +410,19 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Failed to load LLM: {e}")
             app_state.llm_brain = None
 
-    # --- load Whisper STT ---
+    # Whisper starts only after all core navigation state has been initialized.
+    # Its constructor is run in a worker thread and cannot block listener bind.
+    _start_background_tasks(app)
     try:
-        from faster_whisper import WhisperModel
-        logger.info("Loading Whisper STT (%s model)", WHISPER_MODEL_NAME)
-        app.state.whisper = WhisperModel(
-            WHISPER_MODEL_NAME,
-            device="cpu",
-            compute_type="int8",
+        yield
+    finally:
+        logger.info("🛑 Backend shutdown")
+        await _stop_background_task(
+            getattr(app.state, "whisper_startup_task", None), name="Whisper startup"
         )
-        logger.info("✅ Whisper STT ready")
-    except Exception as e:
-        logger.error(f"❌ Whisper STT load failed: {e}")
-        app.state.whisper = None
-
-    # --- execution capacity ---
-    # vision: capacity=1 serialises YOLO — one inference at a time is faster
-    # than two competing threads on a single CPU, and anyio's CapacityLimiter
-    # queues waiters in FIFO order so multiple WS clients share it fairly.
-    app.state.vision_limiter = anyio.CapacityLimiter(1)
-    # Optional and display-only; absence/failure must never affect YOLO.
-    app.state.depth_estimator = MetricDepthEstimator(DEPTH_MODEL_DIR, interval_s=0.5)
-    await anyio.to_thread.run_sync(app.state.depth_estimator.load)
-    app.state.ocr_limiter = anyio.CapacityLimiter(1)
-    app.state.llm_limiter = anyio.CapacityLimiter(1)
-
-    asyncio.create_task(_cleanup_sessions_loop())
-
-    yield
-
-    logger.info("🛑 Backend shutdown")
+        await _stop_background_task(
+            getattr(app.state, "cleanup_task", None), name="session cleanup"
+        )
 
 
 # =========================
@@ -386,6 +434,9 @@ app = FastAPI(
 )
 app.state.yolo = None
 app.state.ocr_reader = None
+app.state.whisper = None
+app.state.whisper_startup_task = None
+app.state.cleanup_task = None
 app.state.ml_runtime = MLRuntimeState(
     expected_model_sha256=os.environ.get("WALKBUDDY_EXPECTED_MODEL_SHA256")
 )
