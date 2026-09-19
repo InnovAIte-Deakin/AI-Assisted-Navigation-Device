@@ -291,6 +291,41 @@ def _classify_near_duplicate_groups(
     return classified
 
 
+def _split_of(image_path: str) -> str:
+    """The split segment of a "{split}/images/{name}" relative path."""
+    return image_path.split("/", 1)[0]
+
+
+def _cross_split_high_confidence_candidates(
+    high_confidence_groups: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Groups with at least one identical/similar-label match that actually crosses splits.
+
+    Pair-aware, not group-level: a group's raw hash cluster can span both
+    splits (e.g. it also swept in a dissimilar_labels member from the other
+    split) without any *high-confidence* match actually crossing splits --
+    the anchor and every identical_labels/similar_labels member could all
+    be in the same split, with the cross-split member being exactly the one
+    the label check rejected. Checking ``len(group["splits"]) > 1`` (the
+    raw cluster's split membership) over-counts this case; this only counts
+    a group when at least one identical_labels/similar_labels member's own
+    split differs from the anchor's split, and records which member(s)
+    qualify so the finding is auditable.
+    """
+    candidates: list[dict[str, object]] = []
+    for group in high_confidence_groups:
+        anchor_split = _split_of(str(group["anchor"]))
+        qualifying_members = [
+            member
+            for member in group["member_classifications"]
+            if member["verdict"] in ("identical_labels", "similar_labels")
+            and _split_of(str(member["image"])) != anchor_split
+        ]
+        if qualifying_members:
+            candidates.append({"group": group, "qualifying_members": qualifying_members})
+    return candidates
+
+
 def _source_dataset_name(image_path: str) -> str:
     """Extract the source-dataset name baked into a WalkBuddy-merged filename.
 
@@ -382,7 +417,7 @@ def analyze(
             for member in group["member_classifications"]
             if member["verdict"] in ("identical_labels", "similar_labels")
         )
-    cross_split_high_confidence = [group for group in high_confidence_groups if len(group["splits"]) > 1]
+    cross_split_high_confidence = _cross_split_high_confidence_candidates(high_confidence_groups)
 
     report: dict[str, object] = {
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
@@ -454,14 +489,18 @@ def analyze(
             "groups_with_high_confidence_cross_split_candidate": len(cross_split_high_confidence),
             "high_confidence_cross_split_candidate_groups": [
                 {
-                    "anchor": group["anchor"],
-                    "high_confidence_members": [
-                        member["image"]
-                        for member in group["member_classifications"]
-                        if member["verdict"] in ("identical_labels", "similar_labels")
+                    "anchor": entry["group"]["anchor"],
+                    "anchor_split": _split_of(str(entry["group"]["anchor"])),
+                    "cross_split_members": [
+                        {
+                            "image": member["image"],
+                            "split": _split_of(str(member["image"])),
+                            "verdict": member["verdict"],
+                        }
+                        for member in entry["qualifying_members"]
                     ],
                 }
-                for group in cross_split_high_confidence
+                for entry in cross_split_high_confidence
             ],
         },
         "manually_verified_examples": {

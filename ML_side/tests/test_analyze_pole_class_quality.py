@@ -265,6 +265,48 @@ class TestClassifyNearDuplicateGroups:
         assert verdicts["val/images/different_scene"] == "dissimilar_labels"
 
 
+class TestCrossSplitHighConfidenceCandidates:
+    def test_dissimilar_cross_split_member_does_not_count_as_cross_split(self) -> None:
+        # Regression test for the exact scenario flagged in review: a
+        # group's raw hash cluster spans train+val, and it does contain a
+        # high-confidence (similar_labels) match -- but that match is
+        # entirely within train. The val member is the one the label check
+        # rejected as dissimilar_labels. This must NOT be counted as a
+        # cross-split high-confidence candidate.
+        group = {
+            "anchor": "train/images/anchor",
+            "member_classifications": [
+                {"image": "train/images/same_split_match", "verdict": "similar_labels"},
+                {"image": "val/images/different_scene", "verdict": "dissimilar_labels"},
+            ],
+        }
+
+        candidates = analyzer._cross_split_high_confidence_candidates([group])
+
+        assert candidates == []
+
+    def test_genuine_cross_split_match_is_recorded_with_qualifying_members(self) -> None:
+        group = {
+            "anchor": "train/images/anchor",
+            "member_classifications": [
+                {"image": "train/images/same_split_match", "verdict": "similar_labels"},
+                {"image": "val/images/real_leak", "verdict": "identical_labels"},
+                {"image": "val/images/unrelated", "verdict": "dissimilar_labels"},
+            ],
+        }
+
+        candidates = analyzer._cross_split_high_confidence_candidates([group])
+
+        assert len(candidates) == 1
+        qualifying_images = {member["image"] for member in candidates[0]["qualifying_members"]}
+        # Only the genuinely cross-split, high-confidence member qualifies
+        # -- not the same-split match, and not the dissimilar one.
+        assert qualifying_images == {"val/images/real_leak"}
+
+    def test_no_high_confidence_groups_at_all_returns_empty(self) -> None:
+        assert analyzer._cross_split_high_confidence_candidates([]) == []
+
+
 @pytest.mark.skipif(not PIL_AVAILABLE, reason="Pillow is required for image-based analyze() tests")
 class TestAnalyzeEndToEnd:
     def _build_dataset(self, tmp_path: Path, *, include_pole_images: bool = True) -> tuple[Path, Path]:
