@@ -1,0 +1,38 @@
+[
+  {
+    "image_id": "img_small_square_pole",
+    "boxes": [
+      {"class": "pole", "bbox": [0, 0, 10, 10]}
+    ]
+  },
+  {
+    "image_id": "img_medium_tall_thin_pole",
+    "boxes": [
+      {"class": "pole", "bbox": [10, 10, 30, 210]}
+    ]
+  },
+  {
+    "image_id": "img_large_wide_table",
+    "boxes": [
+      {"class": "table", "bbox": [0, 0, 200, 80]}
+    ]
+  },
+  {
+    "image_id": "img_cross_size_pole",
+    "boxes": [
+      {"class": "pole", "bbox": [0, 0, 30, 30]}
+    ]
+  },
+  {
+    "image_id": "img_large_tall_thin_pole",
+    "boxes": [
+      {"class": "pole", "bbox": [0, 0, 40, 400]}
+    ]
+  },
+  {
+    "image_id": "img_medium_wide_pole",
+    "boxes": [
+      {"class": "pole", "bbox": [0, 0, 200, 40]}
+    ]
+  }
+]
