@@ -7,8 +7,6 @@ import logging
 import asyncio
 import sqlite3
 import uuid
-import hashlib
-import secrets
 import re
 import time
 
@@ -112,7 +110,6 @@ import httpx
 # =========================
 SESSION_EXPIRY_HOURS = 1
 SESSION_TIMEOUT_MINUTES = 30
-DB_PATH = BACKEND_DIR / "helpers.db"
 WHISPER_MODEL_NAME = os.environ.get("WALKBUDDY_WHISPER_MODEL", "base.en")
 WHISPER_HOTWORDS = (
     "Hey Buddy, Hey WalkBuddy, camera, settings, home, back, search, places, "
@@ -123,54 +120,31 @@ WHISPER_HOTWORDS = (
 
 tracer = trace.get_tracer("main.websocket")
 
-# In-memory token store: token -> helper_id
-helper_tokens: dict[str, int] = {}
-
-# =========================
-# 4. DB HELPERS
-# =========================
-def init_database():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS helpers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            age INTEGER,
-            phone TEXT,
-            address TEXT,
-            emergency_contact_name TEXT,
-            emergency_contact_phone TEXT,
-            experience_level TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-def _hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260_000).hex()
-    return f"{salt}:{hashed}"
-
-
-def _verify_password(password: str, stored: str) -> bool:
-    try:
-        salt, hashed = stored.split(":", 1)
-        expected = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 260_000).hex()
-        return secrets.compare_digest(hashed, expected)
-    except Exception:
-        return False
+# The database path, in-memory token store, and password hashing are
+# shared with routers/auth.py via auth_shared.py, so both places that can
+# authenticate a helper use the exact same database, schema, and token
+# store instead of two auth systems that silently diverge.
+#
+# DB_PATH is accessed as auth_shared.DB_PATH (a live attribute lookup)
+# everywhere below, not imported as a bare name -- `from auth_shared import
+# DB_PATH` would freeze the value main.py saw at import time and silently
+# ignore any later reassignment of auth_shared.DB_PATH. helper_tokens is a
+# mutable dict, so importing it by name is safe: main.helper_tokens and
+# auth_shared.helper_tokens remain the exact same dict object either way.
+import auth_shared
+from auth_shared import (
+    helper_tokens,
+    init_database,
+    hash_password as _hash_password,
+    verify_password as _verify_password,
+)
 
 
 def _get_helper_by_token(token: str) -> dict:
     helper_id = helper_tokens.get(token)
     if not helper_id:
         raise HTTPException(401, "Invalid or expired token")
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(auth_shared.DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         "SELECT id, name, email, age, phone, experience_level FROM helpers WHERE id=?",
@@ -659,7 +633,7 @@ async def helpers_signup(data: dict):
         raise HTTPException(400, "Please enter a valid email address")
 
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(auth_shared.DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
             """INSERT INTO helpers
@@ -695,7 +669,7 @@ async def helpers_login(data: dict):
     if not _EMAIL_RE.match(email):
         raise HTTPException(400, "Please enter a valid email address")
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(auth_shared.DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
         "SELECT id, name, email, password_hash FROM helpers WHERE email=?",
@@ -731,7 +705,7 @@ async def helpers_delete_account(authorization: str = Header(None)):
     token = authorization[7:]
     helper = _get_helper_by_token(token)
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(auth_shared.DB_PATH)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM helpers WHERE id=?", (helper["id"],))
     conn.commit()
@@ -777,7 +751,7 @@ async def helpers_oauth(data: dict):
     if not email:
         raise HTTPException(400, "Could not retrieve email from OAuth provider")
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(auth_shared.DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, email FROM helpers WHERE email=?", (email,))
     row = cursor.fetchone()

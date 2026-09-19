@@ -228,6 +228,7 @@ class TTSService:
             
             # Fallback to cloud TTS if offline failed and enabled
             if not success and self.use_cloud_fallback and GTTS_AVAILABLE:
+                temp_file = None
                 try:
                     tts = gTTS(text=message, lang=self.language, slow=False)
                     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
@@ -239,11 +240,17 @@ class TTSService:
                     # ever playing it, so a user heard nothing on fallback.
                     audio = AudioSegment.from_mp3(temp_file.name)
                     play_audio(audio)
-                    os.unlink(temp_file.name)  # Clean up, now safe: already played
                     success = True
                 except Exception as e:
                     print(f"[TTS Service] Cloud TTS fallback failed: {e}")
                     success = False
+                finally:
+                    # Clean up even if AudioSegment.from_mp3()/play_audio()
+                    # raised above -- previously cleanup only ran on the
+                    # success path, so a decode/playback failure left the
+                    # temporary MP3 behind.
+                    if temp_file is not None and os.path.exists(temp_file.name):
+                        os.unlink(temp_file.name)
             
             if success:
                 # Update state
