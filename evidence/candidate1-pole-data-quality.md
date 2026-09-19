@@ -100,9 +100,19 @@ pole-containing images) that are part of at least one high-confidence
 duplicate/near-duplicate candidate finding**. This is still a real,
 addressable issue — most importantly:
 
-**82 of the high-confidence-candidate groups contain a match that spans
-both `train` and `val`.** One example that was manually, visually verified
-(not just matched by label coordinates): `train/images/kaggle_indoor_object_detection_wb_000342.jpg`
+**71 of the high-confidence-candidate groups contain a match that actually
+crosses the `train`/`val` split boundary.** This is a pair-aware count, not
+a group-level one: a group's raw hash cluster can span both splits without
+any high-confidence match actually crossing them (e.g. the anchor and its
+matching member are both in `train`, and the only `val` member in that
+cluster is one the label check separately rejected as a hash false
+positive) — an earlier version of this analysis counted such groups too,
+overstating the figure at 82. Every entry now records exactly which
+member(s) crossed the split boundary, so this is auditable per group, not
+just asserted.
+
+One example that was manually, visually verified (not just matched by
+label coordinates): `train/images/kaggle_indoor_object_detection_wb_000342.jpg`
 and `val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg` are the
 same underlying photograph (a church doorway), re-published under two
 different upstream dataset names, with near-identical label coordinates
@@ -110,12 +120,13 @@ different upstream dataset names, with near-identical label coordinates
 train/validation leakage: any model that has effectively seen a validation
 image during training will look better on that image than its true
 generalization performance, which specifically inflates confidence in
-exactly the class this investigation was asked to scrutinize. The other 81
+exactly the class this investigation was asked to scrutinize. The other 70
 cross-split groups are reported as high-confidence candidates on the same
 label-coordinate basis, not individually visually verified.
 
-Full group-by-group evidence (all 82 high-confidence cross-split candidate
-groups, not a sample) is in `candidate1-pole-data-quality.json` →
+Full group-by-group evidence (all 71 high-confidence cross-split candidate
+groups, not a sample, each with its specific qualifying cross-split
+member(s) recorded) is in `candidate1-pole-data-quality.json` →
 `pole_near_duplicate_label_verification.high_confidence_cross_split_candidate_groups`.
 
 ### 4. Class-definition contamination from generic source datasets
@@ -177,7 +188,7 @@ automated heuristic before trusting it at scale:
 
 In priority order, for before any Candidate 2 pole-focused retraining:
 
-1. **Fix the 82 high-confidence cross-split candidate groups first, via
+1. **Fix the 71 high-confidence cross-split candidate groups first, via
    group-aware re-splitting, not by simply dropping one copy.** Arbitrarily
    keeping the `train` copy and dropping the `val` copy is the wrong fix:
    it doesn't generalize past 2-image groups, and it silently shrinks and
@@ -218,7 +229,7 @@ In priority order, for before any Candidate 2 pole-focused retraining:
    geometry — the boxes are shaped like this because poles genuinely are.
 6. **When future source datasets are merged in, check for pre-existing
    photo overlap between the newly-added source and every already-included
-   source before assigning a random train/val split.** The 82-group
+   source before assigning a random train/val split.** The 71-group
    leakage found here happened because the same public photo was
    independently re-uploaded to two different aggregators (a supply-chain
    duplication, not an annotation mistake), so per-dataset dedup at merge

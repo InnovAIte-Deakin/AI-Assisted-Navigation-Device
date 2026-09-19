@@ -1717,7 +1717,7 @@
     "network_access": false,
     "read_only_dataset_inspection": true,
     "scope": "train and validation splits only; held-out test data was never accessed by this tool.",
-    "time_utc": "2026-09-19T14:04:17Z"
+    "time_utc": "2026-09-19T17:48:22Z"
   },
   "generic_source_review_candidates": {
     "count": 70,
@@ -8280,539 +8280,837 @@
     "method": "Every pole-containing label's matching image is looked up directly under dataset_root/{split}/images/ -- this lists any pole-labeled stem whose image file could not be found there (e.g. only a partial local extraction was available), so duplicate-detection coverage gaps are reported rather than silently absorbed into a smaller-than-expected scanned count."
   },
   "pole_near_duplicate_label_verification": {
-    "groups_with_high_confidence_cross_split_candidate": 82,
+    "groups_with_high_confidence_cross_split_candidate": 71,
     "high_confidence_cross_split_candidate_groups": [
       {
         "anchor": "train/images/kaggle_indoor_object_detection_wb_000342.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_indoor_object_detection_wb_001075.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_indoor_detection_vineeth_wb_018545.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_indoor_detection_vineeth_wb_018545.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001250.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_light_poles_wb_001678.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_light_poles_wb_001256.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_light_poles_wb_001677.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_light_poles_wb_001678.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001426.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_light_poles_wb_001743.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_light_poles_wb_001518.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_light_poles_wb_001699.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_light_poles_wb_001743.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001607.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_light_poles_wb_001316.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_light_poles_wb_001316.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_001608.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_light_poles_wb_001347.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_light_poles_wb_001661.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_light_poles_wb_001847.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_light_poles_wb_001670.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_light_poles_wb_001910.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_light_poles_wb_001347.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_light_poles_wb_002049.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_light_poles_wb_002048.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_light_poles_wb_002048.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_002414.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006922.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006925.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006926.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006923.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006924.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006923.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006924.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006912.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006913.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006913.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006915.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006914.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006914.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006920.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006921.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006921.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006928.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006929.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006930.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006930.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006932.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006933.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006933.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006935.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006934.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006934.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006944.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006945.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006947.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006948.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006949.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006946.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006946.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006975.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006974.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006974.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006978.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006979.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006976.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006977.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006976.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006977.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_006989.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006990.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_006991.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_012470.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_006988.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_007012.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_007013.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_006988.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_007022.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_007023.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_007023.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009004.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_009006.jpg",
-          "train/images/kaggle_obstacle_detection_kaggle_wb_009007.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009005.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009005.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009078.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009076.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009076.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009084.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009085.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009085.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009097.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009098.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009098.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009101.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009102.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009102.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009111.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009112.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009112.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009122.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009121.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009142.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_009143.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009121.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009169.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009170.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009170.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_009904.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009905.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_009906.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009905.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_009906.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010012.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_010013.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010014.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010024.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_010025.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010014.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010041.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010039.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010039.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010071.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010069.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010070.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010069.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010070.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010110.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010109.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010109.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010117.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010118.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010119.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010118.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010119.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010150.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010152.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010152.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010153.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_010154.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010155.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010155.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010159.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010160.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010161.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010160.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010161.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010162.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_010164.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010163.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010163.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010177.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010178.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010178.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010181.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010182.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010182.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010188.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010186.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010187.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010186.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010187.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010191.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_010192.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010189.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010190.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010189.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010190.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010204.jpg",
-        "high_confidence_members": [
-          "train/images/kaggle_obstacle_detection_kaggle_wb_010205.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010203.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010203.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010783.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010782.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010782.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010788.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010789.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010789.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010795.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_002629.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010794.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_002629.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010794.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_010798.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010799.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010799.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/kaggle_obstacle_detection_kaggle_wb_013043.jpg",
-        "high_confidence_members": [
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010197.jpg",
-          "val/images/kaggle_obstacle_detection_kaggle_wb_010199.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010197.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          },
+          {
+            "image": "val/images/kaggle_obstacle_detection_kaggle_wb_010199.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_obstacle_detection_roboflow_wb_023948.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_obstacle_detection_roboflow_wb_021536.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/roboflow_outdoor_objects_wb_026910.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_outdoor_objects_wb_026911.jpg",
-          "train/images/roboflow_outdoor_objects_wb_026912.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/roboflow_outdoor_objects_wb_027237.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_outdoor_objects_wb_027238.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027239.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027240.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027241.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/roboflow_outdoor_objects_wb_027426.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_outdoor_objects_wb_027427.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027428.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027429.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027430.jpg",
-          "train/images/roboflow_outdoor_objects_wb_027431.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_obstacle_detection_roboflow_wb_021536.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033018.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033017.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033017.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033028.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033027.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033027.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033037.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033038.jpg",
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033035.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033035.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033041.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033042.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033042.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033058.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033057.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033057.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033093.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033094.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033094.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033133.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033134.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033134.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033308.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033307.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033307.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033718.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033717.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033717.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033725.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033726.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033726.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033755.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033756.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033756.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033759.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033760.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033760.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033763.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033764.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033764.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033875.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033876.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033876.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_033880.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033879.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_033879.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034155.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034158.jpg",
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034157.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034157.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034175.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034176.jpg",
-          "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034180.jpg",
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034177.jpg"
-        ]
-      },
-      {
-        "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034178.jpg",
-        "high_confidence_members": [
-          "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034179.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034177.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034192.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034191.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034191.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034194.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034197.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034197.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034217.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034219.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034219.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034231.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034232.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034232.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_034609.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034610.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034610.jpg",
+            "split": "val",
+            "verdict": "identical_labels"
+          }
         ]
       },
       {
         "anchor": "train/images/roboflow_revised_pedestrian_obstacle_detection_wb_035325.jpg",
-        "high_confidence_members": [
-          "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034167.jpg"
+        "anchor_split": "train",
+        "cross_split_members": [
+          {
+            "image": "val/images/roboflow_revised_pedestrian_obstacle_detection_wb_034167.jpg",
+            "split": "val",
+            "verdict": "similar_labels"
+          }
         ]
       }
     ],
