@@ -198,6 +198,45 @@ class TestLabelSignatureAndBoxMatching:
         assert not analyzer._boxes_match_within_tolerance(sig_a, sig_b)
 
 
+class TestFindPoleLabelStems:
+    def test_finds_stems_with_a_pole_annotation(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        write_label(root, "train", "has_pole", ["5 0.5 0.5 0.1 0.9"])
+        write_label(root, "train", "no_pole", ["0 0.5 0.5 0.1 0.1"])
+        write_label(root, "val", "also_pole", ["5 0.2 0.2 0.1 0.1", "0 0.5 0.5 0.1 0.1"])
+
+        stems = analyzer._find_pole_label_stems(root, {0: "person", 5: "pole"})
+
+        assert stems == {"train": ["has_pole"], "val": ["also_pole"]}
+
+
+class TestBuildPoleImageRecords:
+    def test_finds_images_directly_under_dataset_root(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        write_image(root, "train", "pole_a")
+        write_image(root, "val", "pole_b")
+
+        records, missing = analyzer._build_pole_image_records(
+            root, {"train": ["pole_a"], "val": ["pole_b"]}
+        )
+
+        assert missing == []
+        image_paths = sorted(str(r["image_path"]) for r in records)
+        assert image_paths == ["train/images/pole_a.png", "val/images/pole_b.png"]
+
+    def test_reports_missing_images_instead_of_silently_skipping(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        write_image(root, "train", "present")
+        # "absent" has a pole label but no matching image file anywhere.
+
+        records, missing = analyzer._build_pole_image_records(
+            root, {"train": ["present", "absent"], "val": []}
+        )
+
+        assert len(records) == 1
+        assert missing == ["train/images/absent"]
+
+
 class TestClassifyNearDuplicateGroups:
     def test_classifies_identical_similar_and_dissimilar(self, tmp_path: Path) -> None:
         root = tmp_path / "dataset"
@@ -228,7 +267,7 @@ class TestClassifyNearDuplicateGroups:
 
 @pytest.mark.skipif(not PIL_AVAILABLE, reason="Pillow is required for image-based analyze() tests")
 class TestAnalyzeEndToEnd:
-    def _build_dataset(self, tmp_path: Path) -> tuple[Path, Path, Path]:
+    def _build_dataset(self, tmp_path: Path, *, include_pole_images: bool = True) -> tuple[Path, Path]:
         root = tmp_path / "dataset"
         yaml_path = write_yaml(root, ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"])
         write_label(root, "train", "pole_a", ["5 0.500000 0.500000 0.050000 0.900000"])
@@ -237,17 +276,21 @@ class TestAnalyzeEndToEnd:
         write_label(root, "train", "person_only", ["0 0.500000 0.500000 0.400000 0.400000"])
         write_label(root, "val", "empty", [])
 
-        pole_images_root = tmp_path / "pole_images"
-        write_image(pole_images_root, "train", "pole_a", image_bytes=_gradient_image())
-        write_image(pole_images_root, "train", "pole_b", image_bytes=_gradient_image(shift=2))
-        write_image(pole_images_root, "val", "pole_c", image_bytes=_checkerboard_image())
-        return root, yaml_path, pole_images_root
+        if include_pole_images:
+            # Images live directly under dataset_root's own train/images and
+            # val/images -- there is no separate pre-filtered directory.
+            write_image(root, "train", "pole_a", image_bytes=_gradient_image())
+            write_image(root, "train", "pole_b", image_bytes=_gradient_image(shift=2))
+            write_image(root, "val", "pole_c", image_bytes=_checkerboard_image())
+            # person_only has no pole label, so its image is deliberately
+            # never written -- it must not be required or looked up.
+        return root, yaml_path
 
     def test_report_structure_and_pole_geometry(self, tmp_path: Path) -> None:
-        root, yaml_path, pole_images_root = self._build_dataset(tmp_path)
+        root, yaml_path = self._build_dataset(tmp_path)
 
         report = analyzer.analyze(
-            root, yaml_path, pole_images_root, near_duplicate_hash_distance=10, execution_time_utc="2026-09-19T00:00:00Z"
+            root, yaml_path, near_duplicate_hash_distance=10, execution_time_utc="2026-09-19T00:00:00Z"
         )
 
         assert report["class_distribution"]["overall"]["pole"] == 3
@@ -256,28 +299,59 @@ class TestAnalyzeEndToEnd:
         # width 0.05-0.052, height ~0.9 -> aspect ratio ~17, well above the 3.0 default
         assert report["pole_geometry"]["extreme_aspect_ratio_count"] == 3
         assert report["settings"]["pole_images_scanned_for_duplicates"] == 3
+        assert report["pole_images_not_found_locally"]["count"] == 0
+
+    def test_reports_pole_images_not_found_locally(self, tmp_path: Path) -> None:
+        root, yaml_path = self._build_dataset(tmp_path, include_pole_images=False)
+
+        report = analyzer.analyze(root, yaml_path, near_duplicate_hash_distance=10)
+
+        assert report["settings"]["pole_images_scanned_for_duplicates"] == 0
+        not_found = report["pole_images_not_found_locally"]
+        assert not_found["count"] == 3
+        assert set(not_found["images"]) == {
+            "train/images/pole_a",
+            "train/images/pole_b",
+            "val/images/pole_c",
+        }
+
+    def test_high_confidence_unique_image_count_counts_images_not_comparisons(self, tmp_path: Path) -> None:
+        root, yaml_path = self._build_dataset(tmp_path)
+
+        report = analyzer.analyze(root, yaml_path, near_duplicate_hash_distance=10)
+
+        # pole_a (anchor) and pole_b (near-identical label coords) form one
+        # high-confidence group -> 2 unique images, not a raw member count.
+        unique = report["pole_near_duplicate_label_verification"]["high_confidence_unique_image_count"]
+        assert unique["count"] == 2
+        assert set(unique["images"]) >= {"train/images/pole_a.png", "train/images/pole_b.png"}
 
     def test_raises_when_pole_not_in_taxonomy(self, tmp_path: Path) -> None:
         root = tmp_path / "dataset"
         yaml_path = write_yaml(root, ["person", "chair"])
         write_label(root, "train", "a", ["0 0.5 0.5 0.1 0.1"])
         write_label(root, "val", "b", [])
-        pole_images_root = tmp_path / "pole_images"
 
         with pytest.raises(inspector.CandidateInspectionError, match="pole"):
-            analyzer.analyze(root, yaml_path, pole_images_root)
+            analyzer.analyze(root, yaml_path)
 
     def test_markdown_report_renders_without_error(self, tmp_path: Path) -> None:
-        root, yaml_path, pole_images_root = self._build_dataset(tmp_path)
-        report = analyzer.analyze(root, yaml_path, pole_images_root, near_duplicate_hash_distance=10)
+        root, yaml_path = self._build_dataset(tmp_path)
+        report = analyzer.analyze(root, yaml_path, near_duplicate_hash_distance=10)
 
         markdown = analyzer.render_markdown_report(report)
 
         assert "# Pole training-data quality investigation" in markdown
         assert "Total pole annotations: 3" in markdown
+        assert "Manually verified examples" in markdown
+        # The automated heuristic groups must be called candidates, not
+        # asserted as confirmed duplicates -- "confirmed" is still fine
+        # when describing the specific manually-inspected examples below.
+        assert "confirmed cross-split" not in markdown.lower()
+        assert "high-confidence" in markdown.lower()
 
     def test_cli_writes_json_and_markdown(self, tmp_path: Path) -> None:
-        root, yaml_path, pole_images_root = self._build_dataset(tmp_path)
+        root, yaml_path = self._build_dataset(tmp_path)
         output_dir = tmp_path / "output"
 
         exit_code = analyzer.main(
@@ -286,8 +360,6 @@ class TestAnalyzeEndToEnd:
                 str(root),
                 "--dataset-yaml",
                 str(yaml_path),
-                "--pole-images-dir",
-                str(pole_images_root),
                 "--output-dir",
                 str(output_dir),
             ]

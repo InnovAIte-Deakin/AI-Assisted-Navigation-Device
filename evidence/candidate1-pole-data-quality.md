@@ -21,10 +21,15 @@ is used to judge, or is retrained for, a Candidate 2 release.
   approved WalkBuddy taxonomy in `ML_side/datasets/README.md` and
   `validate_dataset_manifest.APPROVED_TAXONOMY`, so no class-mapping
   ambiguity exists for this investigation
-- No `metadata.json` was shipped with this package (it is a pre-review
-  candidate release, not an approved manifest release), so this
-  investigation is annotation/geometry analysis only — it does not attempt
-  candidate-manifest generation
+- No `metadata.json` was shipped with this particular package. This is a
+  reduced, portable train/val sharing export prepared for this
+  investigation — its absence says nothing about the lifecycle or review
+  status of the underlying controlled Candidate 1 release itself; that
+  lineage lives in the project's authoritative registry/manifests
+  (`ML_side/model_registry/`, `ML_side/deployment/manifests/`), not in this
+  export. Accordingly, this investigation is annotation/geometry analysis
+  only — it does not attempt candidate-manifest generation, and does not
+  make any claim about Candidate 1's overall review status
 
 ## Findings
 
@@ -61,7 +66,7 @@ evidence of bad annotation. It is evidence that training should treat
 `pole` as a shape outlier: aspect-ratio-aware augmentation and anchor-box
 choices matter more for this class than for the others.
 
-### 3. Duplicate and near-duplicate images (verified, not raw hash counts)
+### 3. Duplicate and near-duplicate images (high-confidence candidates, not confirmed at scale)
 
 A raw perceptual-hash (aHash, Hamming distance ≤ 5) scan of all 4,087
 pole-containing images found 449 groups covering 2,457 images (60%) —
@@ -70,23 +75,34 @@ confirmed the hash is producing false positives on this class specifically,
 because most pole photos share the same generic composition (a dark
 vertical shape against open sky): two images of two completely different
 utility poles, in different locations, were flagged as "near-duplicate"
-purely because of that shared composition.
+purely because of that shared composition (see "Manually verified
+examples" below).
 
 Every group was therefore re-checked against its actual YOLO label
-coordinates (a much stronger duplicate signal than pixel hashing):
+coordinates — a much stronger automated signal than pixel hashing alone,
+but still an automated heuristic, not independent human verification of
+every group. Only the specific examples listed under "Manually verified
+examples" below were actually opened and visually inspected; everything
+else is reported as a high-confidence candidate, not a confirmed duplicate:
 
-| Verdict | Count | Meaning |
+| Verdict | Count (member-vs-anchor comparisons) | Meaning |
 |---|---:|---|
-| `identical_labels` | 293 | Near-certain same photo (re-encoded or re-hosted) |
-| `similar_labels` | 265 | Boxes close but not identical — plausible consecutive-capture frames |
-| `dissimilar_labels` | 1,450 | Different scenes — hash false positive |
+| `identical_labels` | 293 | Label coordinates match exactly (rounded to 4 decimal places) — a high-confidence candidate for the same photo, re-encoded or re-hosted |
+| `similar_labels` | 265 | Boxes close but not identical (within 0.03 normalized-coordinate tolerance) — a high-confidence candidate for consecutive-capture frames |
+| `dissimilar_labels` | 1,450 | Different scenes — best explained as a hash false positive |
 
-**293 + 265 = 558 confirmed duplicate/near-duplicate pole images (~14% of
-the pole set)**, not 2,457. This is still a real, addressable issue — most
-importantly:
+The 293/265/1,450 figures above count **non-anchor group members compared
+against their group's anchor** (label-coordinate comparisons), not unique
+images. Counting unique images instead — every image that is either a
+group's anchor or a member classified `identical_labels`/`similar_labels`
+against that anchor — gives **852 unique images (~20.8% of the 4,087
+pole-containing images) that are part of at least one high-confidence
+duplicate/near-duplicate candidate finding**. This is still a real,
+addressable issue — most importantly:
 
-**82 of the confirmed groups contain a match that spans both `train` and
-`val`.** One verified example: `train/images/kaggle_indoor_object_detection_wb_000342.jpg`
+**82 of the high-confidence-candidate groups contain a match that spans
+both `train` and `val`.** One example that was manually, visually verified
+(not just matched by label coordinates): `train/images/kaggle_indoor_object_detection_wb_000342.jpg`
 and `val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg` are the
 same underlying photograph (a church doorway), re-published under two
 different upstream dataset names, with near-identical label coordinates
@@ -94,11 +110,13 @@ different upstream dataset names, with near-identical label coordinates
 train/validation leakage: any model that has effectively seen a validation
 image during training will look better on that image than its true
 generalization performance, which specifically inflates confidence in
-exactly the class this investigation was asked to scrutinize.
+exactly the class this investigation was asked to scrutinize. The other 81
+cross-split groups are reported as high-confidence candidates on the same
+label-coordinate basis, not individually visually verified.
 
-Full group-by-group evidence (all 82 confirmed cross-split groups, not a
-sample) is in `candidate1-pole-data-quality.json` →
-`pole_near_duplicate_label_verification.confirmed_cross_split_groups`.
+Full group-by-group evidence (all 82 high-confidence cross-split candidate
+groups, not a sample) is in `candidate1-pole-data-quality.json` →
+`pole_near_duplicate_label_verification.high_confidence_cross_split_candidate_groups`.
 
 ### 4. Class-definition contamination from generic source datasets
 
@@ -127,17 +145,52 @@ decorative building architecture. The full 70-file list is in
 for manual review; this record does not claim every listed image is wrong,
 only that all 70 warrant a human look.
 
+### Manually verified examples
+
+The findings above are an automated heuristic (perceptual hash pre-filter
+plus label-coordinate agreement), not a claim that every reported group was
+independently checked. These specific images were actually opened and
+visually inspected during this investigation, to sanity-check the
+automated heuristic before trusting it at scale:
+
+- `train/images/kaggle_light_poles_wb_001285.jpg`, `train/images/kaggle_light_poles_wb_001336.jpg`:
+  two different real poles in two different locations (one with a ladder
+  against an overcast sky, one with palm trees and sun flare), despite
+  being flagged as a raw perceptual-hash near-duplicate pair. This is the
+  false-positive case that motivated the label-coordinate verification
+  layer.
+- `train/images/kaggle_indoor_object_detection_wb_000342.jpg`, `val/images/roboflow_indoor_detection_vineeth_wb_019834.jpg`:
+  the same church-doorway photograph, re-published under two different
+  source-dataset names, split across train and validation (see above).
+- `train/images/kaggle_indoor_object_detection_wb_000277.jpg`: three
+  class-5 boxes on the three ornate stone columns of an embassy entrance,
+  not physical hazard poles.
+- `train/images/roboflow_indoor_detection_vineeth_wb_018164.jpg`: a
+  class-5 box on a floor lamp's stand in a bedroom photo — a plausible
+  legitimate pole-like object, not clearly mislabeled.
+- `train/images/roboflow_indoor_detection_vineeth_wb_017389.jpg`: an
+  unusually wide, short class-5 box in a rotated window photo — ambiguous;
+  could plausibly be a horizontal railing/beam, not conclusively determined
+  from the image alone.
+
 ## Dataset revision / annotation improvement plan
 
 In priority order, for before any Candidate 2 pole-focused retraining:
 
-1. **Fix the 82 confirmed cross-split duplicate/near-duplicate groups
-   first.** For each, keep the image in exactly one split and remove it
-   from the other (prefer keeping the copy in `train` and dropping the
-   `val` copy, so the smaller validation set doesn't lose too much
-   coverage; where a group's members disagree, prefer keeping whichever
-   copy has the cleaner/original source name). This is a correctness fix,
-   not a nice-to-have: leaving it in place means `pole` validation metrics
+1. **Fix the 82 high-confidence cross-split candidate groups first, via
+   group-aware re-splitting, not by simply dropping one copy.** Arbitrarily
+   keeping the `train` copy and dropping the `val` copy is the wrong fix:
+   it doesn't generalize past 2-image groups, and it silently shrinks and
+   biases the validation set every time it's applied instead of addressing
+   why the leakage happened. The correct fix is to treat each
+   duplicate/near-duplicate cluster as a single indivisible group, assign
+   every group to exactly one split *before* split assignment happens (the
+   `--group-map` mechanism already present in `inspect_candidate_dataset.py`
+   is built for exactly this), and re-materialize the controlled train/val
+   release from that group-aware split — preserving the intended split
+   proportions and full provenance/lineage, rather than sacrificing
+   validation coverage one copy at a time. This is a correctness fix, not
+   a nice-to-have: leaving it in place means `pole` validation metrics
    cannot be trusted at face value.
 2. **Manually review the 70 generic-source ("indoor") pole annotations**
    and either (a) remove the box entirely if it is an architectural
@@ -177,18 +230,20 @@ In priority order, for before any Candidate 2 pole-focused retraining:
 python3 ML_side/tools/analyze_pole_class_quality.py \
   --dataset-root <local_extraction_root>/candidate1_controlled_train_val \
   --dataset-yaml <local_extraction_root>/candidate1_controlled_train_val/data.yaml \
-  --pole-images-dir <local_extraction_root>/candidate1_controlled_train_val \
   --output-dir <output_dir>
 ```
 
-`--pole-images-dir` must point to a root containing `train/images/` and/or
-`val/images/` subdirectories holding **only** pole-containing images (a
-pre-filtered subset, not the full image set) — this keeps the tool's
-near-duplicate detection at the class-scoped scale it is designed for, and
-avoids needing to extract every image in a multi-gigabyte dataset locally
-just to audit one class. The full label directories (`train/labels/`,
-`val/labels/`) are still read in full for the class-distribution and
-geometry-bucket analysis, since that needs no image files at all.
+`--dataset-root` needs `train/labels/` and `val/labels/` present in full
+(read for the class-distribution and geometry-bucket analysis, which needs
+no image files at all). For duplicate detection, the tool derives the list
+of pole-containing images from those labels itself, then looks up and
+hashes *only* those specific images directly under `train/images/` and
+`val/images/` — a full dataset export works unchanged, and so does a local
+extraction that only contains the pole-relevant images (e.g. under a
+disk-space constraint); anything not found is reported under
+`pole_images_not_found_locally` in the JSON output rather than silently
+under-counted. There is no separate pre-filtered "pole-only" directory
+argument, and none is required.
 
 The real dataset itself is never committed to this repository (see
 `ML_side/datasets/README.md`); only this generated report is.
