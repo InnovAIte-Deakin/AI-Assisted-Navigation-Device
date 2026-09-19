@@ -7,7 +7,7 @@ from pathlib import Path
 DEPLOYMENT_TOOLS = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(DEPLOYMENT_TOOLS))
 
-from environment_doctor import inspect_environment
+from environment_doctor import inspect_core_backend_environment, inspect_environment
 
 
 class Tensor:
@@ -51,6 +51,21 @@ def test_missing_required_and_optional_packages_are_distinguished():
     states = {item["name"]: item["status"] for item in report["checks"]}
     assert states["package_torch"] == "fail"
     assert states["package_easyocr"] == "warning"
+
+
+def test_core_backend_probe_requires_only_core_navigation_packages():
+    def missing(name):
+        if name in {"torch", "easyocr", "faster-whisper"}:
+            raise PackageNotFoundError
+        return "1"
+
+    report = inspect_core_backend_environment(package_version=missing)
+
+    assert report["overall_result"] == "FAIL"
+    states = {item["name"]: item["status"] for item in report["checks"]}
+    assert states["package_torch"] == "fail"
+    assert "package_easyocr" not in states
+    assert "package_faster-whisper" not in states
 
 
 def test_cpu_and_unusable_cuda_are_honest():
