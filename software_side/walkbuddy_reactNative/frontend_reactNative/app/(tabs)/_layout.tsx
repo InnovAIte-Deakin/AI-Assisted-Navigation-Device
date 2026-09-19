@@ -7,7 +7,7 @@ export default function TabLayout() {
     <Tabs tabBar={(props) => <Footer {...props} />}>
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="audiobooks" options={{ title: "Audiobooks" }} />
-      <Tabs.Screen name="ask-a-friend-web" options={{ title: "Ask" }} />
+      <Tabs.Screen name="ask-a-friend" options={{ title: "Ask" }} />
       <Tabs.Screen name="indoor" options={{ title: "Indoor" }} />
       <Tabs.Screen name="exterior" options={{ title: "Exterior" }} />
       <Tabs.Screen name="camera" options={{ title: "Camera" }} />
