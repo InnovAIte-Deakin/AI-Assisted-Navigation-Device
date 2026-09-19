@@ -27,7 +27,7 @@ a test split or held-out set:
 
 ```powershell
 python -m ML_side.tools.runtime_soak `
-  --candidate navigation-mvp-full-candidate-56c445bb8c85 `
+  --candidate WB-OD-NAV-001 `
   --base-url http://<backend-host>:8000 `
   --fixture-dir .\fixtures\validation `
   --frames 500 --interval-ms 250 --reconnect-every 50 --malformed-every 100 `

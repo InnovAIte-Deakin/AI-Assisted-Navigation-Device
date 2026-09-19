@@ -20,7 +20,10 @@ def render_markdown(report: Mapping[str, object]) -> str:
     candidate = report.get("candidate", {})
     frame_summary = report.get("frame_summary", {})
     latency = report.get("client_end_to_end_latency", {})
+    backend_metrics = report.get("backend_metrics", {})
+    runtime_environment = report.get("runtime_environment", {})
     assert isinstance(candidate, Mapping) and isinstance(frame_summary, Mapping) and isinstance(latency, Mapping)
+    assert isinstance(backend_metrics, Mapping) and isinstance(runtime_environment, Mapping)
     lines = [
         "# WalkBuddy Candidate Runtime Soak Validation",
         "",
@@ -34,11 +37,21 @@ def render_markdown(report: Mapping[str, object]) -> str:
         "## Frame and connection summary",
         "",
         f"- Configured frames: {frame_summary.get('configured_frames')}",
-        f"- Successful results: {frame_summary.get('successful_results')}",
-        f"- Public error results: {frame_summary.get('public_error_results')}",
+        f"- Attempted valid frames: {frame_summary.get('attempted_valid_frames')}",
+        f"- Successful valid responses: {frame_summary.get('successful_valid_responses')}",
+        f"- Inference failures (public errors): {frame_summary.get('inference_failures')}",
         f"- Deliberate reconnects: {frame_summary.get('successful_reconnects')} / {frame_summary.get('deliberate_reconnect_attempts')}",
         f"- Unexpected disconnects: {frame_summary.get('unexpected_disconnects')}",
         f"- Malformed input injections: {frame_summary.get('malformed_input_injections')}",
+        f"- Malformed stable public errors: {frame_summary.get('malformed_public_errors')}",
+        f"- Malformed-input recovery: {frame_summary.get('malformed_recovery_status')}",
+        "",
+        "## Runtime environment",
+        "",
+        f"- PyTorch: `{runtime_environment.get('torch_version')}`",
+        f"- CUDA usable: `{runtime_environment.get('cuda_usable')}`",
+        f"- Device: `{runtime_environment.get('selected_device')}`",
+        f"- GPU: `{runtime_environment.get('gpu_name')}`",
         "",
         "## Client end-to-end WebSocket latency",
         "",
@@ -47,6 +60,11 @@ def render_markdown(report: Mapping[str, object]) -> str:
         f"| {latency.get('count')} | {latency.get('mean_ms')} | {latency.get('p50_ms')} | {latency.get('p95_ms')} | {latency.get('p99_ms')} | {latency.get('min_ms')} | {latency.get('max_ms')} | {latency.get('throughput_fps')} |",
         "",
         "Client end-to-end WebSocket latency is distinct from aggregate backend inference latency; this report does not compare them as equivalent.",
+        "",
+        "## Backend metric reconciliation",
+        "",
+        f"- Reconciliation: **{backend_metrics.get('status')}**",
+        f"- Final active inferences: {backend_metrics.get('after', {}).get('active_inferences') if isinstance(backend_metrics.get('after'), Mapping) else None}",
         "",
         "## Governance boundary",
         "",

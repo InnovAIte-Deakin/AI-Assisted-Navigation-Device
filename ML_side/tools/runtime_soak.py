@@ -24,6 +24,7 @@ from runtime_soak_lib.core import (  # noqa: E402
 )
 from runtime_soak_lib.outputs import write_reports  # noqa: E402
 from runtime_soak_lib.transport import WebsocketsVisionTransport  # noqa: E402
+import runtime_preflight as preflight  # noqa: E402
 
 
 async def run_real_soak(
@@ -35,6 +36,7 @@ async def run_real_soak(
 ) -> dict[str, object]:
     """Validate one live Candidate runtime through the current HTTP/WS APIs."""
     candidate = resolve_candidate(config.candidate_id)
+    runtime_environment, _ = preflight._torch_runtime()  # noqa: SLF001 - shared preflight device facts
     endpoints, checks = query_runtime_endpoints(
         candidate,
         base_url,
@@ -70,6 +72,8 @@ async def run_real_soak(
         real_candidate_runtime_validated=True,
         base_url=base_url,
         endpoint_checks=checks,
+        fixture_provenance="controlled Candidate 1 validation split, local non-heldout fixture subset",
+        runtime_environment=runtime_environment,
     )
 
 

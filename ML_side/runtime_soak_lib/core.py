@@ -423,6 +423,42 @@ def _sanitized_backend_url(base_url: str | None) -> str:
     return f"{parsed.scheme}://<BACKEND_HOST>{suffix}"
 
 
+def _sanitized_fixture_provenance(value: object, *, real_runtime: bool) -> str:
+    """Keep durable fixture provenance descriptive without accepting local paths."""
+    fallback = (
+        "caller-provided local non-held-out fixture subset"
+        if real_runtime
+        else "synthetic encoded image payloads"
+    )
+    if not isinstance(value, str) or not value.strip():
+        return fallback
+    candidate = value.strip()
+    lowered = candidate.casefold()
+    if any(token in lowered for token in (":\\", "/users/", "\\users\\", "http://", "https://")):
+        return fallback
+    return candidate
+
+
+def _portable_runtime_environment(value: Mapping[str, object] | None) -> dict[str, object]:
+    """Copy only established non-secret runtime facts into durable soak evidence."""
+    if not isinstance(value, Mapping):
+        return {}
+    keys = (
+        "python_version",
+        "platform",
+        "torch_version",
+        "torchvision_version",
+        "cuda_available",
+        "cuda_usable",
+        "cuda_build",
+        "selected_device",
+        "gpu_name",
+        "gpu_memory_bytes",
+        "cpu_only",
+    )
+    return {key: value.get(key) for key in keys if key in value}
+
+
 def validate_protocol_response(raw: str, *, frame_id: str, malformed: bool, expected_location: object) -> tuple[dict[str, object], list[str]]:
     """Validate existing public result/error shapes without changing server behavior."""
     try:
@@ -491,6 +527,8 @@ async def run_protocol_soak(
     real_candidate_runtime_validated: bool,
     base_url: str | None,
     endpoint_checks: Sequence[Mapping[str, str]],
+    fixture_provenance: str | None = None,
+    runtime_environment: Mapping[str, object] | None = None,
     monotonic: Callable[[], float] = time.perf_counter,
     utc_now: Callable[[], str] = _utc_now,
 ) -> dict[str, object]:
@@ -516,6 +554,7 @@ async def run_protocol_soak(
     malformed_public_errors = 0
     post_malformed_valid_successes = 0
     waiting_for_post_malformed_success = False
+    attempted_valid_frames = 0
     client_successes = 0
     client_errors = 0
     latencies: list[float] = []
@@ -555,6 +594,8 @@ async def run_protocol_soak(
         malformed = bool(config.malformed_every and (sequence + 1) % config.malformed_every == 0 and sequence < config.frames - 1)
         if malformed:
             malformed_injections += 1
+        else:
+            attempted_valid_frames += 1
         payload = b"not-a-valid-image" if malformed else fixtures[sequence % len(fixtures)]
         frame_id = f"soak-{sequence + 1}"
         expected_location: object = {"latitude": 0.0, "longitude": 0.0} if config.include_synthetic_location else None
@@ -674,12 +715,20 @@ async def run_protocol_soak(
             "malformed_every": config.malformed_every,
             "settle_ms": config.settle_ms,
             "fixture_policy": "non-held-out caller fixtures" if real_candidate_runtime_validated else "synthetic encoded image payloads",
+            "fixture_provenance": _sanitized_fixture_provenance(
+                fixture_provenance,
+                real_runtime=real_candidate_runtime_validated,
+            ),
         },
+        "runtime_environment": _portable_runtime_environment(runtime_environment),
         "started_at_utc": started_at,
         "completed_at_utc": utc_now(),
         "frame_summary": {
             "configured_frames": config.frames,
             "records": len(records),
+            "attempted_valid_frames": attempted_valid_frames,
+            "successful_valid_responses": client_successes,
+            "inference_failures": client_errors,
             "successful_results": client_successes,
             "public_error_results": client_errors,
             "deliberate_reconnect_attempts": reconnect_attempts,
@@ -690,6 +739,11 @@ async def run_protocol_soak(
             "malformed_input_injections": malformed_injections,
             "malformed_public_errors": malformed_public_errors,
             "post_malformed_valid_successes": post_malformed_valid_successes,
+            "malformed_recovery_status": (
+                "PASS" if malformed_injections and post_malformed_valid_successes == malformed_injections
+                else "NOT_EXERCISED" if not malformed_injections
+                else "FAIL"
+            ),
         },
         "frames": records,
         "client_end_to_end_latency": latency_summary(latencies, elapsed, client_successes),
@@ -870,6 +924,7 @@ async def run_mock_soak(
         real_candidate_runtime_validated=False,
         base_url=None,
         endpoint_checks=checks,
+        fixture_provenance="synthetic encoded image payloads",
         monotonic=monotonic,
         utc_now=utc_now,
     )

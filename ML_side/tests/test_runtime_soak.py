@@ -84,6 +84,8 @@ def test_sustained_mock_session_is_explicitly_synthetic_and_passes() -> None:
     assert report["evidence_mode"] == "synthetic/mock"
     assert report["real_candidate_runtime_validated"] is False
     assert report["frame_summary"]["successful_results"] == 5
+    assert report["frame_summary"]["attempted_valid_frames"] == 5
+    assert report["frame_summary"]["successful_valid_responses"] == 5
     assert report["backend_metrics"]["status"] == "PASS"
 
 
@@ -128,6 +130,7 @@ def test_malformed_frame_uses_stable_error_and_later_valid_frame_succeeds() -> N
     assert report["frame_summary"]["malformed_input_injections"] == 2
     assert report["frame_summary"]["malformed_public_errors"] == 2
     assert report["frame_summary"]["post_malformed_valid_successes"] == 2
+    assert report["frame_summary"]["malformed_recovery_status"] == "PASS"
     malformed_record = next(record for record in report["frames"] if record["malformed_input"])
     assert malformed_record["response_type"] == "error"
     assert malformed_record["error_code"] == "inference_failed"
@@ -270,6 +273,43 @@ def test_private_base_url_is_sanitized_in_a_synthetic_report() -> None:
 
     assert "192.168.50.10" not in json.dumps(report)
     assert report["runtime"]["base_url"] == "http://<LAN_IP>:8000"
+
+
+def test_fixture_provenance_and_runtime_facts_are_portable() -> None:
+    candidate = _candidate()
+    backend = SyntheticBackend(candidate)
+    endpoints = backend.endpoints()
+    checks = validate_runtime_endpoints(candidate, endpoints)
+
+    async def after_metrics():
+        return backend.snapshot()
+
+    report = asyncio.run(run_protocol_soak(
+        candidate,
+        _config(frames=1),
+        SyntheticTransport(backend),
+        [b"synthetic"],
+        before_metrics=endpoints["/ml/metrics"]["payload"],
+        after_metrics=after_metrics,
+        evidence_mode="synthetic/mock",
+        real_candidate_runtime_validated=False,
+        base_url=None,
+        endpoint_checks=checks,
+        fixture_provenance=r"C:\Users\developer\private-fixtures",
+        runtime_environment={
+            "torch_version": "2.test",
+            "cuda_usable": True,
+            "gpu_name": "test GPU",
+            "untrusted_path": r"C:\Users\developer\secret",
+        },
+    ))
+
+    encoded = json.dumps(report)
+    assert "developer" not in encoded
+    assert report["parameters"]["fixture_provenance"] == "synthetic encoded image payloads"
+    assert report["runtime_environment"] == {
+        "torch_version": "2.test", "cuda_usable": True, "gpu_name": "test GPU"
+    }
 
 
 def test_named_backend_host_is_also_sanitized_in_a_report() -> None:
