@@ -82,10 +82,17 @@ from slow_lane import SlowLaneBrain
 from adapters.depth_estimator import MetricDepthEstimator
 
 # Routers
+# routers/helpers.py (a legacy, in-memory, unsalted-plaintext-password
+# implementation of /helpers/signup and /helpers/login) used to be
+# registered here too. It was silently shadowing this file's own /helpers/*
+# handlers below -- Starlette matches routes in registration order, and
+# include_router() ran before these @app.post(...) decorators executed --
+# so every real signup/login request was actually served by that legacy,
+# non-persistent implementation instead of this one. Removed entirely
+# rather than left unregistered, so it can't be silently re-added later.
 from routers import audiobooks as audiobooks_router
 from routers import ai_service as ai_router
 from routers import ml_inference as ml_router
-from routers import helpers as helpers_router
 from routers import auth as auth_router
 from predictive_path import router as pred_router
 from predictive_path import retrain_router
@@ -140,28 +147,48 @@ from auth_shared import (
 )
 
 
-def _get_helper_by_token(token: str) -> dict:
-    helper_id = helper_tokens.get(token)
-    if not helper_id:
-        raise HTTPException(401, "Invalid or expired token")
+# Every /helpers/* route that returns a helper profile (login, oauth, me)
+# must return the same full shape, since the frontend stores whichever
+# response it last received as one combined "helperData" object and reads
+# fields (age, phone, address, emergency_contact_name,
+# emergency_contact_phone, experience_level) from it regardless of which
+# endpoint provided it.
+_HELPER_PROFILE_COLUMNS = (
+    "id",
+    "name",
+    "email",
+    "age",
+    "phone",
+    "address",
+    "emergency_contact_name",
+    "emergency_contact_phone",
+    "experience_level",
+    "created_at",
+)
+
+
+def _helper_profile_by_id(helper_id: int) -> dict | None:
     conn = sqlite3.connect(auth_shared.DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, name, email, age, phone, experience_level FROM helpers WHERE id=?",
+        f"SELECT {', '.join(_HELPER_PROFILE_COLUMNS)} FROM helpers WHERE id=?",
         (helper_id,),
     )
     row = cursor.fetchone()
     conn.close()
-    if not row:
+    if row is None:
+        return None
+    return dict(zip(_HELPER_PROFILE_COLUMNS, row))
+
+
+def _get_helper_by_token(token: str) -> dict:
+    helper_id = helper_tokens.get(token)
+    if not helper_id:
+        raise HTTPException(401, "Invalid or expired token")
+    profile = _helper_profile_by_id(helper_id)
+    if profile is None:
         raise HTTPException(401, "User not found")
-    return {
-        "id": row[0],
-        "name": row[1],
-        "email": row[2],
-        "age": row[3],
-        "phone": row[4],
-        "experience_level": row[5],
-    }
+    return profile
 
 
 async def _cleanup_sessions_loop():
@@ -477,7 +504,6 @@ app.add_middleware(
 app.include_router(audiobooks_router.router)
 app.include_router(ai_router.router)
 app.include_router(ml_router.router)
-app.include_router(helpers_router.router)
 app.include_router(auth_router.router)
 app.include_router(pred_router.router)
 app.include_router(retrain_router.router)
@@ -681,13 +707,13 @@ async def helpers_login(data: dict):
     if not row or not _verify_password(password, row[3]):
         raise HTTPException(401, "Invalid email or password")
 
-    helper_id, name, helper_email, _ = row
+    helper_id = row[0]
     token = str(uuid.uuid4())
     helper_tokens[token] = helper_id
 
     return {
         "token": token,
-        "helper": {"id": helper_id, "name": name, "email": helper_email},
+        "helper": _helper_profile_by_id(helper_id),
     }
 
 
@@ -753,11 +779,11 @@ async def helpers_oauth(data: dict):
 
     conn = sqlite3.connect(auth_shared.DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, email FROM helpers WHERE email=?", (email,))
+    cursor.execute("SELECT id FROM helpers WHERE email=?", (email,))
     row = cursor.fetchone()
 
     if row:
-        helper_id, helper_name, helper_email = row
+        helper_id = row[0]
     else:
         # Auto-create account for new OAuth users (no password needed)
         cursor.execute(
@@ -766,7 +792,6 @@ async def helpers_oauth(data: dict):
         )
         conn.commit()
         helper_id = cursor.lastrowid
-        helper_name, helper_email = name, email
 
     conn.close()
 
@@ -774,7 +799,7 @@ async def helpers_oauth(data: dict):
     helper_tokens[token] = helper_id
     return {
         "token": token,
-        "helper": {"id": helper_id, "name": helper_name, "email": helper_email},
+        "helper": _helper_profile_by_id(helper_id),
     }
 
 
