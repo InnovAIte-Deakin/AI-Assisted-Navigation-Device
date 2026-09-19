@@ -1,4 +1,5 @@
 // app/(tabs)/index.tsx
+
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import {
@@ -32,7 +33,8 @@ export default function HomePage() {
   const [visionEnabled, setVisionEnabled] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [query, setQuery] = useState("");
-  const [destinationType, setDestinationType] = useState<DestinationType | null>(null);
+  const [destinationType, setDestinationType] =
+    useState<DestinationType | null>(null);
 
   const hasDestination = query.trim().length > 0;
 
@@ -49,19 +51,33 @@ export default function HomePage() {
   const goToSavedPlaces = () => router.push("/places");
   const goToFavourites = () => router.push("/favourites" as any);
   const goToAudiobooks = () => router.push("/audiobooks" as any);
-  const goToPredictivePath = () => router.push("/predictive-path" as any);
+  const goToPredictivePath = () =>
+    router.push("/predictive-path" as any);
+
+  const goToCameraVision = () =>
+    router.push({
+      pathname: "/camera",
+      params: { mode: "vision" },
+    } as any);
 
   const goToCameraVoice = () =>
-    router.push({ pathname: "/camera", params: { mode: "voice" } } as any);
+    router.push({
+      pathname: "/camera",
+      params: { mode: "voice" },
+    } as any);
 
   const goToCameraOCR = () =>
-    router.push({ pathname: "/camera", params: { mode: "ocr" } } as any);
+    router.push({
+      pathname: "/camera",
+      params: { mode: "ocr" },
+    } as any);
 
   const openVisionAssist = () => {
     if (!visionEnabled) return;
-    // /vision accepts POST image uploads; the endpoint is not a webpage.
-    // Open the camera screen instead of loading it in a WebView.
-    router.push("/camera");
+
+    // Open the existing camera in Vision Assist mode.
+    // /vision expects image data rather than being loaded as a webpage.
+    goToCameraVision();
   };
 
   const openSearch = () => {
@@ -78,31 +94,53 @@ export default function HomePage() {
 
   const onPressInterior = () => {
     if (!hasDestination) return;
+
     if (destinationType === "E") {
       Alert.alert("Error!", "This is an External destination");
       return;
     }
+
     closeSearch();
-    router.push({ pathname: "/indoor" } as any);
+
+    router.push({
+      pathname: "/indoor",
+    } as any);
   };
 
   const onPressMaps = () => {
     if (!hasDestination) return;
+
     if (destinationType === "I") {
       Alert.alert("Error!", "This is an Internal destination");
       return;
     }
+
     const destinationText = query.trim();
+
     closeSearch();
+
     router.push({
       pathname: "exterior",
-      params: { presetDestination: destinationText, presetType: "E" },
+      params: {
+        presetDestination: destinationText,
+        presetType: "E",
+      },
     } as any);
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.content, { width: contentWidth }]}>
+    <View
+      style={[
+        styles.screen,
+        { backgroundColor: colors.background },
+      ]}
+    >
+      <View
+        style={[
+          styles.content,
+          { width: contentWidth },
+        ]}
+      >
         <ScrollView
           style={styles.pageScroll}
           contentContainerStyle={styles.scrollContent}
@@ -112,13 +150,18 @@ export default function HomePage() {
             appTitle="WalkBuddy"
             onPressProfile={goToProfile}
             showDivider
-            showWakeWordControl
             showLocation
           />
 
-          <PrimaryButton label="Search Location" icon="search" iconSize={24} onPress={openSearch} />
+          <PrimaryButton
+            label="Search Location"
+            icon="search"
+            iconSize={24}
+            onPress={openSearch}
+          />
 
           {/* ─── Primary actions ─── */}
+
           <View style={styles.heroStack}>
             <HeroButton
               tone="accent"
@@ -127,6 +170,7 @@ export default function HomePage() {
               subtitle="Scan objects, read text, and ask questions"
               onPress={goToCamera}
             />
+
             <HeroButton
               tone="danger"
               icon="warning-outline"
@@ -137,33 +181,47 @@ export default function HomePage() {
           </View>
 
           {/* ─── Quick actions ─── */}
-          <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>QUICK ACTIONS</Text>
+
+          <Text
+            style={[
+              styles.sectionLabel,
+              { color: colors.textMuted },
+            ]}
+          >
+            QUICK ACTIONS
+          </Text>
+
           <View style={styles.grid}>
             <IconTile
               icon="document-text-outline"
               label="TEXT READER"
               onPress={goToCameraOCR}
             />
+
             <IconTile
               icon="mic-outline"
               label="VOICE ASSIST"
               onPress={goToCameraVoice}
             />
+
             <IconTile
               icon="location-outline"
               label="PLACES"
               onPress={goToSavedPlaces}
             />
+
             <IconTile
               icon="book-outline"
               label="AUDIOBOOKS"
               onPress={goToAudiobooks}
             />
+
             <IconTile
               icon="trending-up-outline"
               label="PREDICTIVE PATH"
               onPress={goToPredictivePath}
             />
+
             <IconTile
               icon="star-outline"
               label="FAVOURITES"
@@ -172,12 +230,30 @@ export default function HomePage() {
           </View>
 
           {/* ─── Vision Assist ─── */}
-          <View style={[styles.visionWrapper, { backgroundColor: colors.surface }]}>
+
+          <View
+            style={[
+              styles.visionWrapper,
+              { backgroundColor: colors.surface },
+            ]}
+          >
             <View style={styles.visionRow}>
-              <Text style={[styles.visionTitle, { color: colors.text }]}>VISION ASSIST</Text>
+              <Text
+                style={[
+                  styles.visionTitle,
+                  { color: colors.text },
+                ]}
+              >
+                VISION ASSIST
+              </Text>
 
               <View style={styles.visionToggle}>
-                <Text style={[styles.visionToggleText, { color: colors.textMuted }]}>
+                <Text
+                  style={[
+                    styles.visionToggleText,
+                    { color: colors.textMuted },
+                  ]}
+                >
                   {visionEnabled ? "On" : "Off"}
                 </Text>
 
@@ -185,8 +261,15 @@ export default function HomePage() {
                   value={visionEnabled}
                   onValueChange={setVisionEnabled}
                   accessibilityLabel="Enable Vision Assist"
-                  trackColor={{ false: colors.border, true: colors.surfaceElevated }}
-                  thumbColor={visionEnabled ? colors.accent : colors.textMuted}
+                  trackColor={{
+                    false: colors.border,
+                    true: colors.surfaceElevated,
+                  }}
+                  thumbColor={
+                    visionEnabled
+                      ? colors.accent
+                      : colors.textMuted
+                  }
                 />
               </View>
             </View>
@@ -197,21 +280,62 @@ export default function HomePage() {
               accessibilityRole="button"
               accessibilityLabel="Open Vision Assist camera"
               accessibilityHint="Opens the live camera for object detection and guidance"
-              accessibilityState={{ disabled: !visionEnabled }}
+              accessibilityState={{
+                disabled: !visionEnabled,
+              }}
               style={({ pressed }) => [
                 styles.visionCard,
-                { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" },
-                pressed && styles.pressed,
+                {
+                  backgroundColor:
+                    colors.surfaceElevated,
+                  borderColor:
+                    colors.accent + "66",
+                },
+                pressed &&
+                  visionEnabled &&
+                  styles.pressed,
               ]}
             >
-              <View style={[styles.visionInner, { backgroundColor: colors.background }]}>
-                <View style={styles.previewPlaceholder}>
-                  <Ionicons name="eye-outline" size={24} color={colors.textMuted} />
-                  <Text style={[styles.previewText, { color: colors.text }]}>
-                    {visionEnabled ? "Tap to open camera" : "Vision disabled"}
+              <View
+                style={[
+                  styles.visionInner,
+                  {
+                    backgroundColor:
+                      colors.background,
+                  },
+                ]}
+              >
+                <View
+                  style={styles.previewPlaceholder}
+                >
+                  <Ionicons
+                    name="eye-outline"
+                    size={24}
+                    color={colors.textMuted}
+                  />
+
+                  <Text
+                    style={[
+                      styles.previewText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    {visionEnabled
+                      ? "Tap to start camera"
+                      : "Vision disabled"}
                   </Text>
-                  <Text style={[styles.previewSubtext, { color: colors.textMuted }]}>
-                    Vision Assist uses the live camera screen
+
+                  <Text
+                    style={[
+                      styles.previewSubtext,
+                      {
+                        color:
+                          colors.textMuted,
+                      },
+                    ]}
+                  >
+                    Starting camera gives live
+                    surroundings
                   </Text>
                 </View>
               </View>
@@ -221,29 +345,88 @@ export default function HomePage() {
       </View>
 
       {/* ─── Search Modal ─── */}
+
       <Modal
         visible={showSearch}
         transparent
         animationType="fade"
         onRequestClose={closeSearch}
       >
-        <Pressable style={styles.modalOverlay} onPress={closeSearch}>
-          <Pressable onPress={() => {}} style={[styles.modalCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent + "66" }]}>
-
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={closeSearch}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor:
+                  colors.surfaceElevated,
+                borderColor:
+                  colors.accent + "66",
+              },
+            ]}
+          >
             {/* Header */}
+
             <View style={styles.modalHeader}>
-              <Ionicons name="search-outline" size={18} color={colors.accent} />
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Where to?</Text>
-              <Pressable onPress={closeSearch} hitSlop={12}>
-                <Ionicons name="close-outline" size={20} color={colors.textMuted} />
+              <Ionicons
+                name="search-outline"
+                size={18}
+                color={colors.accent}
+              />
+
+              <Text
+                style={[
+                  styles.modalTitle,
+                  { color: colors.text },
+                ]}
+              >
+                Where to?
+              </Text>
+
+              <Pressable
+                onPress={closeSearch}
+                hitSlop={12}
+              >
+                <Ionicons
+                  name="close-outline"
+                  size={20}
+                  color={colors.textMuted}
+                />
               </Pressable>
             </View>
 
-            <View style={[styles.modalDivider, { backgroundColor: colors.accent + "33" }]} />
+            <View
+              style={[
+                styles.modalDivider,
+                {
+                  backgroundColor:
+                    colors.accent + "33",
+                },
+              ]}
+            />
 
             {/* Search input */}
-            <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.accent + "59" }]}>
-              <Ionicons name="search-outline" size={16} color={colors.textMuted} />
+
+            <View
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor:
+                    colors.surface,
+                  borderColor:
+                    colors.accent + "59",
+                },
+              ]}
+            >
+              <Ionicons
+                name="search-outline"
+                size={16}
+                color={colors.textMuted}
+              />
+
               <TextInput
                 value={query}
                 onChangeText={(text) => {
@@ -251,55 +434,145 @@ export default function HomePage() {
                   setDestinationType(null);
                 }}
                 placeholder="Enter a destination"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.searchInput, { color: colors.text }]}
+                placeholderTextColor={
+                  colors.textMuted
+                }
+                style={[
+                  styles.searchInput,
+                  { color: colors.text },
+                ]}
                 autoCapitalize="words"
                 autoCorrect={false}
                 returnKeyType="search"
                 autoFocus
               />
+
               {query.length > 0 && (
-                <Pressable onPress={() => setQuery("")} hitSlop={10}>
-                  <Ionicons name="close-circle-outline" size={16} color={colors.textMuted} />
+                <Pressable
+                  onPress={() => setQuery("")}
+                  hitSlop={10}
+                >
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={16}
+                    color={colors.textMuted}
+                  />
                 </Pressable>
               )}
             </View>
 
             {/* Result preview */}
+
             {hasDestination && (
-              <View style={[styles.resultCard, { backgroundColor: colors.surface, borderColor: colors.accent + "40" }]}>
-                <Ionicons name="location-outline" size={20} color={colors.accent} />
-                <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={2}>
+              <View
+                style={[
+                  styles.resultCard,
+                  {
+                    backgroundColor:
+                      colors.surface,
+                    borderColor:
+                      colors.accent + "40",
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={20}
+                  color={colors.accent}
+                />
+
+                <Text
+                  style={[
+                    styles.resultTitle,
+                    { color: colors.text },
+                  ]}
+                  numberOfLines={2}
+                >
                   {query}
                 </Text>
-                <Text style={[styles.resultSub, { color: colors.textMuted }]}>Tap a mode below to navigate</Text>
+
+                <Text
+                  style={[
+                    styles.resultSub,
+                    {
+                      color:
+                        colors.textMuted,
+                    },
+                  ]}
+                >
+                  Tap a mode below to navigate
+                </Text>
               </View>
             )}
 
             {!hasDestination && (
               <View style={styles.emptyState}>
-                <Ionicons name="navigate-outline" size={28} color={colors.textMuted} />
-                <Text style={[styles.emptyStateText, { color: colors.textMuted }]}>
+                <Ionicons
+                  name="navigate-outline"
+                  size={28}
+                  color={colors.textMuted}
+                />
+
+                <Text
+                  style={[
+                    styles.emptyStateText,
+                    {
+                      color:
+                        colors.textMuted,
+                    },
+                  ]}
+                >
                   Type a destination to get started
                 </Text>
               </View>
             )}
 
-            <View style={[styles.modalDivider, { backgroundColor: colors.accent + "33" }]} />
+            <View
+              style={[
+                styles.modalDivider,
+                {
+                  backgroundColor:
+                    colors.accent + "33",
+                },
+              ]}
+            />
 
             {/* Mode buttons */}
+
             <View style={styles.buttonRow}>
               <Pressable
                 style={[
                   styles.modeBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.accent + "59" },
-                  !hasDestination && styles.modeBtnDisabled,
+                  {
+                    backgroundColor:
+                      colors.surface,
+                    borderColor:
+                      colors.accent + "59",
+                  },
+                  !hasDestination &&
+                    styles.modeBtnDisabled,
                 ]}
                 onPress={onPressInterior}
                 disabled={!hasDestination}
               >
-                <Ionicons name="business-outline" size={18} color={hasDestination ? colors.accent : colors.textMuted} />
-                <Text style={[styles.modeBtnText, { color: colors.text }, !hasDestination && styles.modeBtnTextDisabled]}>
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color={
+                    hasDestination
+                      ? colors.accent
+                      : colors.textMuted
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.modeBtnText,
+                    { color: colors.text },
+                    !hasDestination &&
+                      styles.modeBtnTextDisabled,
+                  ]}
+                >
                   INTERIOR
                 </Text>
               </Pressable>
@@ -307,18 +580,38 @@ export default function HomePage() {
               <Pressable
                 style={[
                   styles.modeBtn,
-                  { backgroundColor: colors.accent, borderColor: colors.accent },
-                  !hasDestination && styles.modeBtnDisabled,
+                  {
+                    backgroundColor:
+                      colors.accent,
+                    borderColor:
+                      colors.accent,
+                  },
+                  !hasDestination &&
+                    styles.modeBtnDisabled,
                 ]}
                 onPress={onPressMaps}
                 disabled={!hasDestination}
               >
-                <Ionicons name="map-outline" size={18} color={hasDestination ? colors.accentText : colors.textMuted} />
+                <Ionicons
+                  name="map-outline"
+                  size={18}
+                  color={
+                    hasDestination
+                      ? colors.accentText
+                      : colors.textMuted
+                  }
+                />
+
                 <Text
                   style={[
                     styles.modeBtnText,
-                    { color: hasDestination ? colors.accentText : colors.text },
-                    !hasDestination && styles.modeBtnTextDisabled,
+                    {
+                      color: hasDestination
+                        ? colors.accentText
+                        : colors.text,
+                    },
+                    !hasDestination &&
+                      styles.modeBtnTextDisabled,
                   ]}
                 >
                   MAPS
@@ -414,7 +707,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.sm,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 4,
@@ -446,6 +742,7 @@ const styles = StyleSheet.create({
   },
 
   // ─── Modal ───
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.75)",
@@ -462,7 +759,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     shadowOpacity: 0.2,
     shadowRadius: 24,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
     elevation: 16,
     padding: Spacing.xl,
     gap: Spacing.lg,
