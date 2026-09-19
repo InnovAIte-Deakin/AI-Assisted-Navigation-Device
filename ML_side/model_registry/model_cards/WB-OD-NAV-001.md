@@ -24,33 +24,30 @@ or tune against held-out data.
 | Size | 5,364,741 bytes |
 | Approved storage reference | `Teams SharePoint/AIAND_REPO/ML_side/T2_2026/Models/navigation/WB-OD-NAV-001/0.1.0/best.pt` |
 
-The weights are deliberately not source-controlled. The artifact identity,
-including byte size, is recorded in the model registry and Candidate deployment
-manifest.
+The weights are deliberately not source-controlled. The registry records the
+artifact filename and SHA-256; the Candidate deployment manifest is the
+authoritative source for Candidate ID, run ID, expected byte size, and ordered
+taxonomy.
 
 ## Ordered taxonomy
 
 `person`, `stairs`, `door`, `chair`, `table`, `pole`, `bicycle`, `vehicle`
 
-The order must exactly match the canonical navigation contract in
-`software_side/walkbuddy_reactNative/backend/ml_contract/navigation_semantics.py`.
+The order must exactly match the [canonical navigation contract](../../../software_side/walkbuddy_reactNative/backend/ml_contract/navigation_semantics.py).
 
 ## Training data and configuration
 
-The registry records controlled release `walkbuddy-navigation-v5` and its
-controlled external manifest reference. Its recorded sequence-aware split is:
+The [registry record](../records/navigation_candidate.json) identifies controlled
+release `walkbuddy-navigation-v5` and its external manifest reference. The
+source manifest is deliberately not committed, so this card does not add or
+infer train/validation split counts from it.
 
-| Split | Images | Allowed use |
-| --- | ---: | --- |
-| Train | 24,480 | Training |
-| Validation | 6,994 | Validation |
-| Held-out test | 3,497 | Evaluation only; never a tuning source |
-
-The reviewed configuration uses a full training fraction, 20 epochs, image size
-640, batch size 16, seed 42, AdamW, learning rate 0.001, automatic device
-selection, and validation enabled. It records a candidate-only output boundary.
-The committed configuration does not contain a per-epoch training validation
-summary, so this card does not invent one.
+The [reviewed configuration](../../config/training_navigation_full_candidate_56c445bb8c85.yaml)
+uses a full training fraction, 20 epochs, image size 640, batch size 16, seed
+42, AdamW, learning rate 0.001, automatic device selection, and development
+validation enabled. Development validation is distinct from the corrected
+held-out test evaluation below. The committed configuration does not contain a
+per-epoch validation summary, so this card does not invent one.
 
 ## Corrected held-out evaluation
 
@@ -87,11 +84,13 @@ platform-wide performance guarantee.
 
 ## Deployment and runtime evidence
 
-The candidate deployment manifest requires the exact artifact identity and the
-canonical taxonomy. Its compute policy is `cuda_preferred`; this does not change
-the lifecycle state. The Issue #74 real-candidate record documents a controlled,
-non-mock runtime launch with usable CUDA, successful `/ml/model-info`,
-`/ml/ready`, and `/ml/health` checks, and matching Candidate identity.
+The [Candidate deployment manifest](../../deployment/manifests/navigation_candidate_56c445bb8c85.json)
+requires the exact artifact identity and canonical taxonomy. Its compute policy
+is `cuda_preferred`; this does not change the lifecycle state. The [Issue #74
+real-candidate record](../../evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json)
+documents a controlled, non-mock runtime launch with usable CUDA, successful
+`/ml/model-info`, `/ml/ready`, and `/ml/health` checks, and matching Candidate
+identity.
 
 ## Safety acceptance and depth semantics
 
@@ -108,8 +107,13 @@ The corrected held-out evaluation reports `pole` as the weakest class: precision
 0.0548, recall 0.5184, mAP@50 0.1755, and mAP@50:95 0.1476. Existing registry
 evidence also records recall limitations for small normalized-area boxes and
 extreme height-to-width buckets. This is observational evidence, not a causal
-diagnosis. No merged Candidate 1 geometry-analysis implementation is claimed by
-this card.
+diagnosis.
+
+Merged [geometry tooling](../../evaluation/run_geometry_eval.py) can produce
+size/aspect and pole-focused reports from train/validation inputs and refuses
+held-out test inputs. It is tested with synthetic fixtures; no Candidate 1
+geometry report or causal explanation is claimed here. Pending PR #241 findings
+are not used as project evidence.
 
 The historical seven-class baseline is not comparable to this eight-class
 candidate and cannot be used as an automatic promotion gate.
@@ -124,12 +128,12 @@ python -m ML_side.tools.release_readiness --candidate WB-OD-NAV-001
 
 Authoritative repository evidence:
 
-- `ML_side/model_registry/records/navigation_candidate.json`
-- `ML_side/deployment/manifests/navigation_candidate_56c445bb8c85.json`
-- `ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml`
-- `ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json`
-- `ML_side/benchmark_results/inference_performance.json`
-- `ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json`
+- [Candidate registry](../records/navigation_candidate.json)
+- [Candidate deployment manifest](../../deployment/manifests/navigation_candidate_56c445bb8c85.json)
+- [Training configuration](../../config/training_navigation_full_candidate_56c445bb8c85.yaml)
+- [Corrected held-out summary](../../evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json)
+- [Formal inference benchmark](../../benchmark_results/inference_performance.json)
+- [Issue #74 acceptance record](../../evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json)
 
-See `ML_side/docs/ML_EVIDENCE_INDEX.md` for the full handover map. A technical
+See the [ML evidence index](../../docs/ML_EVIDENCE_INDEX.md) for the full handover map. A technical
 PASS remains distinct from lifecycle transition and production authorization.

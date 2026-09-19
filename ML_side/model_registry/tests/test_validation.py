@@ -71,18 +71,6 @@ def test_invalid_sha256_fails(tmp_path):
 
     assert validate_model(test_file) is False
 
-
-def test_invalid_candidate_artifact_size_and_controlled_split_metadata_fail(tmp_path):
-    record = _candidate_record()
-    record["artifact"]["size_bytes"] = 0
-
-    assert validate_model(_write_record(tmp_path, record, "invalid_size.json")) is False
-
-    record = _candidate_record()
-    record["dataset"]["controlled_split_counts"]["heldout_evaluation_only"] = False
-
-    assert validate_model(_write_record(tmp_path, record, "invalid_heldout_policy.json")) is False
-
 def test_invalid_training_date_fails(tmp_path):
     source = RECORDS_DIR / "navigation_candidate.json"
 

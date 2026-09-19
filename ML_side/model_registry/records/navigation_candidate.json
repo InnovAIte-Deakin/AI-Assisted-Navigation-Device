@@ -23,24 +23,16 @@
   },
   "dataset": {
     "release_id": "walkbuddy-navigation-v5",
-    "manifest_reference": "external-local/manifest.json",
-    "controlled_split_counts": {
-      "train_images": 24480,
-      "validation_images": 6994,
-      "heldout_test_images": 3497,
-      "heldout_evaluation_only": true
-    }
+    "manifest_reference": "external-local/manifest.json"
   },
   "training": {
     "training_date": "2026-09-01",
-    "configuration_reference": "ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml",
-    "run_id": "navigation-mvp-full-candidate-56c445bb8c85"
+    "configuration_reference": "ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml"
   },
   "artifact": {
     "filename": "best.pt",
     "location": "Teams SharePoint/AIAND_REPO/ML_side/T2_2026/Models/navigation/WB-OD-NAV-001/0.1.0/best.pt",
-    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
-    "size_bytes": 5364741
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f"
   },
   "evaluation": {
     "evidence_reference": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json"

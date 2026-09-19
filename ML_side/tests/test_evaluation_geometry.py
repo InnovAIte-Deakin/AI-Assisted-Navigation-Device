@@ -453,8 +453,9 @@ def test_run_writes_json_csv_and_markdown(tmp_path):
     with open(csv_path, newline="") as f:
         rows = list(csv.DictReader(f))
     assert rows[0]["dimension"] == "unstratified"
-    md = md_path.read_text()
+    md = md_path.read_text(encoding="utf-8")
     assert "## Pole focus" in md
+    assert "≥" in md
 
 
 def test_run_is_deterministic_across_repeated_calls(tmp_path):

@@ -237,23 +237,11 @@ def _manifest_and_registry_checks(
         STATUS_PASS if registry_path and registry_path.is_file() else STATUS_FAIL,
         "Referenced registry record exists." if registry_path and registry_path.is_file() else "Referenced registry record is missing.",
     ))
-    checks.extend([
-        make_check(
-            "registry_candidate_id",
-            STATUS_PASS if registry.get("model_id") == candidate_id else STATUS_FAIL,
-            "Registry candidate ID matches the requested candidate." if registry.get("model_id") == candidate_id else "Registry candidate ID does not match the requested candidate.",
-        ),
-        make_check(
-            "registry_run_id",
-            STATUS_PASS if _nested(registry, "training", "run_id") == manifest.get("run_id") else STATUS_FAIL,
-            "Registry run ID matches the deployment manifest." if _nested(registry, "training", "run_id") == manifest.get("run_id") else "Registry run ID is missing or disagrees with the deployment manifest.",
-        ),
-        make_check(
-            "registry_artifact_size",
-            STATUS_PASS if _nested(registry, "artifact", "size_bytes") == manifest.get("expected_size_bytes") else STATUS_FAIL,
-            "Registry artifact size matches the deployment manifest." if _nested(registry, "artifact", "size_bytes") == manifest.get("expected_size_bytes") else "Registry artifact size is missing or disagrees with the deployment manifest.",
-        ),
-    ])
+    checks.append(make_check(
+        "registry_candidate_id",
+        STATUS_PASS if registry.get("model_id") == candidate_id else STATUS_FAIL,
+        "Registry candidate ID matches the requested candidate." if registry.get("model_id") == candidate_id else "Registry candidate ID does not match the requested candidate.",
+    ))
     return checks, manifest, registry
 
 
@@ -283,12 +271,6 @@ def _dataset_lineage_checks(
     if manifest is None or registry is None:
         return [make_check("controlled_dataset_lineage", STATUS_NOT_CHECKED, "Candidate manifest and registry are required before lineage can be checked.")]
     dataset = _mapping(registry.get("dataset"))
-    split_counts = _mapping(dataset.get("controlled_split_counts")) if dataset else None
-    count_values = (
-        _nested(split_counts, "train_images"),
-        _nested(split_counts, "validation_images"),
-        _nested(split_counts, "heldout_test_images"),
-    )
     heldout_count = _nested(heldout, "validation_metrics", "validation_image_count")
     if heldout_count is None:
         heldout_count = _nested(heldout, "results", "validation_metrics", "validation_image_count")
@@ -304,19 +286,9 @@ def _dataset_lineage_checks(
             "Registry records the controlled dataset-manifest reference." if dataset and isinstance(dataset.get("manifest_reference"), str) and dataset.get("manifest_reference") else "Registry is missing the controlled dataset-manifest reference.",
         ),
         make_check(
-            "controlled_split_counts",
-            STATUS_PASS if split_counts and all(isinstance(value, int) and not isinstance(value, bool) and value > 0 for value in count_values) else STATUS_FAIL,
-            "Controlled train, validation, and held-out split counts are recorded." if split_counts and all(isinstance(value, int) and not isinstance(value, bool) and value > 0 for value in count_values) else "Controlled split counts are missing or invalid.",
-        ),
-        make_check(
-            "heldout_evaluation_only",
-            STATUS_PASS if split_counts and split_counts.get("heldout_evaluation_only") is True else STATUS_FAIL,
-            "Registry explicitly marks held-out data as evaluation-only." if split_counts and split_counts.get("heldout_evaluation_only") is True else "Registry does not explicitly mark held-out data as evaluation-only.",
-        ),
-        make_check(
-            "heldout_count_matches_evaluation",
-            STATUS_PASS if split_counts and heldout_count == split_counts.get("heldout_test_images") else STATUS_FAIL,
-            "Held-out evidence count matches recorded lineage." if split_counts and heldout_count == split_counts.get("heldout_test_images") else "Held-out evidence count is missing or does not match recorded lineage.",
+            "heldout_evaluation_record",
+            STATUS_PASS if heldout and heldout.get("dataset_split") == "test" and heldout.get("mode") == "labelled_validation" and isinstance(heldout_count, int) and not isinstance(heldout_count, bool) and heldout_count > 0 else STATUS_FAIL,
+            "Corrected held-out evidence records labelled evaluation on the test split." if heldout and heldout.get("dataset_split") == "test" and heldout.get("mode") == "labelled_validation" and isinstance(heldout_count, int) and not isinstance(heldout_count, bool) and heldout_count > 0 else "Corrected held-out evidence is missing its labelled test-split record or image count.",
         ),
     ]
 
@@ -377,15 +349,11 @@ def _benchmark_checks(paths: Mapping[str, Path | None], manifest: Mapping[str, o
     if error:
         return [make_check("benchmark_evidence", STATUS_FAIL, error)]
     assert evidence is not None
-    candidate = _mapping(evidence.get("candidate"))
     model = _mapping(evidence.get("model"))
     environment = _mapping(evidence.get("environment"))
     results = evidence.get("results")
-    identity_ok = manifest is not None and candidate is not None and model is not None and (
-        candidate.get("candidate_id") == manifest.get("candidate_id")
-        and candidate.get("run_id") == manifest.get("run_id")
-        and candidate.get("ordered_taxonomy") == manifest.get("ordered_taxonomy")
-        and model.get("filename") == manifest.get("expected_artifact_filename")
+    identity_ok = manifest is not None and model is not None and (
+        model.get("filename") == manifest.get("expected_artifact_filename")
         and model.get("sha256") == manifest.get("expected_sha256")
         and model.get("size_bytes") == manifest.get("expected_size_bytes")
     )
@@ -409,7 +377,7 @@ def _benchmark_checks(paths: Mapping[str, Path | None], manifest: Mapping[str, o
         make_check(
             "benchmark_identity_matches_candidate",
             STATUS_PASS if identity_ok else STATUS_FAIL,
-            "Benchmark candidate identity, artifact, and taxonomy match the manifest." if identity_ok else "Benchmark candidate identity, artifact, or taxonomy does not match the manifest.",
+            "Benchmark artifact matches the deployment manifest; candidate association is derived from that canonical identity." if identity_ok else "Benchmark artifact identity does not match the deployment manifest.",
         ),
         make_check(
             "benchmark_excludes_heldout_data",
@@ -628,9 +596,30 @@ def _live_checks(
         )
     except (preflight.PreflightError, ValueError):
         return [make_check("live_mode", STATUS_FAIL, "Live backend verification could not be completed.")], {"base_url": durable_backend_url(live_base_url), "endpoints": {}}
-    return [_normalise_check(item) for item in checks], {
+    normalised_checks = [_normalise_check(item) for item in checks]
+    endpoints = backend.get("endpoints", {}) if isinstance(backend, Mapping) else {}
+    model_info = _nested(endpoints if isinstance(endpoints, Mapping) else None, "/ml/model-info", "payload")
+    if not isinstance(model_info, Mapping) or "checksum_verified" not in model_info:
+        normalised_checks.append(make_check(
+            "backend_checksum_observability",
+            STATUS_FAIL,
+            "Model-info is missing the current checksum_verified observability field.",
+        ))
+    elif model_info.get("checksum_verified") is None or isinstance(model_info.get("checksum_verified"), bool):
+        normalised_checks.append(make_check(
+            "backend_checksum_observability",
+            STATUS_PASS,
+            "Model-info exposes checksum_verified; null is valid when no controlled expected SHA is configured. /ml/ready remains the runtime gate.",
+        ))
+    else:
+        normalised_checks.append(make_check(
+            "backend_checksum_observability",
+            STATUS_FAIL,
+            "Model-info checksum_verified must be true, false, or null.",
+        ))
+    return normalised_checks, {
         "base_url": durable_backend_url(live_base_url),
-        "endpoints": _sanitize_live_value(backend.get("endpoints", {}) if isinstance(backend, Mapping) else {}),
+        "endpoints": _sanitize_live_value(endpoints),
     }
 
 

@@ -52,10 +52,9 @@ def make_release_tree(tmp_path: Path) -> dict[str, Path]:
         "taxonomy": {"taxonomy_id": "walkbuddy-mvp-8-v1", "classes": TAXONOMY},
         "dataset": {
             "release_id": "walkbuddy-navigation-v5", "manifest_reference": "external-local/manifest.json",
-            "controlled_split_counts": {"train_images": 24480, "validation_images": 6994, "heldout_test_images": 3497, "heldout_evaluation_only": True},
         },
-        "training": {"training_date": "2026-09-01", "configuration_reference": "ML_side/config/training.yaml", "run_id": RUN_ID},
-        "artifact": {"filename": "best.pt", "location": "approved-store/best.pt", "sha256": SHA, "size_bytes": 5364741},
+        "training": {"training_date": "2026-09-01", "configuration_reference": "ML_side/config/training.yaml"},
+        "artifact": {"filename": "best.pt", "location": "approved-store/best.pt", "sha256": SHA},
         "evaluation": {"evidence_reference": "ML_side/evaluation/candidates/heldout/summary.json"},
         "lifecycle": {"status": "candidate"}, "limitations": [],
     }
@@ -73,7 +72,6 @@ def make_release_tree(tmp_path: Path) -> dict[str, Path]:
         "validation_metrics": {"precision": 0.6, "recall": 0.5, "mAP50": 0.4, "mAP50_95": 0.3, "validation_image_count": 3497},
     }
     benchmark = {
-        "candidate": {"candidate_id": CANDIDATE, "run_id": RUN_ID, "ordered_taxonomy": TAXONOMY},
         "model": {"filename": "best.pt", "sha256": SHA, "size_bytes": 5364741},
         "environment": {"platform": "test", "python_version": "3.11", "pytorch_version": "2.test", "ultralytics_version": "8.test"},
         "results": [{"device": "cpu", "mean_latency_ms": 1.5, "throughput_fps": 10.0}],
@@ -163,15 +161,15 @@ def test_taxonomy_mismatch_fails_against_canonical_contract(tmp_path: Path) -> N
     assert statuses(report)["registry_taxonomy_matches_canonical"] == "FAIL"
 
 
-def test_missing_controlled_dataset_lineage_fails(tmp_path: Path) -> None:
+def test_missing_corrected_heldout_lineage_fails(tmp_path: Path) -> None:
     _, paths = run_fixture(tmp_path)
-    registry = _json(paths["registry"])
-    registry["dataset"].pop("controlled_split_counts")
-    _write_json(paths["registry"], registry)
+    heldout = _json(paths["heldout"])
+    heldout["dataset_split"] = "validation"
+    _write_json(paths["heldout"], heldout)
 
     report = run_release_readiness(CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
 
-    assert statuses(report)["controlled_split_counts"] == "FAIL"
+    assert statuses(report)["heldout_evaluation_record"] == "FAIL"
 
 
 def test_missing_or_wrong_candidate_benchmark_evidence_fails(tmp_path: Path) -> None:
@@ -182,7 +180,7 @@ def test_missing_or_wrong_candidate_benchmark_evidence_fails(tmp_path: Path) -> 
 
     make_release_tree(tmp_path)
     benchmark = _json(paths["benchmark"])
-    benchmark["candidate"]["candidate_id"] = "WRONG-CANDIDATE"
+    benchmark["model"]["sha256"] = "b" * 64
     _write_json(paths["benchmark"], benchmark)
     wrong = run_release_readiness(CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
     assert statuses(wrong)["benchmark_identity_matches_candidate"] == "FAIL"
@@ -237,7 +235,7 @@ def test_json_markdown_output_is_deterministic_and_portable(tmp_path: Path) -> N
 
 def _live_responses(*, sha: str = SHA):
     responses = {
-        "/ml/model-info": (200, {"loaded": True, "filename": "best.pt", "sha256": sha, "size_bytes": 5364741, "classes": TAXONOMY, "taxonomy_compatible": True}),
+        "/ml/model-info": (200, {"loaded": True, "filename": "best.pt", "sha256": sha, "size_bytes": 5364741, "classes": TAXONOMY, "taxonomy_compatible": True, "checksum_verified": None}),
         "/ml/ready": (200, {"ready": True}),
         "/ml/health": (200, {"status": "ok"}),
         "/ml/metrics": (200, {**{key: 0 for key in preflight.METRIC_COUNTERS}, **{key: None for key in preflight.METRIC_LATENCIES}}),
@@ -249,6 +247,7 @@ def test_optional_live_endpoint_success_and_identity_mismatch(tmp_path: Path) ->
     make_release_tree(tmp_path)
     passed = run_release_readiness(CANDIDATE, repository_root=tmp_path, live_base_url="http://backend:8000", http_get=_live_responses(), generated_at_utc="2026-09-18T00:00:00Z")
     assert next(item for item in passed["sections"] if item["name"] == "Live verification")["status"] == "PASS"
+    assert statuses(passed)["backend_checksum_observability"] == "PASS"
 
     mismatch = run_release_readiness(CANDIDATE, repository_root=tmp_path, live_base_url="http://backend:8000", http_get=_live_responses(sha="b" * 64), generated_at_utc="2026-09-18T00:00:00Z")
     assert statuses(mismatch)["backend_model_sha256"] == "FAIL"
