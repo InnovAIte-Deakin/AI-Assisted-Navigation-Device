@@ -8,6 +8,7 @@ import importlib.util
 import json
 import math
 import sys
+import threading
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Iterator
@@ -732,8 +733,7 @@ def test_lifespan_records_missing_model_without_preventing_startup(
 ) -> None:
     main_module.YOLO_MODEL_PATH = tmp_path / "missing-best.pt"
     main_module.init_database = lambda: None
-    monkeypatch.setattr(main_module, "_cleanup_sessions_loop", lambda: None)
-    monkeypatch.setattr(main_module.asyncio, "create_task", lambda _coroutine: None)
+    monkeypatch.setattr(main_module, "_start_background_tasks", lambda _app: None)
 
     async def start_with_missing_model() -> dict[str, object]:
         async with main_module.lifespan(main_module.app):
@@ -755,8 +755,7 @@ def test_lifespan_binds_expected_model_sha256_from_environment(
     main_module.YOLO_MODEL_PATH = artifact
     main_module.YOLO = lambda _path: CanonicalTaxonomyModel()
     main_module.init_database = lambda: None
-    monkeypatch.setattr(main_module, "_cleanup_sessions_loop", lambda: None)
-    monkeypatch.setattr(main_module.asyncio, "create_task", lambda _coroutine: None)
+    monkeypatch.setattr(main_module, "_start_background_tasks", lambda _app: None)
 
     async def start_with_candidate_model() -> dict[str, bool | str]:
         async with main_module.lifespan(main_module.app):
@@ -766,6 +765,143 @@ def test_lifespan_binds_expected_model_sha256_from_environment(
         "ready": True,
         "reason": "ready",
     }
+
+
+def _configure_lifespan_core(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    artifact = tmp_path / "best.pt"
+    artifact.write_bytes(b"candidate-model")
+    monkeypatch.setenv("WALKBUDDY_EXPECTED_MODEL_SHA256", calculate_sha256(artifact))
+    main_module.YOLO_MODEL_PATH = artifact
+    main_module.YOLO = lambda _path: CanonicalTaxonomyModel()
+    main_module.init_database = lambda: None
+    main_module.easyocr.Reader = lambda *_args, **_kwargs: object()
+
+
+class _LoadedWhisper:
+    def transcribe(self, *_args, **_kwargs):
+        return [SimpleNamespace(text="walk forward")], None
+
+
+def test_lifespan_keeps_core_available_while_whisper_initializes_in_background(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _configure_lifespan_core(main_module, monkeypatch, tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+    loaded = _LoadedWhisper()
+
+    def blocked_loader() -> _LoadedWhisper:
+        started.set()
+        release.wait()
+        return loaded
+
+    monkeypatch.setattr(main_module, "_load_whisper_model", blocked_loader)
+
+    async def exercise() -> None:
+        async with main_module.lifespan(main_module.app):
+            await asyncio.to_thread(started.wait)
+            assert main_module.app.state.whisper is None
+            assert main_module.app.state.yolo is not None
+            assert main_module.app.state.ocr_reader is not None
+            assert main_module.app.state.vision_limiter is not None
+            assert main_module.app.state.depth_estimator is not None
+            assert main_module.app.state.ml_runtime.readiness() == {
+                "ready": True,
+                "reason": "ready",
+            }
+
+            transport = httpx.ASGITransport(app=main_module.app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                assert (await client.get("/ml/ready")).status_code == 200
+                assert (await client.get("/ml/model-info")).status_code == 200
+                assert (await client.get("/ml/metrics")).status_code == 200
+                pending_stt = await client.post(
+                    "/stt/transcribe", files={"file": ("audio.wav", b"audio", "audio/wav")}
+                )
+                assert pending_stt.status_code == 503
+                assert pending_stt.json() == {"detail": "STT service unavailable"}
+
+                release.set()
+                await main_module.app.state.whisper_startup_task
+                assert main_module.app.state.whisper is loaded
+
+                completed_stt = await client.post(
+                    "/stt/transcribe", files={"file": ("audio.wav", b"audio", "audio/wav")}
+                )
+                assert completed_stt.status_code == 200
+                assert completed_stt.json() == {"text": "walk forward", "confidence": 0.9}
+
+        assert main_module.app.state.whisper_startup_task.done()
+        assert main_module.app.state.cleanup_task.done()
+
+    asyncio.run(exercise())
+
+
+def test_lifespan_keeps_core_available_when_whisper_initialization_fails(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _configure_lifespan_core(main_module, monkeypatch, tmp_path)
+
+    def failing_loader() -> None:
+        raise RuntimeError(r"private loader path C:\\operators\\cache")
+
+    monkeypatch.setattr(main_module, "_load_whisper_model", failing_loader)
+
+    async def exercise() -> None:
+        async with main_module.lifespan(main_module.app):
+            await main_module.app.state.whisper_startup_task
+            assert main_module.app.state.whisper is None
+            assert main_module.app.state.ml_runtime.readiness()["ready"] is True
+
+            transport = httpx.ASGITransport(app=main_module.app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+                assert (await client.get("/ml/ready")).status_code == 200
+                assert (await client.get("/ml/health")).status_code == 200
+                assert (await client.get("/ml/metrics")).status_code == 200
+                stt = await client.post(
+                    "/stt/transcribe", files={"file": ("audio.wav", b"audio", "audio/wav")}
+                )
+                assert stt.status_code == 503
+                assert "private loader path" not in stt.text
+
+        assert main_module.app.state.whisper_startup_task.done()
+        assert main_module.app.state.cleanup_task.done()
+
+    asyncio.run(exercise())
+
+
+def test_lifespan_cancels_pending_optional_whisper_task_without_delaying_shutdown(
+    main_module: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _configure_lifespan_core(main_module, monkeypatch, tmp_path)
+    started = threading.Event()
+    release = threading.Event()
+    completed = threading.Event()
+
+    def blocked_loader() -> None:
+        started.set()
+        try:
+            release.wait()
+        finally:
+            completed.set()
+
+    monkeypatch.setattr(main_module, "_load_whisper_model", blocked_loader)
+
+    async def exercise() -> None:
+        startup_task = None
+        async with main_module.lifespan(main_module.app):
+            await asyncio.to_thread(started.wait)
+            startup_task = main_module.app.state.whisper_startup_task
+            assert startup_task.done() is False
+
+        assert startup_task is not None and startup_task.done()
+        assert main_module.app.state.whisper is None
+        release.set()
+        await asyncio.to_thread(completed.wait)
+
+    asyncio.run(exercise())
 
 
 def test_rest_model_unavailable_response_uses_stable_error_code(
@@ -1314,8 +1450,7 @@ def _run_lifespan_with_loaded_model(
     main_module.YOLO_MODEL_PATH = artifact
     main_module.init_database = lambda: None
     monkeypatch.setattr(main_module, "YOLO", _FakeYolo)
-    monkeypatch.setattr(main_module, "_cleanup_sessions_loop", lambda: None)
-    monkeypatch.setattr(main_module.asyncio, "create_task", lambda _coroutine: None)
+    monkeypatch.setattr(main_module, "_start_background_tasks", lambda _app: None)
 
     async def start() -> dict[str, object]:
         async with main_module.lifespan(main_module.app):

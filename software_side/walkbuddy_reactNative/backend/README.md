@@ -209,6 +209,12 @@ Query the offline LLM using the current navigation memory as context.
 
 Accepts a multipart audio file upload.
 
+Navigation vision is a core runtime component, while Whisper STT is optional.
+Whisper initializes in the background after the vision runtime is available, so
+this endpoint can return `503 STT service unavailable` while the model is
+initializing or if it cannot load. That optional STT state does not make a
+Candidate's navigation model unavailable and does not change `/ml/ready`.
+
 **Request:** `multipart/form-data` with field `file` (audio file)
 
 **Response:**
