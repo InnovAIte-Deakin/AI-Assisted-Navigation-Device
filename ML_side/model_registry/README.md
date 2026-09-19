@@ -77,6 +77,8 @@ ML_side/model_registry/
 ├── records/
 │   ├── legacy_baseline.json
 │   └── navigation_candidate.json
+├── model_cards/
+│   └── WB-OD-NAV-001.md
 ├── tools/
 │   ├── validate.py
 │   └── transition.py

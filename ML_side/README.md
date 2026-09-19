@@ -37,6 +37,10 @@ For the reusable candidate manifest, registry comparison, readiness evidence,
 environment doctor, and dry-run backend launch workflow, see
 [`deployment/docs/candidate_deployment_readiness.md`](deployment/docs/candidate_deployment_readiness.md).
 
+For Candidate 1's evidence map and the read-only release-readiness handover
+command, see [`docs/ML_EVIDENCE_INDEX.md`](docs/ML_EVIDENCE_INDEX.md). A
+technical `PASS` does not alter lifecycle state or authorize production.
+
 ### Unresolved Work
 
 The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.

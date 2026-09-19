@@ -293,5 +293,5 @@ def build_markdown_report(report: dict, model_name: str = "candidate model") -> 
 def write_markdown_report(markdown_text: str, path: Union[str, Path]) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(markdown_text)

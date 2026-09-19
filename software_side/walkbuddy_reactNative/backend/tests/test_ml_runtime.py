@@ -923,11 +923,54 @@ def test_successful_websocket_detection_result_shape_is_preserved(
     assert payload["type"] == "detection_result"
     assert set(payload) == {
         "type", "frame_id", "detections", "guidance_message", "risk_level",
-        "inference_time_ms", "server_timestamp_ms",
+        "inference_time_ms", "server_timestamp_ms", "location",
     }
+    assert payload["frame_id"] == "frame-1"
+    assert payload["detections"] == []
+    assert payload["guidance_message"] == "Path clear"
+    assert payload["risk_level"] == "CLEAR"
+    assert isinstance(payload["inference_time_ms"], int)
+    assert isinstance(payload["server_timestamp_ms"], int)
+    assert payload["location"] is None
     assert app.state.ml_runtime.metrics.snapshot()["successful_inferences"] == 1
     assert app.state.ml_runtime.metrics.snapshot()["failed_inferences"] == 0
     assert websocket.send_attempts == 1
+
+
+def test_successful_websocket_detection_result_preserves_supplied_location(
+    ai_service_module: ModuleType,
+) -> None:
+    ai_service_module.vision_adapter = lambda *_args: {
+        "detections": [],
+        "image_id": "frame",
+        "metadata": {"image_shape": [480, 640]},
+    }
+    ai_service_module._guidance_payload = lambda *_args, **_kwargs: ("Path clear", "CLEAR")
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            yolo=object(), vision_limiter=_AsyncLimiter(), ml_runtime=MLRuntimeState()
+        )
+    )
+    websocket = _WebSocket(app, [
+        {
+            "text": json.dumps({
+                "type": "frame_meta", "frame_id": "frame-1",
+                "latitude": -37.8136, "longitude": 144.9631,
+            }),
+            "bytes": None,
+        },
+        {"text": None, "bytes": b"image-bytes"},
+    ])
+
+    asyncio.run(ai_service_module.vision_ws_endpoint(websocket))
+
+    payload = websocket.sent[-1]
+    assert payload["type"] == "detection_result"
+    assert payload["frame_id"] == "frame-1"
+    assert payload["detections"] == []
+    assert payload["guidance_message"] == "Path clear"
+    assert payload["risk_level"] == "CLEAR"
+    assert payload["location"] == {"latitude": -37.8136, "longitude": 144.9631}
 
 
 def test_websocket_disconnect_before_result_send_is_not_inference_failure(
