@@ -539,6 +539,34 @@ npm run dev
 The phone and Mac must be on the same Wi-Fi network. Restart Expo after
 changing `EXPO_PUBLIC_API_BASE`, because the value is read when the app starts.
 
+### Physical-phone backend check when using an Expo tunnel
+
+An Expo tunnel makes the app bundle available to the phone, but does **not**
+automatically forward the backend on port 8000. The camera can open even when
+object detection and guidance cannot reach the server. Do not use
+`localhost:8000` as the API address on a physical phone: that address points
+back to the phone, not the Mac.
+
+1. Keep the backend running on `0.0.0.0:8000`, and verify `curl
+   "http://${MAC_IP}:8000/ping"` on the Mac.
+2. On the **same phone** running Expo Go, open
+   `http://<MAC_IP>:8000/ping` in Safari. It must show `{"ok":true}`.
+3. If Safari cannot connect, check that the phone and Mac are on a network
+   allowing device-to-device traffic (for example, a personal hotspot), and
+   check the Mac firewall/VPN and Expo Go's local-network permission. A
+   campus/guest Wi-Fi may isolate clients even when both devices show the same
+   network name.
+4. If the Mac's reachable address changed, set `EXPO_PUBLIC_API_BASE` to the
+   new `http://<MAC_IP>:8000` address and restart Expo. Do not commit the
+   address or credentials.
+5. If Safari reaches `/ping` but the camera still shows a disconnected vision
+   warning, tap **Check backend connection** in the Camera screen and inspect
+   the backend's `/ws/vision` logs. The Camera screen uses a WebSocket for live
+   vision; opening the camera preview alone is not an inference test.
+
+Do not expose this development backend through a public tunnel merely to make
+the phone connect; authentication and access control require separate review.
+
 ### macOS issues found during setup
 
 - The first STT test returned HTTP 503 because `faster-whisper` was not
