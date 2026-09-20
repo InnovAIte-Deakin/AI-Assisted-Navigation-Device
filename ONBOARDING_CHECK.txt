@@ -2,8 +2,8 @@ WALKBUDDY — ONBOARDING CHECK
 =============================
 This file verifies your Git workflow is set up correctly.
 
-Instructions are in GitHub Issue #75.
-Your PR should target the `dev` branch.
+Instructions are in GitHub Issue #248.
+Your PR should target the `tx-2026-development` branch.
 
 Add your details on a new line below in this format:
 KIRAN VERMA | s225210254 | KUKKUDEAKIN
