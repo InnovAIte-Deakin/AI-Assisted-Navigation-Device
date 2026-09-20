@@ -245,6 +245,18 @@ def _boxes_match_within_tolerance(
     return True
 
 
+def _classify_pair(
+    signature_a: frozenset[tuple[int, float, float, float, float]],
+    signature_b: frozenset[tuple[int, float, float, float, float]],
+) -> str:
+    """identical_labels / similar_labels / dissimilar_labels for a pair of label signatures."""
+    if signature_a == signature_b:
+        return "identical_labels"
+    if _boxes_match_within_tolerance(signature_a, signature_b):
+        return "similar_labels"
+    return "dissimilar_labels"
+
+
 def _classify_near_duplicate_groups(
     groups: list[dict[str, object]], dataset_root: Path
 ) -> list[dict[str, object]]:
@@ -262,24 +274,22 @@ def _classify_near_duplicate_groups(
     first (anchor) image, mirroring how ``_near_duplicate_groups`` actually
     forms clusters around one anchor rather than requiring every pair in a
     group to be mutually close.
+
+    This grouping is used for the general within-class duplicate-candidate
+    picture (verdict_counts, high_confidence_unique_image_count) but NOT
+    for cross-split leakage -- see
+    ``_pairwise_cross_split_high_confidence_pairs`` for why anchor-based
+    clustering is unsound for that specific question.
     """
     classified = []
     for group in groups:
         images = group["images"]  # type: ignore[index]
         anchor = images[0]
-        anchor_label = dataset_root / Path(anchor).parent.parent / "labels" / (Path(anchor).stem + ".txt")
-        anchor_signature = _label_signature(anchor_label)
+        anchor_signature = _label_signature(_label_path_for_image(dataset_root, anchor))
         member_classifications = []
         for image in images[1:]:
-            label_path = dataset_root / Path(image).parent.parent / "labels" / (Path(image).stem + ".txt")
-            signature = _label_signature(label_path)
-            if signature == anchor_signature:
-                verdict = "identical_labels"
-            elif _boxes_match_within_tolerance(anchor_signature, signature):
-                verdict = "similar_labels"
-            else:
-                verdict = "dissimilar_labels"
-            member_classifications.append({"image": image, "verdict": verdict})
+            signature = _label_signature(_label_path_for_image(dataset_root, image))
+            member_classifications.append({"image": image, "verdict": _classify_pair(anchor_signature, signature)})
         classified.append(
             {
                 "images": images,
@@ -296,34 +306,73 @@ def _split_of(image_path: str) -> str:
     return image_path.split("/", 1)[0]
 
 
-def _cross_split_high_confidence_candidates(
-    high_confidence_groups: list[dict[str, object]],
-) -> list[dict[str, object]]:
-    """Groups with at least one identical/similar-label match that actually crosses splits.
+def _label_path_for_image(dataset_root: Path, image_path: str) -> Path:
+    return dataset_root / Path(image_path).parent.parent / "labels" / (Path(image_path).stem + ".txt")
 
-    Pair-aware, not group-level: a group's raw hash cluster can span both
-    splits (e.g. it also swept in a dissimilar_labels member from the other
-    split) without any *high-confidence* match actually crossing splits --
-    the anchor and every identical_labels/similar_labels member could all
-    be in the same split, with the cross-split member being exactly the one
-    the label check rejected. Checking ``len(group["splits"]) > 1`` (the
-    raw cluster's split membership) over-counts this case; this only counts
-    a group when at least one identical_labels/similar_labels member's own
-    split differs from the anchor's split, and records which member(s)
-    qualify so the finding is auditable.
+
+def _pairwise_cross_split_high_confidence_pairs(
+    pole_records: list[dict[str, object]],
+    dataset_root: Path,
+    *,
+    max_hash_distance: int,
+) -> list[dict[str, object]]:
+    """Every train/val pole-image pair that is both hash-close and label-high-confidence.
+
+    ``_classify_near_duplicate_groups`` re-checks hash-flagged groups
+    against labels, but those groups come from ``_near_duplicate_groups``'s
+    anchor-based clustering: once an image is swept into one cluster as a
+    non-anchor member, it is marked visited and can never itself become an
+    anchor compared against a *different* image later in the scan. Given
+    A-B within the hash threshold, A-C not, and B-C within the threshold,
+    B is consumed into A's cluster and B-C is never evaluated at all --
+    even if B and C are a genuine cross-split match. That under-counts
+    leakage, which is the opposite failure from the group-level
+    over-counting fixed earlier, and is just as unacceptable for evidence
+    meant to inform a dataset-revision decision.
+
+    This instead evaluates every train/val pole-image pair directly and
+    independently of any clustering: for each pair whose perceptual-hash
+    Hamming distance is within ``max_hash_distance``, the label-coordinate
+    check is applied straight to that pair. Restricted to train x val pairs
+    (never train x train or val x val, since same-split pairs are
+    irrelevant to a leakage question) to keep the comparison count
+    tractable -- this is the pairwise cost the class-scoped image count is
+    designed for, not the full corpus.
     """
-    candidates: list[dict[str, object]] = []
-    for group in high_confidence_groups:
-        anchor_split = _split_of(str(group["anchor"]))
-        qualifying_members = [
-            member
-            for member in group["member_classifications"]
-            if member["verdict"] in ("identical_labels", "similar_labels")
-            and _split_of(str(member["image"])) != anchor_split
-        ]
-        if qualifying_members:
-            candidates.append({"group": group, "qualifying_members": qualifying_members})
-    return candidates
+    by_split: dict[str, list[dict[str, object]]] = {"train": [], "val": []}
+    for record in pole_records:
+        if record.get("perceptual_hash") is not None:
+            by_split[str(record["split"])].append(record)
+
+    signature_cache: dict[str, frozenset] = {}
+
+    def signature_for(image_path: str) -> frozenset:
+        cached = signature_cache.get(image_path)
+        if cached is None:
+            cached = _label_signature(_label_path_for_image(dataset_root, image_path))
+            signature_cache[image_path] = cached
+        return cached
+
+    pairs: list[dict[str, object]] = []
+    for train_record in by_split["train"]:
+        train_hash = train_record["perceptual_hash"]
+        for val_record in by_split["val"]:
+            distance = inspector._hamming_distance(train_hash, val_record["perceptual_hash"])
+            if distance > max_hash_distance:
+                continue
+            train_image = str(train_record["image_path"])
+            val_image = str(val_record["image_path"])
+            verdict = _classify_pair(signature_for(train_image), signature_for(val_image))
+            if verdict in ("identical_labels", "similar_labels"):
+                pairs.append(
+                    {
+                        "train_image": train_image,
+                        "val_image": val_image,
+                        "hash_distance": distance,
+                        "verdict": verdict,
+                    }
+                )
+    return pairs
 
 
 def _source_dataset_name(image_path: str) -> str:
@@ -417,7 +466,13 @@ def analyze(
             for member in group["member_classifications"]
             if member["verdict"] in ("identical_labels", "similar_labels")
         )
-    cross_split_high_confidence = _cross_split_high_confidence_candidates(high_confidence_groups)
+    cross_split_pairs = _pairwise_cross_split_high_confidence_pairs(
+        pole_records, dataset_root, max_hash_distance=near_duplicate_hash_distance
+    )
+    cross_split_unique_images: set[str] = set()
+    for pair in cross_split_pairs:
+        cross_split_unique_images.add(str(pair["train_image"]))
+        cross_split_unique_images.add(str(pair["val_image"]))
 
     report: dict[str, object] = {
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
@@ -480,28 +535,31 @@ def analyze(
                     "Unique images that are either the anchor of a group with at least one identical_labels "
                     "or similar_labels member, or are themselves such a member -- i.e. every distinct image "
                     "involved in at least one high-confidence duplicate/near-duplicate candidate finding. "
-                    "dissimilar_labels-only groups are excluded entirely."
+                    "dissimilar_labels-only groups are excluded entirely. CAVEAT: this still relies on the "
+                    "anchor-based clustering in _near_duplicate_groups, which can under-count (an image "
+                    "already swept into one cluster as a non-anchor member is never itself compared against "
+                    "images outside that cluster) -- so this figure is a conservative lower bound on overall "
+                    "within-class duplication, not an exact count. cross_split_pairs below is computed "
+                    "independently of this clustering specifically because that undercount risk is "
+                    "unacceptable for the leakage figure a dataset-revision decision depends on."
                 ),
                 "count": len(high_confidence_images),
                 "of_pole_images_scanned": len(pole_records),
                 "images": sorted(high_confidence_images),
             },
-            "groups_with_high_confidence_cross_split_candidate": len(cross_split_high_confidence),
-            "high_confidence_cross_split_candidate_groups": [
-                {
-                    "anchor": entry["group"]["anchor"],
-                    "anchor_split": _split_of(str(entry["group"]["anchor"])),
-                    "cross_split_members": [
-                        {
-                            "image": member["image"],
-                            "split": _split_of(str(member["image"])),
-                            "verdict": member["verdict"],
-                        }
-                        for member in entry["qualifying_members"]
-                    ],
-                }
-                for entry in cross_split_high_confidence
-            ],
+            "cross_split_pairs": {
+                "method": (
+                    "Computed independently of the anchor-based grouping above: every train x val "
+                    "pole-image pair (never train x train or val x val) is checked directly, so a pair "
+                    "cannot be hidden by one image having already been swept into a different image's "
+                    "cluster as a non-anchor member. A pair qualifies if its perceptual-hash Hamming "
+                    "distance is within near_duplicate_hash_distance AND its two images' label "
+                    "coordinates classify as identical_labels or similar_labels."
+                ),
+                "count": len(cross_split_pairs),
+                "unique_images_involved": len(cross_split_unique_images),
+                "pairs": cross_split_pairs,
+            },
         },
         "manually_verified_examples": {
             "method": (
@@ -664,11 +722,17 @@ def render_markdown_report(report: dict[str, object]) -> str:
         f"involved in at least one high-confidence duplicate/near-duplicate candidate finding "
         f"(this counts distinct images, including group anchors — not the "
         f"{counts.get('identical_labels', 0) + counts.get('similar_labels', 0)} member-vs-anchor "
-        f"comparisons tallied above)."
+        f"comparisons tallied above). This figure is a conservative lower bound: it relies on "
+        f"anchor-based clustering, which can under-count (see cross-split pairs below for why that "
+        f"clustering approach is not used for the leakage figure specifically)."
     )
+    lines.append("")
+    cross_split = verification["cross_split_pairs"]
     lines.append(
-        f"- Groups with at least one high-confidence (identical- or similar-label) candidate match "
-        f"spanning both train and validation: {verification['groups_with_high_confidence_cross_split_candidate']}"
+        f"- **{cross_split['count']} confirmed train/val leakage pairs** ({cross_split['unique_images_involved']} "
+        f"unique images), computed by checking every train × val pole-image pair directly — not "
+        f"dependent on the clustering above, so a pair can't be hidden by one image already having "
+        f"been swept into a different image's cluster."
     )
     lines.append("")
 

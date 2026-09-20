@@ -265,46 +265,80 @@ class TestClassifyNearDuplicateGroups:
         assert verdicts["val/images/different_scene"] == "dissimilar_labels"
 
 
-class TestCrossSplitHighConfidenceCandidates:
-    def test_dissimilar_cross_split_member_does_not_count_as_cross_split(self) -> None:
-        # Regression test for the exact scenario flagged in review: a
-        # group's raw hash cluster spans train+val, and it does contain a
-        # high-confidence (similar_labels) match -- but that match is
-        # entirely within train. The val member is the one the label check
-        # rejected as dissimilar_labels. This must NOT be counted as a
-        # cross-split high-confidence candidate.
-        group = {
-            "anchor": "train/images/anchor",
-            "member_classifications": [
-                {"image": "train/images/same_split_match", "verdict": "similar_labels"},
-                {"image": "val/images/different_scene", "verdict": "dissimilar_labels"},
-            ],
+class TestPairwiseCrossSplitHighConfidencePairs:
+    def _pole_record(self, split: str, stem: str, perceptual_hash: int) -> dict[str, object]:
+        return {
+            "split": split,
+            "image_path": f"{split}/images/{stem}.jpg",
+            "perceptual_hash": perceptual_hash,
         }
 
-        candidates = analyzer._cross_split_high_confidence_candidates([group])
+    def test_finds_a_pair_hidden_by_anchor_based_clustering(self, tmp_path: Path) -> None:
+        # The exact scenario flagged in review: A-B is within the hash
+        # threshold, A-C is not, but B-C is within the threshold. Under
+        # _near_duplicate_groups' anchor-based clustering, B would be
+        # consumed into A's cluster (as a non-anchor member) and could
+        # never itself be compared against C -- so a genuine B-C match
+        # would silently never be evaluated. This function must find it
+        # anyway, since it checks every train x val pair directly and
+        # never relies on any prior clustering/visited-tracking.
+        root = tmp_path / "dataset"
+        write_label(root, "train", "a", ["5 0.500000 0.500000 0.100000 0.900000"])
+        write_label(root, "train", "b", ["5 0.500000 0.500000 0.100000 0.900000"])
+        write_label(root, "val", "c", ["5 0.500000 0.500000 0.100000 0.900000"])  # identical to b
 
-        assert candidates == []
+        records = [
+            self._pole_record("train", "a", 0b0000),  # distance(a, b) = 1  -> within threshold
+            self._pole_record("train", "b", 0b0001),  # distance(a, c) = 3  -> outside threshold
+            self._pole_record("val", "c", 0b0111),  # distance(b, c) = 2  -> within threshold
+        ]
 
-    def test_genuine_cross_split_match_is_recorded_with_qualifying_members(self) -> None:
-        group = {
-            "anchor": "train/images/anchor",
-            "member_classifications": [
-                {"image": "train/images/same_split_match", "verdict": "similar_labels"},
-                {"image": "val/images/real_leak", "verdict": "identical_labels"},
-                {"image": "val/images/unrelated", "verdict": "dissimilar_labels"},
-            ],
-        }
+        pairs = analyzer._pairwise_cross_split_high_confidence_pairs(records, root, max_hash_distance=2)
 
-        candidates = analyzer._cross_split_high_confidence_candidates([group])
+        assert len(pairs) == 1
+        assert pairs[0]["train_image"] == "train/images/b.jpg"
+        assert pairs[0]["val_image"] == "val/images/c.jpg"
+        assert pairs[0]["verdict"] == "identical_labels"
+        assert pairs[0]["hash_distance"] == 2
 
-        assert len(candidates) == 1
-        qualifying_images = {member["image"] for member in candidates[0]["qualifying_members"]}
-        # Only the genuinely cross-split, high-confidence member qualifies
-        # -- not the same-split match, and not the dissimilar one.
-        assert qualifying_images == {"val/images/real_leak"}
+    def test_train_train_and_val_val_pairs_are_never_compared(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        write_label(root, "train", "t1", ["5 0.5 0.5 0.1 0.9"])
+        write_label(root, "train", "t2", ["5 0.5 0.5 0.1 0.9"])
+        write_label(root, "val", "v1", ["5 0.5 0.5 0.1 0.9"])
+        write_label(root, "val", "v2", ["5 0.5 0.5 0.1 0.9"])
 
-    def test_no_high_confidence_groups_at_all_returns_empty(self) -> None:
-        assert analyzer._cross_split_high_confidence_candidates([]) == []
+        # Every pair is identical-hash and identical-label -- if same-split
+        # pairs were included, this would report 6 pairs (t1-t2, v1-v2, and
+        # the 4 train x val pairs); only the 4 cross pairs must appear.
+        records = [
+            self._pole_record("train", "t1", 0),
+            self._pole_record("train", "t2", 0),
+            self._pole_record("val", "v1", 0),
+            self._pole_record("val", "v2", 0),
+        ]
+
+        pairs = analyzer._pairwise_cross_split_high_confidence_pairs(records, root, max_hash_distance=0)
+
+        assert len(pairs) == 4  # t1-v1, t1-v2, t2-v1, t2-v2 only
+        assert all(pair["train_image"].startswith("train/") and pair["val_image"].startswith("val/") for pair in pairs)
+
+    def test_hash_close_but_label_dissimilar_pair_is_excluded(self, tmp_path: Path) -> None:
+        root = tmp_path / "dataset"
+        write_label(root, "train", "t1", ["5 0.100000 0.100000 0.050000 0.050000"])
+        write_label(root, "val", "v1", ["5 0.900000 0.900000 0.050000 0.050000"])  # different scene
+
+        records = [
+            self._pole_record("train", "t1", 0),
+            self._pole_record("val", "v1", 0),  # identical hash -> passes the hash check
+        ]
+
+        pairs = analyzer._pairwise_cross_split_high_confidence_pairs(records, root, max_hash_distance=0)
+
+        assert pairs == []
+
+    def test_no_pole_images_returns_empty(self, tmp_path: Path) -> None:
+        assert analyzer._pairwise_cross_split_high_confidence_pairs([], tmp_path, max_hash_distance=5) == []
 
 
 @pytest.mark.skipif(not PIL_AVAILABLE, reason="Pillow is required for image-based analyze() tests")
