@@ -63,7 +63,7 @@ Run deployment readiness against a deliberately supplied candidate and backend:
 ```powershell
 python .\ML_side\deployment\tools\check_candidate_readiness.py `
   --manifest .\ML_side\deployment\manifests\candidate.json `
-  --model "C:\models\candidate\weights\best.pt" `
+  --model "<candidate-weights-directory>\best.pt" `
   --base-url "http://<PC_LAN_IP>:8000" `
   --json-out .\evidence\candidate-readiness.json `
   --markdown-out .\evidence\candidate-readiness.md
@@ -107,10 +107,34 @@ Candidate identity without re-running deployment validation:
 
 ```powershell
 .\ML_side\deployment\scripts\start_candidate_backend.ps1 `
-  -ModelPath "C:\models\candidate\weights\best.pt" `
+  -ModelPath "<candidate-weights-directory>\best.pt" `
   -ManifestPath .\ML_side\deployment\manifests\candidate.json `
-  -Python python -RequireCuda
+  -RequireCuda
 ```
+
+When `-Python` is omitted, the helper selects a backend interpreter in a
+deterministic order: the backend project's `.venv\Scripts\python.exe`, then
+`.venv/bin/python`, then the normal `python` command. Before Candidate
+readiness, it reports the selected source and interpreter, prints the Python
+version, and verifies the core backend environment. That gate requires
+`torch`, `torchvision`, `ultralytics`, `fastapi`, and `uvicorn`; CUDA and
+optional services such as EasyOCR or faster-whisper are not part of this
+interpreter-selection gate.
+
+To use a specific interpreter, pass its executable as an explicit override:
+
+```powershell
+.\ML_side\deployment\scripts\start_candidate_backend.ps1 `
+  -ModelPath "<candidate-weights-directory>\best.pt" `
+  -ManifestPath .\ML_side\deployment\manifests\candidate.json `
+  -Python "<python-executable>" -RequireCuda
+```
+
+An explicit `-Python` value is authoritative. The helper never silently falls
+back to another interpreter: if the selected interpreter cannot run the core
+package probe, it stops before Candidate readiness, environment binding, or
+Uvicorn and tells the operator the selected source, interpreter, reason, and
+how to override it.
 
 For a phone-accessible backend, add `-Execute -Host 0.0.0.0 -Port 8000`; phone
 and PC must share Wi-Fi, Windows Firewall must allow the private-network port,
@@ -133,6 +157,11 @@ Common issues:
 - **CPU-only torch:** look for a `+cpu` torch build, false CUDA availability,
   and high latency. Check the actual interpreter and CUDA usability; do not
   change universal requirements to a CUDA wheel.
+- **Wrong Python environment:** omit `-Python` to prefer the backend virtual
+  environment, or explicitly pass its Python executable. If the core package
+  probe reports a missing required package, repair that selected environment;
+  optional EasyOCR and faster-whisper services do not make the core backend
+  interpreter unsuitable.
 - **Wrong candidate:** SHA, filename, size, or ordered taxonomy disagreement is
   a failure. Do not substitute `last.pt` or replace `best.pt`.
 - **Phone cannot connect:** check LAN IPv4, `0.0.0.0` binding, same Wi-Fi,
