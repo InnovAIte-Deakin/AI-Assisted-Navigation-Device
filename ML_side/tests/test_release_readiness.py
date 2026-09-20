@@ -376,7 +376,11 @@ def test_future_automatic_policy_pass_authorizes_production(tmp_path: Path) -> N
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("sha256", "b" * 64), ("ordered_class_names", list(reversed(TAXONOMY)))],
+    [
+        ("sha256", "b" * 64),
+        ("ordered_class_names", list(reversed(TAXONOMY))),
+        ("artifact", "different-evaluation.json"),
+    ],
 )
 def test_future_automatic_policy_evidence_mismatch_fails_closed(tmp_path: Path, field: str, value: object) -> None:
     paths = make_release_tree(tmp_path)
