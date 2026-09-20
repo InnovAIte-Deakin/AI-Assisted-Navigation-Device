@@ -34,6 +34,17 @@ The [historical seven-class baseline](../evaluation/baselines/historical_7class_
 
 Pending or requested-changes work, including PR #241 pole-data-quality discussion, is not canonical evidence here. Do not infer its duplicate, leakage, or other conclusions into Candidate 1 decisions until it is merged and independently reviewed.
 
+## Continuous integration gate
+
+Pull requests targeting `t2-2026-development` and pushes to
+`t2-2026-development` automatically run the model-free Candidate
+release-readiness check. It validates the committed Candidate evidence without
+model weights, datasets, CUDA, a backend, secrets, or external ML services.
+
+A `PASS` means the committed technical evidence is internally consistent. It
+does not grant production authorization, promote the model, approve deployment,
+or replace physical-device acceptance.
+
 ## Using the readiness system
 
 Offline verification uses committed metadata and evidence only. It does not need

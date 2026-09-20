@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
 
+env:
+  WALKBUDDY_RELEASE_CANDIDATE: WB-OD-NAV-001
+
 jobs:
   ml-safety:
     name: Fast ML safety contracts
@@ -52,3 +55,49 @@ jobs:
           ML_side/model_registry/tests/test_validation.py
           software_side/walkbuddy_reactNative/backend/tests/test_navigation_semantics.py
           software_side/walkbuddy_reactNative/backend/tests/test_model_taxonomy_compatibility.py
+
+  candidate-release-readiness:
+    name: Candidate release readiness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight test dependencies
+        run: python -m pip install -r ML_side/requirements-ci.txt
+
+      - name: Run release-readiness contracts
+        run: python -m pytest -q ML_side/tests/test_release_readiness.py
+
+      - name: Run Candidate release-readiness gate
+        run: >
+          python -m ML_side.tools.release_readiness
+          --candidate "$WALKBUDDY_RELEASE_CANDIDATE"
+          --out-dir .ci/release-readiness
+
+      - name: Publish Candidate release-readiness summary
+        if: always()
+        shell: bash
+        run: |
+          report=.ci/release-readiness/release_readiness.md
+          if [[ -f "$report" ]]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Candidate release-readiness report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Candidate release-readiness reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-release-readiness
+          path: |
+            .ci/release-readiness/release_readiness.json
+            .ci/release-readiness/release_readiness.md
+          if-no-files-found: warn
+          retention-days: 14
