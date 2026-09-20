@@ -27,6 +27,16 @@ except ImportError:
 try:
     from gtts import gTTS
     from pydub import AudioSegment
+    # play_audio (pydub.playback.play) tries simpleaudio, then pyaudio, then
+    # falls back to shelling out to ffplay. Do NOT add simpleaudio or
+    # pyaudio to requirements.txt: simpleaudio's native playback thread was
+    # found to segfault the whole process whenever stdout/stderr are piped
+    # rather than a real TTY (as they are under pytest, and as a
+    # container's log driver pipes them) -- reproduced directly, not just
+    # suspected. ffplay runs as a separate OS process, so it isn't
+    # vulnerable to that failure mode; this app deliberately relies on the
+    # ffplay fallback (see the Dockerfile's ffmpeg install) rather than a
+    # Python playback binding. See test_tts_service_integration.py.
     from pydub.playback import play as play_audio
     import tempfile
     import os
