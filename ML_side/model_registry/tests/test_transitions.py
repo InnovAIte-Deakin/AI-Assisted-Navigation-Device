@@ -198,10 +198,19 @@ def test_candidate_to_production_succeeds_with_matching_pass(
         evaluation_path
     )
 
+    report = promotion_report()
+    report_path = tmp_path / "promotion-report.json"
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    model["automatic_promotion_evidence"] = {
+        "promotion_report_reference": report_path.name
+    }
+
     result = transition_model(
         model,
         "production",
-        promotion_report=promotion_report()
+        promotion_report=report,
+        promotion_report_path=report_path,
+        repository_root=tmp_path,
     )
 
     assert result is True

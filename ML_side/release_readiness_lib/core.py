@@ -8,6 +8,8 @@ registry, or make a lifecycle decision.
 from __future__ import annotations
 
 import json
+from contextlib import redirect_stdout
+from io import StringIO
 import math
 import re
 import subprocess
@@ -50,9 +52,12 @@ from manifest import (  # noqa: E402
 )
 from evaluation.taxonomy import TAXONOMY_CLASSES  # noqa: E402
 from production_approval import (  # noqa: E402
+    APPROVED_MODEL_ID,
+    APPROVED_MODEL_VERSION,
     HUMAN_TEAM_DECISION_TYPE,
     load_and_validate_first_eight_class_approval,
 )
+from transition import validate_automatic_promotion_authorization  # noqa: E402
 
 
 STATUS_PASS = "PASS"
@@ -657,27 +662,51 @@ def _production_authorization(
             STATUS_FAIL,
             "A production lifecycle has no readable registry record.",
         )], "NOT GRANTED", None
-    approval, errors, path = load_and_validate_first_eight_class_approval(
-        registry, repository_root=root,
-    )
-    if errors:
+    if (
+        registry.get("model_id") == APPROVED_MODEL_ID
+        and registry.get("model_version") == APPROVED_MODEL_VERSION
+    ):
+        approval, errors, path = load_and_validate_first_eight_class_approval(
+            registry, repository_root=root,
+        )
+        if errors:
+            return [make_check(
+                "production_approval",
+                STATUS_FAIL,
+                "Production approval is invalid: " + "; ".join(errors),
+            )], "NOT GRANTED", _relative_reference(path, root)
+        decision_type = approval.get("decision_type") if isinstance(approval, Mapping) else None
+        if decision_type != HUMAN_TEAM_DECISION_TYPE:
+            return [make_check(
+                "production_approval",
+                STATUS_FAIL,
+                "Production approval has an unsupported decision type.",
+            )], "NOT GRANTED", _relative_reference(path, root)
         return [make_check(
             "production_approval",
-            STATUS_FAIL,
-            "Production approval is invalid: " + "; ".join(errors),
-        )], "NOT GRANTED", _relative_reference(path, root)
-    decision_type = approval.get("decision_type") if isinstance(approval, Mapping) else None
-    if decision_type != HUMAN_TEAM_DECISION_TYPE:
+            STATUS_PASS,
+            "Production authorization is derived from the validated, registry-bound explicit human-team approval.",
+        )], "GRANTED (EXPLICIT HUMAN TEAM APPROVAL)", _relative_reference(path, root)
+
+    # Reuse the exact automatic PASS and lineage validation from the controlled
+    # transition, suppressing its CLI diagnostics because readiness reports the
+    # resulting failure as structured evidence instead of mutating any state.
+    with redirect_stdout(StringIO()):
+        valid, path, error = validate_automatic_promotion_authorization(
+            registry,
+            repository_root=root,
+        )
+    if not valid:
         return [make_check(
-            "production_approval",
+            "automatic_promotion_evidence",
             STATUS_FAIL,
-            "Production approval has an unsupported decision type.",
+            "Automatic production authorization is invalid: " + str(error),
         )], "NOT GRANTED", _relative_reference(path, root)
     return [make_check(
-        "production_approval",
+        "automatic_promotion_evidence",
         STATUS_PASS,
-        "Production authorization is derived from the validated, registry-bound explicit human-team approval.",
-    )], "GRANTED (EXPLICIT HUMAN TEAM APPROVAL)", _relative_reference(path, root)
+        "Production authorization is derived from the validated, registry-bound automatic approved-policy PASS.",
+    )], "GRANTED (AUTOMATIC APPROVED POLICY PASS)", _relative_reference(path, root)
 
 
 def run_release_readiness(
@@ -753,7 +782,7 @@ def run_release_readiness(
         "technical_readiness": _technical_status(sections),
         "lifecycle_state": lifecycle,
         "production_authorization": production_authorization,
-        "production_approval_reference": approval_reference,
+        "production_authorization_reference": approval_reference,
         "automatic_promotion_performed": False,
         "live_verification": live_result,
         "governance_note": "Technical verification is read-only. It does not alter lifecycle state, authorize production, or perform automatic promotion.",

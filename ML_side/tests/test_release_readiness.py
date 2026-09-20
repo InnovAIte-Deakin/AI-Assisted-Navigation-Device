@@ -19,6 +19,7 @@ import runtime_preflight as preflight
 
 
 CANDIDATE = "WB-OD-NAV-001"
+FUTURE_CANDIDATE = "WB-OD-NAV-002"
 RUN_ID = "navigation-mvp-full-candidate-56c445bb8c85"
 SHA = "a" * 64
 TAXONOMY = ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"]
@@ -42,6 +43,7 @@ def _paths(root: Path) -> dict[str, Path]:
         "benchmark": root / "ML_side/benchmark_results/inference_performance.json",
         "acceptance": root / "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json",
         "approval": root / "ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json",
+        "automatic": root / "ML_side/model_registry/promotions/WB-OD-NAV-002-v1.0.0-comparison.json",
     }
 
 
@@ -132,6 +134,57 @@ def promote_with_first_eight_class_approval(paths: dict[str, Path]) -> None:
         "reviewed_evidence_references": ["ML_side/evaluation/candidates/heldout/summary.json"],
         "accepted_limitations": ["Pole remains recall-limited."],
     })
+
+
+def _automatic_promotion_report() -> dict:
+    return {
+        "schema_version": "1.0.0",
+        "tool": {"name": "compare_model_evaluations", "version": "1.0.0"},
+        "candidate": {
+            "artifact": "summary.json", "baseline_type": "evaluation",
+            "filename": "best.pt", "sha256": SHA,
+            "class_count": len(TAXONOMY), "ordered_class_names": TAXONOMY,
+            "mode": "labelled_validation",
+        },
+        "candidate_validation": {
+            "supplied": True, "source_filename": "candidate_model_report.json",
+            "sha256": "c" * 64, "verdict": "pass",
+        },
+        "technical_compatibility": {"status": "compatible", "reasons": []},
+        "policy_gate": {
+            "configuration_supplied": True, "source_filename": "approved-gates.json",
+            "sha256": "d" * 64, "schema_version": "1.0.0",
+            "policy_status": "APPROVED_POLICY", "gates": {}, "result": "PASS", "reasons": [],
+        },
+        "verdict": "PASS",
+    }
+
+
+def promote_with_automatic_policy_pass(paths: dict[str, Path]) -> None:
+    registry = _json(paths["registry"])
+    registry["model_id"] = FUTURE_CANDIDATE
+    registry["model_version"] = "1.0.0"
+    registry["lifecycle"]["status"] = "production"
+    registry["automatic_promotion_evidence"] = {
+        "promotion_report_reference": "ML_side/model_registry/promotions/WB-OD-NAV-002-v1.0.0-comparison.json"
+    }
+    _write_json(paths["registry"], registry)
+    manifest = _json(paths["manifest"])
+    manifest["candidate_id"] = FUTURE_CANDIDATE
+    manifest["expected_lifecycle"] = "production"
+    _write_json(paths["manifest"], manifest)
+    acceptance = _json(paths["acceptance"])
+    acceptance["candidate"]["candidate_id"] = FUTURE_CANDIDATE
+    _write_json(paths["acceptance"], acceptance)
+    heldout = _json(paths["heldout"])
+    heldout.update({
+        "schema_version": "1.0.0",
+        "tool": {"name": "evaluate_current_model", "version": "2.0.0"},
+        "evaluation_settings": {"operating_point_inference": None, "validation_ap": {"engine": "ultralytics_model_val"}},
+    })
+    heldout["model"]["class_id_to_name"] = {str(index): name for index, name in enumerate(TAXONOMY)}
+    _write_json(paths["heldout"], heldout)
+    _write_json(paths["automatic"], _automatic_promotion_report())
 
 
 def statuses(report: dict) -> dict[str, str]:
@@ -276,6 +329,67 @@ def test_malformed_explicit_approval_fails_closed(tmp_path: Path) -> None:
     assert report["technical_readiness"] == "FAIL"
     assert report["production_authorization"] == "NOT GRANTED"
     assert statuses(report)["production_approval"] == "FAIL"
+
+
+def test_missing_candidate1_human_approval_fails_closed(tmp_path: Path) -> None:
+    paths = make_release_tree(tmp_path)
+    registry = _json(paths["registry"])
+    registry["lifecycle"]["status"] = "production"
+    _write_json(paths["registry"], registry)
+    manifest = _json(paths["manifest"])
+    manifest["expected_lifecycle"] = "production"
+    _write_json(paths["manifest"], manifest)
+
+    report = run_release_readiness(CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
+
+    assert report["technical_readiness"] == "FAIL"
+    assert report["production_authorization"] == "NOT GRANTED"
+    assert statuses(report)["production_approval"] == "FAIL"
+
+
+def test_future_production_lifecycle_without_authorization_evidence_fails_closed(tmp_path: Path) -> None:
+    paths = make_release_tree(tmp_path)
+    promote_with_automatic_policy_pass(paths)
+    registry = _json(paths["registry"])
+    registry.pop("automatic_promotion_evidence")
+    _write_json(paths["registry"], registry)
+
+    report = run_release_readiness(FUTURE_CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
+
+    assert report["technical_readiness"] == "FAIL"
+    assert report["lifecycle_state"] == "production"
+    assert report["production_authorization"] == "NOT GRANTED"
+    assert statuses(report)["automatic_promotion_evidence"] == "FAIL"
+
+
+def test_future_automatic_policy_pass_authorizes_production(tmp_path: Path) -> None:
+    paths = make_release_tree(tmp_path)
+    promote_with_automatic_policy_pass(paths)
+
+    report = run_release_readiness(FUTURE_CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
+
+    assert report["technical_readiness"] == "PASS"
+    assert report["lifecycle_state"] == "production"
+    assert report["production_authorization"] == "GRANTED (AUTOMATIC APPROVED POLICY PASS)"
+    assert statuses(report)["automatic_promotion_evidence"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("sha256", "b" * 64), ("ordered_class_names", list(reversed(TAXONOMY)))],
+)
+def test_future_automatic_policy_evidence_mismatch_fails_closed(tmp_path: Path, field: str, value: object) -> None:
+    paths = make_release_tree(tmp_path)
+    promote_with_automatic_policy_pass(paths)
+    report_payload = _json(paths["automatic"])
+    report_payload["candidate"][field] = value
+    _write_json(paths["automatic"], report_payload)
+
+    report = run_release_readiness(FUTURE_CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
+
+    assert report["technical_readiness"] == "FAIL"
+    assert report["production_authorization"] == "NOT GRANTED"
+    assert statuses(report)["automatic_promotion_evidence"] == "FAIL"
 
 
 def test_json_markdown_output_is_deterministic_and_portable(tmp_path: Path) -> None:

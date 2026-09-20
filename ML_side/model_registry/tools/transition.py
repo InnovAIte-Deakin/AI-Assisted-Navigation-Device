@@ -63,7 +63,7 @@ def save_json(path, record):
         file.write("\n")
 
 
-def resolve_reference_path(reference):
+def resolve_reference_path(reference, repository_root=REPO_ROOT):
     """
     Resolve a lineage reference string to a filesystem path.
 
@@ -80,7 +80,8 @@ def resolve_reference_path(reference):
     if candidate_path.is_absolute():
         return candidate_path
 
-    repo_relative = REPO_ROOT / candidate_path
+    repository_root = Path(repository_root).resolve()
+    repo_relative = repository_root / candidate_path
 
     if repo_relative.exists():
         return repo_relative
@@ -161,7 +162,11 @@ def uses_approved_taxonomy(record):
     return classes == APPROVED_CLASS_NAMES
 
 
-def validate_production_evidence(record, promotion_report):
+def validate_production_evidence(
+    record,
+    promotion_report,
+    repository_root=REPO_ROOT,
+):
     """
     Verify that a PR #177 comparison result authorises the exact
     model represented by this registry record.
@@ -286,7 +291,10 @@ def validate_production_evidence(record, promotion_report):
         print("- Evaluation evidence reference is missing.")
         return False
 
-    evaluation_path = resolve_reference_path(evaluation_reference)
+    evaluation_path = resolve_reference_path(
+        evaluation_reference,
+        repository_root=repository_root,
+    )
 
     try:
         evaluation_source, evaluation_artifact = (
@@ -345,10 +353,77 @@ def validate_production_evidence(record, promotion_report):
     return True
 
 
+def _resolve_automatic_promotion_report(record, repository_root):
+    """Load the durable comparison report registered for an automatic route."""
+    binding = record.get("automatic_promotion_evidence")
+    reference = (
+        binding.get("promotion_report_reference")
+        if isinstance(binding, dict)
+        else None
+    )
+    if not isinstance(reference, str) or not reference:
+        return None, None, "Automatic promotion evidence reference is missing."
+
+    path = Path(reference)
+    root = Path(repository_root).resolve()
+    if path.is_absolute():
+        return None, None, "Automatic promotion evidence reference must be portable."
+    path = (root / path).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return None, None, "Automatic promotion evidence reference escapes the repository."
+    if not path.is_file():
+        return None, path, "Automatic promotion evidence report is missing."
+    try:
+        report = load_json(path)
+    except (OSError, json.JSONDecodeError) as error:
+        return None, path, f"Automatic promotion evidence report is unreadable: {error}"
+    if not isinstance(report, dict):
+        return None, path, "Automatic promotion evidence report is not a JSON object."
+    return report, path, None
+
+
+def validate_automatic_promotion_authorization(
+    record,
+    *,
+    repository_root=REPO_ROOT,
+    supplied_report=None,
+    supplied_report_path=None,
+    require_supplied_report=False,
+):
+    """Validate durable automatic-PASS authorization for transition or readiness.
+
+    A controlled transition must receive the same report that is already
+    referenced by the registry. Readiness supplies no report and therefore
+    derives only from the committed reference.
+    """
+    report, report_path, error = _resolve_automatic_promotion_report(
+        record,
+        repository_root,
+    )
+    if error:
+        return False, report_path, error
+    if require_supplied_report and supplied_report is None:
+        return False, report_path, "A supplied automatic promotion report is required."
+    if supplied_report is not None and supplied_report != report:
+        return False, report_path, "Supplied promotion report does not match the registry-bound report."
+    if supplied_report_path is not None and Path(supplied_report_path).resolve() != report_path:
+        return False, report_path, "Supplied promotion report path does not match the registry reference."
+    if not validate_production_evidence(
+        record,
+        report,
+        repository_root=repository_root,
+    ):
+        return False, report_path, "Registry-bound automatic promotion report failed validation."
+    return True, report_path, None
+
+
 def validate_human_production_approval(
     record,
     human_approval,
     human_approval_path=None,
+    repository_root=REPO_ROOT,
 ):
     """Validate the single documented human decision without weakening auto gates."""
     if human_approval is None:
@@ -359,7 +434,7 @@ def validate_human_production_approval(
     errors = validate_first_eight_class_approval(
         record,
         human_approval,
-        repository_root=REPO_ROOT,
+        repository_root=repository_root,
         approval_path=human_approval_path,
     )
     if not errors:
@@ -375,8 +450,10 @@ def transition_model(
     record,
     target_status,
     promotion_report=None,
+    promotion_report_path=None,
     human_approval=None,
     human_approval_path=None,
+    repository_root=REPO_ROOT,
 ):
     """
     Apply a controlled lifecycle transition.
@@ -446,12 +523,19 @@ def transition_model(
                 record,
                 human_approval,
                 human_approval_path,
+                repository_root,
             )
         else:
-            approved = validate_production_evidence(
+            approved, _report_path, error = validate_automatic_promotion_authorization(
                 record,
-                promotion_report,
+                repository_root=repository_root,
+                supplied_report=promotion_report,
+                supplied_report_path=promotion_report_path,
+                require_supplied_report=True,
             )
+            if not approved:
+                print("Production promotion blocked.")
+                print(f"- {error}")
         if not approved:
             return False
 
@@ -515,6 +599,7 @@ def main():
         record = load_json(record_path)
 
         promotion_report = None
+        promotion_report_path = None
         human_approval = None
         human_approval_path = None
 
@@ -550,6 +635,7 @@ def main():
             record,
             args.target_status,
             promotion_report=promotion_report,
+            promotion_report_path=promotion_report_path,
             human_approval=human_approval,
             human_approval_path=human_approval_path,
         )

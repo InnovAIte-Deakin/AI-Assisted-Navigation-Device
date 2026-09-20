@@ -45,7 +45,10 @@ version `0.1.0` and scope
 `first_structurally_valid_eight_class_production_promotion`. Missing, malformed,
 or mismatched approval evidence blocks the controlled transition. Future models
 continue to require a compatible baseline, approved automatic policy, and a
-matching comparison `PASS`.
+matching comparison `PASS`. Their registry record must also reference the exact
+portable comparison report through `automatic_promotion_evidence`; this lets
+read-only release readiness revalidate durable automatic authorization rather
+than infer it from lifecycle state alone.
 
 ## Validate a trusted candidate artifact
 

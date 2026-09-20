@@ -264,6 +264,19 @@
       }
     },
 
+    "automatic_promotion_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "promotion_report_reference"
+      ],
+      "properties": {
+        "promotion_report_reference": {
+          "$ref": "#/$defs/portable_reference"
+        }
+      }
+    },
+
     "limitations": {
       "type": "array",
       "items": {
