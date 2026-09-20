@@ -502,7 +502,13 @@ Initialised at app startup via `init_telemetry(app)`. Instruments:
 - All outbound HTTPX requests automatically (via `HTTPXClientInstrumentor`) — catches LibriVox calls
 - Manual spans in `vision_adapter.py` (`vision.inference`), `ocr_adapter.py` (`ocr.read_text`), `brain.py` (`llm.inference`), and the collaboration WebSocket handler
 
-Exporter: OTLP gRPC to `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`, overridden to `http://jaeger:4317` in docker-compose).
+Telemetry has three modes:
+
+- `WALKBUDDY_TELEMETRY_ENABLED=0` (or another false form) disables the exporter and FastAPI/HTTPX instrumentation.
+- `WALKBUDDY_TELEMETRY_ENABLED=1` enables tracing, using `OTEL_EXPORTER_OTLP_ENDPOINT` or `http://localhost:4317` when no endpoint is provided.
+- When `WALKBUDDY_TELEMETRY_ENABLED` is unset, tracing is enabled only when `OTEL_EXPORTER_OTLP_ENDPOINT` is explicitly configured. This keeps ordinary direct local development quiet when Jaeger is not running.
+
+Docker Compose already configures `OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317`, so it automatically enables tracing without any manual telemetry setting.
 
 Jaeger UI accessible at `http://localhost:16686` when running via docker-compose.
 
@@ -662,6 +668,23 @@ python setup_models.py
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+#### Local telemetry
+
+For ordinary local development, leave both telemetry variables unset (automatic mode disables tracing), or explicitly disable it:
+
+```powershell
+$env:WALKBUDDY_TELEMETRY_ENABLED="0"
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+To use a locally running Jaeger collector, enable tracing explicitly:
+
+```powershell
+$env:WALKBUDDY_TELEMETRY_ENABLED="1"
+$env:OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
 #### 4. Verify
 
 ```bash
@@ -691,7 +714,8 @@ Model weights are mounted from `ML_side/models/` — ensure both `best.pt` and t
 | Variable                      | Default                      | Description                                                    |
 | ----------------------------- | ---------------------------- | -------------------------------------------------------------- |
 | `WALKBUDDY_MODEL_DIR`         | `<repo_root>/ML_side/models` | Path to model weight files                                     |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317`      | Jaeger OTLP gRPC endpoint                                      |
+| `WALKBUDDY_TELEMETRY_ENABLED` | (unset / auto)               | `1/true/yes/on` enables; `0/false/no/off` disables; invalid explicit values fail startup clearly |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | (unset)                      | OTLP gRPC endpoint; setting it enables telemetry in auto mode  |
 | `PYTTSX3_DRIVER`              | (system default)             | TTS backend (`espeak` in Docker)                               |
 | `TTS_RATE`                    | (pyttsx3 default)            | Speech rate (`170` in Docker)                                  |
 | `LIBRIVOX_VERIFY_SSL`         | `1`                          | Set to `0` to disable SSL verification for LibriVox (dev only) |
