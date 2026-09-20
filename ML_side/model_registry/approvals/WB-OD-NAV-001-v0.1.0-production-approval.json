@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "decision_type": "explicit_human_team_approval",
+  "scope": "first_structurally_valid_eight_class_production_promotion",
+  "approval_outcome": "approved",
+  "decision_date": "2026-09-20",
+  "decision_summary": "The WalkBuddy ML team unanimously approved this first structurally valid eight-class navigation model as the production default after review of the bound evidence and final physical-device acceptance. This is an explicit human decision, not an automatic comparison PASS.",
+  "model": {
+    "model_id": "WB-OD-NAV-001",
+    "model_version": "0.1.0",
+    "artifact_filename": "best.pt",
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+    "ordered_taxonomy": ["person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"],
+    "evaluation_evidence_reference": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json"
+  },
+  "reviewed_evidence_references": [
+    "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json",
+    "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json",
+    "ML_side/benchmark_results/inference_performance.json",
+    "evidence/candidate1-runtime-soak.json"
+  ],
+  "accepted_limitations": [
+    "Pole is the weakest class in the labelled validation evidence and remains recall-limited, particularly for small and extreme-geometry boxes.",
+    "The historical seven-class baseline is taxonomy-incompatible and cannot be used for automatic pass/fail comparison of this first eight-class model."
+  ]
+}

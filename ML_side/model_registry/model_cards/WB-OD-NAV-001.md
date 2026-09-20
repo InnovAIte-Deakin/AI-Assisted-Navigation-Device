@@ -8,12 +8,14 @@
 | Version | `0.1.0` |
 | Training run | `navigation-mvp-full-candidate-56c445bb8c85` |
 | Task | WalkBuddy navigation object detection |
-| Lifecycle state | `candidate` |
-| Production status | Not authorized; technical evidence does not grant production authorization. |
+| Lifecycle state | `production` |
+| Production status | Authorized through the validated, registry-bound explicit human-team approval. |
 
-This model is an eight-class navigation candidate for the WalkBuddy backend. It
-is not a production model, a canonical baseline, or an authorization to retrain
-or tune against held-out data.
+This model is the approved eight-class navigation production default for the
+WalkBuddy backend. Its approval is the narrowly scoped first-eight-class human
+decision in [the machine-readable record](../approvals/WB-OD-NAV-001-v0.1.0-production-approval.json),
+not an automatic comparison result. It is not a canonical baseline or an
+authorization to retrain or tune against held-out data.
 
 ## Artifact identity
 
@@ -123,9 +125,11 @@ server measurements are not combined with client end-to-end latency.
 The controlled launcher used the backend project's verified virtual-environment
 Python interpreter after the shell-default Python was found not to provide
 PyTorch. No absolute local path is recorded in the evidence. The performance
-threshold gate is **NOT CONFIGURED**. The lifecycle state remains `candidate`,
-production authorization remains **NOT GRANTED**, and automatic promotion
-performed is **NO**.
+threshold gate is **NOT CONFIGURED**. The historical runtime-soak report records
+the then-current `candidate` lifecycle and **NOT GRANTED** authorization; those
+historical fields are preserved. The later production authorization is recorded
+only in the explicit human-team decision, and automatic promotion performed
+remains **NO**.
 
 ## Safety acceptance and depth semantics
 
@@ -150,8 +154,10 @@ held-out test inputs. It is tested with synthetic fixtures; no Candidate 1
 geometry report or causal explanation is claimed here. Pending PR #241 findings
 are not used as project evidence.
 
-The historical seven-class baseline is not comparable to this eight-class
-candidate and cannot be used as an automatic promotion gate.
+The historical seven-class baseline is not comparable to this eight-class model
+and cannot be used as an automatic promotion gate. The team accepted the known
+pole weakness recorded in the approval decision; it has not been hidden or
+re-scored.
 
 ## Reproducibility and evidence
 
@@ -169,6 +175,7 @@ Authoritative repository evidence:
 - [Corrected held-out summary](../../evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json)
 - [Formal inference benchmark](../../benchmark_results/inference_performance.json)
 - [Issue #74 acceptance record](../../evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json)
+- [Explicit production approval](../approvals/WB-OD-NAV-001-v0.1.0-production-approval.json)
 
 See the [ML evidence index](../../docs/ML_EVIDENCE_INDEX.md) for the full handover map. A technical
 PASS remains distinct from lifecycle transition and production authorization.

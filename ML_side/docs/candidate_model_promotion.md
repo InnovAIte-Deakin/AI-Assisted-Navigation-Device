@@ -31,6 +31,25 @@ controlled evaluation. A human-approved evaluation artifact may later be
 labelled `canonical_8class_baseline`; only future candidates can be evaluated
 automatically against that compatible baseline.
 
+## First eight-class human decision path
+
+The historical baseline cannot produce an automatic `PASS` or `FAIL` for the
+first compatible eight-class model. Its one documented exception is a
+fail-closed, explicit human-team decision bound to the exact registry model,
+version, artifact SHA-256, ordered taxonomy, and registered held-out evaluation
+lineage. The decision record is schema-validated and must record a positive
+outcome, review date, evidence references, and accepted limitations.
+
+This is not a generic bypass: it is restricted in code to `WB-OD-NAV-001`
+version `0.1.0` and scope
+`first_structurally_valid_eight_class_production_promotion`. Missing, malformed,
+or mismatched approval evidence blocks the controlled transition. Future models
+continue to require a compatible baseline, approved automatic policy, and a
+matching comparison `PASS`. Their registry record must also reference the exact
+portable comparison report through `automatic_promotion_evidence`; this lets
+read-only release readiness revalidate durable automatic authorization rather
+than infer it from lifecycle state alone.
+
 ## Validate a trusted candidate artifact
 
 Use a model and smoke image obtained from a trusted project source. Model

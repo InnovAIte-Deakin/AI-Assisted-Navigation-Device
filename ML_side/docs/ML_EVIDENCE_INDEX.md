@@ -7,7 +7,7 @@ a navigation aid, not a lifecycle action or production authorization.
 
 | Topic | Canonical evidence | What it establishes |
 | --- | --- | --- |
-| Candidate registry and lifecycle | [registry record](../model_registry/records/navigation_candidate.json) | Candidate ID, artifact filename/SHA, taxonomy, controlled release reference, and `candidate` lifecycle. |
+| Production registry and lifecycle | [registry record](../model_registry/records/navigation_candidate.json); [explicit approval](../model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json) | Production-default model ID, artifact filename/SHA, taxonomy, controlled release reference, and the exact human-team authorization binding. |
 | Deployment identity/preflight contract | [Candidate manifest](../deployment/manifests/navigation_candidate_56c445bb8c85.json); [candidate-readiness tool](../deployment/tools/check_candidate_readiness.py) | The authoritative Candidate ID/run, artifact SHA/size, taxonomy, and read-only deployment checks. |
 | Controlled dataset lineage | Registry `dataset` section; external controlled manifest reference `external-local/manifest.json` | Release `walkbuddy-navigation-v5`. The source manifest is intentionally external, so it is not an offline-CI input. |
 | Training configuration | [candidate configuration](../config/training_navigation_full_candidate_56c445bb8c85.yaml) | Full-data candidate settings, development validation enabled, and the candidate-only output boundary. |
@@ -41,9 +41,10 @@ Pull requests targeting `t2-2026-development` and pushes to
 release-readiness check. It validates the committed Candidate evidence without
 model weights, datasets, CUDA, a backend, secrets, or external ML services.
 
-A `PASS` means the committed technical evidence is internally consistent. It
-does not grant production authorization, promote the model, approve deployment,
-or replace physical-device acceptance.
+A `PASS` means the committed technical evidence is internally consistent. The
+read-only report may derive an already-recorded production authorization from a
+validated registry-bound approval, but it never grants authorization, promotes
+the model, approves deployment, or replaces physical-device acceptance.
 
 ## Using the readiness system
 
@@ -70,5 +71,5 @@ python -m ML_side.tools.release_readiness --candidate WB-OD-NAV-001 --live-base-
 `PASS` means the checked technical evidence agrees. `FAIL` means required
 evidence is missing, malformed, or inconsistent. `WARNING` identifies a
 non-blocking condition. `NOT_CHECKED` is used for intentionally omitted optional
-verification, such as live mode. No status changes lifecycle state, authorizes
-production, promotes a model, or permits held-out tuning.
+verification, such as live mode. No status changes lifecycle state, grants
+authorization, promotes a model, or permits held-out tuning.

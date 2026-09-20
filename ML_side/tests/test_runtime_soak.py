@@ -56,7 +56,7 @@ def test_resolves_current_candidate_from_manifest_registry_and_canonical_taxonom
     candidate = _candidate()
 
     assert candidate.run_id == "navigation-mvp-full-candidate-56c445bb8c85"
-    assert candidate.lifecycle_state == "candidate"
+    assert candidate.lifecycle_state == "production"
     assert candidate.taxonomy == (
         "person", "stairs", "door", "chair", "table", "pole", "bicycle", "vehicle"
     )

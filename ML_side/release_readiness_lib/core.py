@@ -8,6 +8,8 @@ registry, or make a lifecycle decision.
 from __future__ import annotations
 
 import json
+from contextlib import redirect_stdout
+from io import StringIO
 import math
 import re
 import subprocess
@@ -23,6 +25,7 @@ ML_SIDE_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_REPOSITORY_ROOT = ML_SIDE_DIR.parent
 DEPLOYMENT_TOOLS_DIR = ML_SIDE_DIR / "deployment" / "tools"
 ML_TOOLS_DIR = ML_SIDE_DIR / "tools"
+REGISTRY_TOOLS_DIR = ML_SIDE_DIR / "model_registry" / "tools"
 
 # The existing deployment helpers are script-oriented modules.  Add their
 # directory once so this package can reuse their manifest/schema logic without
@@ -33,6 +36,8 @@ if str(ML_SIDE_DIR) not in sys.path:
     sys.path.insert(0, str(ML_SIDE_DIR))
 if str(ML_TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(ML_TOOLS_DIR))
+if str(REGISTRY_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(REGISTRY_TOOLS_DIR))
 
 from common import (  # noqa: E402
     DeploymentError,
@@ -46,6 +51,13 @@ from manifest import (  # noqa: E402
     validate_manifest,
 )
 from evaluation.taxonomy import TAXONOMY_CLASSES  # noqa: E402
+from production_approval import (  # noqa: E402
+    APPROVED_MODEL_ID,
+    APPROVED_MODEL_VERSION,
+    HUMAN_TEAM_DECISION_TYPE,
+    load_and_validate_first_eight_class_approval,
+)
+from transition import validate_automatic_promotion_authorization  # noqa: E402
 
 
 STATUS_PASS = "PASS"
@@ -632,6 +644,71 @@ def _technical_status(sections: Sequence[Mapping[str, object]]) -> str:
     return STATUS_PASS
 
 
+def _production_authorization(
+    root: Path,
+    registry: Mapping[str, object] | None,
+) -> tuple[list[dict[str, str]], str, str | None]:
+    """Derive, but never grant, production authorization from committed state."""
+    lifecycle = _nested(registry, "lifecycle", "status")
+    if lifecycle != "production":
+        return [make_check(
+            "production_approval",
+            STATUS_NOT_CHECKED,
+            "Production authorization is not applicable while the registry lifecycle is not production.",
+        )], "NOT GRANTED", None
+    if registry is None:
+        return [make_check(
+            "production_approval",
+            STATUS_FAIL,
+            "A production lifecycle has no readable registry record.",
+        )], "NOT GRANTED", None
+    if (
+        registry.get("model_id") == APPROVED_MODEL_ID
+        and registry.get("model_version") == APPROVED_MODEL_VERSION
+    ):
+        approval, errors, path = load_and_validate_first_eight_class_approval(
+            registry, repository_root=root,
+        )
+        if errors:
+            return [make_check(
+                "production_approval",
+                STATUS_FAIL,
+                "Production approval is invalid: " + "; ".join(errors),
+            )], "NOT GRANTED", _relative_reference(path, root)
+        decision_type = approval.get("decision_type") if isinstance(approval, Mapping) else None
+        if decision_type != HUMAN_TEAM_DECISION_TYPE:
+            return [make_check(
+                "production_approval",
+                STATUS_FAIL,
+                "Production approval has an unsupported decision type.",
+            )], "NOT GRANTED", _relative_reference(path, root)
+        return [make_check(
+            "production_approval",
+            STATUS_PASS,
+            "Production authorization is derived from the validated, registry-bound explicit human-team approval.",
+        )], "GRANTED (EXPLICIT HUMAN TEAM APPROVAL)", _relative_reference(path, root)
+
+    # Reuse the exact automatic PASS and lineage validation from the controlled
+    # transition, suppressing its CLI diagnostics because readiness reports the
+    # resulting failure as structured evidence instead of mutating any state.
+    with redirect_stdout(StringIO()):
+        valid, path, error = validate_automatic_promotion_authorization(
+            registry,
+            repository_root=root,
+        )
+    if not valid:
+        return [make_check(
+            "automatic_promotion_evidence",
+            STATUS_FAIL,
+            "Automatic production authorization is invalid: " + str(error),
+        )], "NOT GRANTED", _relative_reference(path, root)
+    return [make_check(
+        "automatic_promotion_evidence",
+        STATUS_PASS,
+        "Production authorization is derived from the validated, registry-bound automatic approved-policy PASS.",
+    )], "GRANTED (AUTOMATIC APPROVED POLICY PASS)", _relative_reference(path, root)
+
+
 def run_release_readiness(
     candidate_id: str,
     *,
@@ -663,6 +740,7 @@ def run_release_readiness(
     identity_checks, manifest, registry = _manifest_and_registry_checks(root, candidate_id, paths)
     heldout_checks, heldout = _heldout_checks(paths, manifest)
     runtime_checks, safety_checks = _acceptance_checks(paths, manifest)
+    authorization_checks, production_authorization, approval_reference = _production_authorization(root, registry)
     sections = [
         section("Candidate identity", identity_checks),
         section("Taxonomy", _taxonomy_checks(manifest, registry)),
@@ -672,6 +750,7 @@ def run_release_readiness(
         section("Runtime evidence", runtime_checks),
         section("Safety acceptance", safety_checks),
         section("Evidence hygiene", _evidence_hygiene_checks(root, paths)),
+        section("Production authorization", authorization_checks),
     ]
     live_checks, live_result = _live_checks(
         manifest,
@@ -702,7 +781,8 @@ def run_release_readiness(
         "sections": sections,
         "technical_readiness": _technical_status(sections),
         "lifecycle_state": lifecycle,
-        "production_authorization": "NOT GRANTED",
+        "production_authorization": production_authorization,
+        "production_authorization_reference": approval_reference,
         "automatic_promotion_performed": False,
         "live_verification": live_result,
         "governance_note": "Technical verification is read-only. It does not alter lifecycle state, authorize production, or perform automatic promotion.",

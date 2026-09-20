@@ -87,6 +87,22 @@ def test_invalid_training_date_fails(tmp_path):
     assert validate_model(test_file) is False
 
 
+def test_production_record_can_use_the_automatic_evidence_route(tmp_path):
+    record = _candidate_record()
+    record["lifecycle"]["status"] = "production"
+    record.pop("production_approval")
+
+    assert validate_model(_write_record(tmp_path, record)) is True
+
+
+def test_production_approval_reference_rejects_local_path(tmp_path):
+    record = _candidate_record()
+    record["lifecycle"]["status"] = "production"
+    record["production_approval"] = {"decision_record_reference": r"C:\\private\\approval.json"}
+
+    assert validate_model(_write_record(tmp_path, record)) is False
+
+
 def _candidate_record():
     source = RECORDS_DIR / "navigation_candidate.json"
 
