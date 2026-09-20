@@ -38,7 +38,7 @@ const TABS: {
     activeColor: DARK_BLUE,
   },
   { icon: "business-outline", activeIcon: "business", route: "indoor" },
-  { icon: "people-outline", activeIcon: "people", route: "ask-a-friend-web" },
+  { icon: "people-outline", activeIcon: "people", route: "ask-a-friend" },
 ];
 
 // Shared on all 4 sides: bottomBar's own icon-row padding, the highlight's
