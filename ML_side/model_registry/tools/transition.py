@@ -15,6 +15,7 @@ if str(ML_TOOLS_DIR) not in sys.path:
 
 import compare_model_evaluations as comparison
 import validate_dataset_manifest as manifest_validator
+from production_approval import validate_first_eight_class_approval
 
 from validate import validate_record
 
@@ -344,17 +345,47 @@ def validate_production_evidence(record, promotion_report):
     return True
 
 
+def validate_human_production_approval(
+    record,
+    human_approval,
+    human_approval_path=None,
+):
+    """Validate the single documented human decision without weakening auto gates."""
+    if human_approval is None:
+        print("Production promotion blocked.")
+        print("- No production evidence was supplied.")
+        return False
+
+    errors = validate_first_eight_class_approval(
+        record,
+        human_approval,
+        repository_root=REPO_ROOT,
+        approval_path=human_approval_path,
+    )
+    if not errors:
+        return True
+
+    print("Production promotion blocked.")
+    for error in errors:
+        print(f"- Human approval: {error}")
+    return False
+
+
 def transition_model(
     record,
     target_status,
     promotion_report=None,
+    human_approval=None,
+    human_approval_path=None,
 ):
     """
     Apply a controlled lifecycle transition.
 
     Every transition requires a schema-valid registry record.
     Candidate and production promotion also require the canonical
-    WalkBuddy taxonomy. Production requires a matching PR #177 PASS.
+    WalkBuddy taxonomy. Production normally requires a matching PR #177 PASS.
+    The only alternative is the explicit, registry-bound first-eight-class
+    human approval validator; future candidates retain the automatic policy.
     """
 
     if not validate_registry_record(record):
@@ -406,10 +437,22 @@ def transition_model(
         return False
 
     if target_status == "production":
-        if not validate_production_evidence(
-            record,
-            promotion_report,
-        ):
+        if promotion_report is not None and human_approval is not None:
+            print("Production promotion blocked.")
+            print("- Supply either automatic comparison evidence or the explicit human approval, not both.")
+            return False
+        if human_approval is not None:
+            approved = validate_human_production_approval(
+                record,
+                human_approval,
+                human_approval_path,
+            )
+        else:
+            approved = validate_production_evidence(
+                record,
+                promotion_report,
+            )
+        if not approved:
             return False
 
     record["lifecycle"]["status"] = target_status
@@ -432,6 +475,14 @@ def parse_args():
     parser.add_argument(
         "record",
         help="Path to the model registry JSON record.",
+    )
+
+    parser.add_argument(
+        "--human-approval",
+        help=(
+            "Registry-bound explicit human approval for the documented first "
+            "eight-class production transition only."
+        ),
     )
 
     parser.add_argument(
@@ -464,6 +515,8 @@ def main():
         record = load_json(record_path)
 
         promotion_report = None
+        human_approval = None
+        human_approval_path = None
 
         if args.promotion_report:
             promotion_report_path = Path(
@@ -481,10 +534,24 @@ def main():
                 promotion_report_path
             )
 
+        if args.human_approval:
+            human_approval_path = Path(args.human_approval)
+
+            if not human_approval_path.exists():
+                print(
+                    "Human approval record not found: "
+                    f"{human_approval_path}"
+                )
+                sys.exit(1)
+
+            human_approval = load_json(human_approval_path)
+
         success = transition_model(
             record,
             args.target_status,
             promotion_report=promotion_report,
+            human_approval=human_approval,
+            human_approval_path=human_approval_path,
         )
 
         if not success:

@@ -41,6 +41,7 @@ def _paths(root: Path) -> dict[str, Path]:
         "heldout": root / "ML_side/evaluation/candidates/heldout/summary.json",
         "benchmark": root / "ML_side/benchmark_results/inference_performance.json",
         "acceptance": root / "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json",
+        "approval": root / "ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json",
     }
 
 
@@ -68,7 +69,7 @@ def make_release_tree(tmp_path: Path) -> dict[str, Path]:
     }
     heldout = {
         "dataset_split": "test", "mode": "labelled_validation",
-        "model": {"filename": "best.pt", "sha256": SHA, "file_size_bytes": 5364741, "ordered_class_names": TAXONOMY},
+        "model": {"filename": "best.pt", "sha256": SHA, "file_size_bytes": 5364741, "class_count": len(TAXONOMY), "ordered_class_names": TAXONOMY},
         "validation_metrics": {"precision": 0.6, "recall": 0.5, "mAP50": 0.4, "mAP50_95": 0.3, "validation_image_count": 3497},
     }
     benchmark = {
@@ -103,6 +104,36 @@ def make_release_tree(tmp_path: Path) -> dict[str, Path]:
     return paths
 
 
+def promote_with_first_eight_class_approval(paths: dict[str, Path]) -> None:
+    registry = _json(paths["registry"])
+    registry["lifecycle"]["status"] = "production"
+    registry["production_approval"] = {
+        "decision_record_reference": "ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json"
+    }
+    _write_json(paths["registry"], registry)
+    manifest = _json(paths["manifest"])
+    manifest["expected_lifecycle"] = "production"
+    _write_json(paths["manifest"], manifest)
+    _write_json(paths["approval"], {
+        "schema_version": "1.0",
+        "decision_type": "explicit_human_team_approval",
+        "scope": "first_structurally_valid_eight_class_production_promotion",
+        "approval_outcome": "approved",
+        "decision_date": "2026-09-20",
+        "decision_summary": "Synthetic approved first eight-class decision.",
+        "model": {
+            "model_id": CANDIDATE,
+            "model_version": "0.1.0",
+            "artifact_filename": "best.pt",
+            "sha256": SHA,
+            "ordered_taxonomy": TAXONOMY,
+            "evaluation_evidence_reference": "ML_side/evaluation/candidates/heldout/summary.json",
+        },
+        "reviewed_evidence_references": ["ML_side/evaluation/candidates/heldout/summary.json"],
+        "accepted_limitations": ["Pole remains recall-limited."],
+    })
+
+
 def statuses(report: dict) -> dict[str, str]:
     return {
         check["name"]: check["status"]
@@ -116,12 +147,12 @@ def run_fixture(tmp_path: Path) -> tuple[dict, dict[str, Path]]:
     return run_release_readiness(CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z"), paths
 
 
-def test_current_candidate_evidence_passes_from_repository() -> None:
+def test_current_production_evidence_passes_from_repository() -> None:
     report = run_release_readiness(CANDIDATE, generated_at_utc="2026-09-18T00:00:00Z")
 
     assert report["technical_readiness"] == "PASS"
-    assert report["lifecycle_state"] == "candidate"
-    assert report["production_authorization"] == "NOT GRANTED"
+    assert report["lifecycle_state"] == "production"
+    assert report["production_authorization"] == "GRANTED (EXPLICIT HUMAN TEAM APPROVAL)"
 
 
 def test_valid_registry_and_evidence_passes(tmp_path: Path) -> None:
@@ -218,6 +249,33 @@ def test_technical_pass_never_mutates_lifecycle_or_grants_production(tmp_path: P
     assert report["lifecycle_state"] == "candidate"
     assert report["automatic_promotion_performed"] is False
     assert report["production_authorization"] == "NOT GRANTED"
+
+
+def test_valid_explicit_first_eight_class_approval_is_read_only_and_authorizes_production(tmp_path: Path) -> None:
+    paths = make_release_tree(tmp_path)
+    promote_with_first_eight_class_approval(paths)
+
+    report = run_release_readiness(CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
+
+    assert report["technical_readiness"] == "PASS"
+    assert report["lifecycle_state"] == "production"
+    assert report["production_authorization"] == "GRANTED (EXPLICIT HUMAN TEAM APPROVAL)"
+    assert report["automatic_promotion_performed"] is False
+    assert _json(paths["registry"])["lifecycle"]["status"] == "production"
+
+
+def test_malformed_explicit_approval_fails_closed(tmp_path: Path) -> None:
+    paths = make_release_tree(tmp_path)
+    promote_with_first_eight_class_approval(paths)
+    approval = _json(paths["approval"])
+    approval["model"]["sha256"] = "b" * 64
+    _write_json(paths["approval"], approval)
+
+    report = run_release_readiness(CANDIDATE, repository_root=tmp_path, generated_at_utc="2026-09-18T00:00:00Z")
+
+    assert report["technical_readiness"] == "FAIL"
+    assert report["production_authorization"] == "NOT GRANTED"
+    assert statuses(report)["production_approval"] == "FAIL"
 
 
 def test_json_markdown_output_is_deterministic_and_portable(tmp_path: Path) -> None:

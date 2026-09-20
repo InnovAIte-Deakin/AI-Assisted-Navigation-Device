@@ -588,6 +588,29 @@ The registry requires:
 
 If any of these checks fails, the transition is blocked.
 
+### Documented first-eight-class human decision
+
+The automatic route remains mandatory for future candidates. The only exception
+is the first structurally valid eight-class model, where the historical
+seven-class baseline is explicitly non-comparable. The transition tool accepts
+this path only for `WB-OD-NAV-001` version `0.1.0`, and only when the
+registry-bound approval record passes all of these checks:
+
+- machine-readable approval schema and positive explicit human-team outcome
+- exact model ID, version, filename, SHA-256, and ordered canonical taxonomy
+- exact registered evaluation reference and evaluation-artifact lineage
+- reviewed evidence references that resolve inside the repository
+- accepted pole limitation
+
+The controlled command is:
+
+```bash
+python ML_side/model_registry/tools/transition.py ML_side/model_registry/records/navigation_candidate.json production --human-approval ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json
+```
+
+This is a one-time, fail-closed decision mechanism, not a generic bypass. A
+missing, malformed, altered, or mismatched approval blocks the transition.
+
 ---
 
 ## Production Transition Command
@@ -1202,7 +1225,7 @@ Candidate -> Production
 
 8. Do not treat the existence of an evaluation file as proof that a model passed evaluation.
 
-9. Only a matching `PASS` recommendation using an approved promotion policy can support `candidate -> production`.
+9. Future models require a matching `PASS` recommendation using an approved promotion policy for `candidate -> production`; the separately documented first-eight-class human decision is the sole exception.
 
 10. `FAIL` and `REVIEW` always block the production transition.
 
@@ -1240,4 +1263,8 @@ Lifecycle state
 
 This ensures that a model cannot be represented as production-ready solely because a model file or evaluation reference exists.
 
-Production lifecycle status requires validated metadata, complete required lineage, the canonical WalkBuddy taxonomy, and matching approved promotion evidence for the exact model artifact.
+Production lifecycle status requires validated metadata, complete required lineage,
+the canonical WalkBuddy taxonomy, and matching approved promotion evidence for
+the exact model artifact. Future models use the automatic approved-policy
+comparison path; the first compatible eight-class model uses only its separately
+documented, registry-bound explicit human-team decision.

@@ -38,13 +38,15 @@
     "evidence_reference": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json"
   },
   "lifecycle": {
-    "status": "candidate"
+    "status": "production"
+  },
+  "production_approval": {
+    "decision_record_reference": "ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json"
   },
   "limitations": [
     "Validation-only development evidence identifies pole as the weakest class and as recall-limited.",
     "Validation-only pole recall is particularly limited for small normalized-area boxes and extreme height-to-width geometry buckets; this is observational evidence, not a causal diagnosis.",
-    "This candidate is not production approved.",
-    "No canonical eight-class baseline and no approved automatic promotion policy currently exist.",
-    "Production promotion remains blocked until matching durable evaluation evidence, a compatible canonical eight-class baseline, an approved promotion policy, and a PASS comparison are available."
+    "The historical seven-class baseline is taxonomy-incompatible, so its results cannot automatically pass or fail this first eight-class model.",
+    "This record is only eligible for its explicit human-team first-eight-class approval path; future candidates must use the automatic approved-policy comparison path."
   ]
 }

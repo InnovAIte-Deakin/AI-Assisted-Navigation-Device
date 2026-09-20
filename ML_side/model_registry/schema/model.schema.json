@@ -251,6 +251,19 @@
       }
     },
 
+    "production_approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_record_reference"
+      ],
+      "properties": {
+        "decision_record_reference": {
+          "$ref": "#/$defs/portable_reference"
+        }
+      }
+    },
+
     "limitations": {
       "type": "array",
       "items": {

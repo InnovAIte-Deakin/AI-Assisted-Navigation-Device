@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,11 @@ from transition import (
     APPROVED_CLASS_NAMES,
     transition_model,
 )
+
+
+REPOSITORY_ROOT = REGISTRY_DIR.parents[1]
+APPROVAL_PATH = REPOSITORY_ROOT / "ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json"
+NAVIGATION_RECORD_PATH = REGISTRY_DIR / "records/navigation_candidate.json"
 
 
 def base_model():
@@ -246,6 +252,99 @@ def test_missing_promotion_report_blocks_production():
     assert model["lifecycle"]["status"] == "candidate"
 
 
+def _first_eight_class_record():
+    model = json.loads(NAVIGATION_RECORD_PATH.read_text(encoding="utf-8"))
+    model["lifecycle"]["status"] = "candidate"
+    return model
+
+
+def _first_eight_class_approval():
+    return json.loads(APPROVAL_PATH.read_text(encoding="utf-8"))
+
+
+def test_first_eight_class_human_approval_promotes_exact_bound_record():
+    model = _first_eight_class_record()
+
+    result = transition_model(
+        model,
+        "production",
+        human_approval=_first_eight_class_approval(),
+        human_approval_path=APPROVAL_PATH,
+    )
+
+    assert result is True
+    assert model["lifecycle"]["status"] == "production"
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("sha256", "a" * 64),
+        ("model_version", "0.1.1"),
+        ("evaluation_evidence_reference", "ML_side/evaluation/other.json"),
+    ],
+)
+def test_first_eight_class_human_approval_binding_mismatch_blocks(field, value):
+    model = _first_eight_class_record()
+    approval = _first_eight_class_approval()
+    approval["model"][field] = value
+
+    result = transition_model(
+        model,
+        "production",
+        human_approval=approval,
+        human_approval_path=APPROVAL_PATH,
+    )
+
+    assert result is False
+    assert model["lifecycle"]["status"] == "candidate"
+
+
+def test_first_eight_class_human_approval_rejects_future_model_identity():
+    model = _first_eight_class_record()
+    model["model_version"] = "0.1.1"
+
+    result = transition_model(
+        model,
+        "production",
+        human_approval=_first_eight_class_approval(),
+        human_approval_path=APPROVAL_PATH,
+    )
+
+    assert result is False
+    assert model["lifecycle"]["status"] == "candidate"
+
+
+def test_first_eight_class_human_approval_rejects_malformed_outcome():
+    model = _first_eight_class_record()
+    approval = _first_eight_class_approval()
+    approval["approval_outcome"] = "rejected"
+
+    result = transition_model(
+        model,
+        "production",
+        human_approval=approval,
+        human_approval_path=APPROVAL_PATH,
+    )
+
+    assert result is False
+    assert model["lifecycle"]["status"] == "candidate"
+
+
+def test_first_eight_class_human_approval_must_match_registry_reference(tmp_path):
+    model = _first_eight_class_record()
+
+    result = transition_model(
+        model,
+        "production",
+        human_approval=_first_eight_class_approval(),
+        human_approval_path=tmp_path / "unbound-approval.json",
+    )
+
+    assert result is False
+    assert model["lifecycle"]["status"] == "candidate"
+
+
 def test_sha_mismatch_blocks_production():
     model = base_model()
     model["lifecycle"]["status"] = "candidate"
@@ -431,6 +530,7 @@ def test_candidate_can_be_rejected():
 def test_production_can_be_deprecated():
     model = base_model()
     model["lifecycle"]["status"] = "production"
+    model["production_approval"] = {"decision_record_reference": "ML_side/model_registry/approvals/test.json"}
 
     result = transition_model(model, "deprecated")
 
@@ -441,6 +541,7 @@ def test_production_can_be_deprecated():
 def test_production_can_be_rolled_back():
     model = base_model()
     model["lifecycle"]["status"] = "production"
+    model["production_approval"] = {"decision_record_reference": "ML_side/model_registry/approvals/test.json"}
 
     result = transition_model(model, "rolled_back")
 

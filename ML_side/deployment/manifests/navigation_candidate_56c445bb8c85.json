@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "candidate_id": "WB-OD-NAV-001",
   "run_id": "navigation-mvp-full-candidate-56c445bb8c85",
-  "expected_lifecycle": "candidate",
+  "expected_lifecycle": "production",
   "expected_artifact_filename": "best.pt",
   "expected_sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
   "expected_size_bytes": 5364741,
@@ -12,9 +12,9 @@
   "evaluation_evidence_reference": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json",
   "minimum_backend_contract_version": null,
   "compute_policy": "cuda_preferred",
-  "notes": "Read-only candidate deployment evidence. This manifest does not grant production authorization.",
+  "notes": "Read-only deployment identity evidence for the production-default model. Production authorization is recorded only in the registry-bound explicit human-team approval.",
   "known_limitations": [
-    "Candidate lifecycle remains authoritative in the model registry.",
-    "Physical-device acceptance testing remains a separate human-reviewed activity."
+    "The model registry lifecycle and approval record remain authoritative for production status.",
+    "Physical-device acceptance remains a separate human-reviewed activity; its outcomes are recorded in the approval decision without adding location data to repository evidence."
   ]
 }
