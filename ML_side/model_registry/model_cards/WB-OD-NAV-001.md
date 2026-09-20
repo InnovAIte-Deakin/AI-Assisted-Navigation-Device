@@ -92,6 +92,41 @@ documents a controlled, non-mock runtime launch with usable CUDA, successful
 `/ml/model-info`, `/ml/ready`, and `/ml/health` checks, and matching Candidate
 identity.
 
+## Candidate 1 real runtime soak
+
+The official [runtime-soak report](../../../evidence/candidate1-runtime-soak.md)
+and [machine-readable evidence](../../../evidence/candidate1-runtime-soak.json)
+record one controlled real Candidate runtime run from a deterministic local,
+non-heldout validation-only fixture subset. It is runtime reliability evidence,
+not a model-performance benchmark or a replacement for held-out evaluation.
+
+| Runtime reliability result | Official value |
+| --- | --- |
+| Runtime soak result | `PASS` |
+| Evidence mode | Real Candidate runtime |
+| Total runtime attempts | 500 |
+| Valid attempted / successful | 496 / 496 |
+| Malformed-input failures / expected recoveries | 4 expected / 4 / 4 |
+| Deliberate reconnects / successful reconnects / failures | 9 / 9 / 0 |
+| Unexpected disconnects / dropped frames | 0 / 0 |
+| Final `active_inferences` | 0 |
+| Metrics reconciliation | `PASS` |
+
+Client end-to-end WebSocket latency is reported separately from backend
+inference metrics: mean 161.784 ms; P50 110.166 ms; P95 467.755 ms; P99
+743.240 ms; minimum 14.157 ms; maximum 1184.996 ms; throughput 2.357 fps.
+
+The backend reported its existing latency metrics separately: latest 386.406
+ms; mean 76.204 ms; P50 72.230 ms; P95 102.143 ms; maximum 386.406 ms. These
+server measurements are not combined with client end-to-end latency.
+
+The controlled launcher used the backend project's verified virtual-environment
+Python interpreter after the shell-default Python was found not to provide
+PyTorch. No absolute local path is recorded in the evidence. The performance
+threshold gate is **NOT CONFIGURED**. The lifecycle state remains `candidate`,
+production authorization remains **NOT GRANTED**, and automatic promotion
+performed is **NO**.
+
 ## Safety acceptance and depth semantics
 
 Issue #74 records a real validation-only stairs hazard case, a non-trigger case,

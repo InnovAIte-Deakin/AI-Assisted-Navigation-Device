@@ -41,6 +41,11 @@ For Candidate 1's evidence map and the read-only release-readiness handover
 command, see [`docs/ML_EVIDENCE_INDEX.md`](docs/ML_EVIDENCE_INDEX.md). A
 technical `PASS` does not alter lifecycle state or authorize production.
 
+For bounded WebSocket reliability, reconnect, malformed-input, and runtime
+metric validation of a technically ready candidate, see
+[`docs/RUNTIME_SOAK_VALIDATION.md`](docs/RUNTIME_SOAK_VALIDATION.md). It is not
+a model-performance benchmark or production authorization.
+
 ### Unresolved Work
 
 The repository-configured v1 training taxonomy lacks important navigation-hazard classes such as stairs, doors, and people. The active best.pt metadata still requires confirmation in a valid backend environment. In addition, multiple class-to-risk policies exist across the system and can classify ordinary objects more severely than intended. Any runtime safety-policy change requires cross-stream review before implementation.
