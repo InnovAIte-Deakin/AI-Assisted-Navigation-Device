@@ -2,7 +2,7 @@
 
 This directory uses the **v1** models stored in SharePoint at:
 
-`AI Assisted Navigation Device > AIAND_REPO > ML_side > 2026 Trimester 1 > models > v1`
+`AI Assisted Navigation Device > AIAND_REPO > ML_side > T2_2026 > Models > navigation > WB-OD-NAV-001 > 0.1.0`
 
 ## Files
 
@@ -12,33 +12,39 @@ This directory uses the **v1** models stored in SharePoint at:
 
 These files are not tracked in git. Download them from the SharePoint path above and place them in this directory before running inference.
 
+The single source of truth for the currently active candidate's identity is the deployment manifest:
+`ML_side/deployment/manifests/navigation_candidate_56c445bb8c85.json`. If this README and the manifest
+ever disagree, trust the manifest and update this file.
+
 ## Verified Active Model Artifact
 
 The following record applies only to the local artifact whose SHA-256 checksum
 matches this value:
 
+- Candidate: `WB-OD-NAV-001` v0.1.0
+- Run: `navigation-mvp-full-candidate-56c445bb8c85`
 - File: `ML_side/models/best.pt`
-- File size: 6,244,458 bytes
+- File size: 5,364,741 bytes
 - SHA-256:
-  `198df54da4f6aa071b342bee77b100e78f243df785b325ec364036e106572238`
-- Verified class count: 7
+  `3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f`
+- Verified class count: 8
 - Verified `model.names` mapping:
-  - 0: `book`
-  - 1: `books`
-  - 2: `monitor`
-  - 3: `office-chair`
-  - 4: `whiteboard`
-  - 5: `table`
-  - 6: `tv`
+  - 0: `person`
+  - 1: `stairs`
+  - 2: `door`
+  - 3: `chair`
+  - 4: `table`
+  - 5: `pole`
+  - 6: `bicycle`
+  - 7: `vehicle`
 
-The repository configuration lists an eighth class, `couch`, but `couch` is not
-present in this specific `best.pt` artifact. This suggests that the active model
-artifact and repository training configuration may come from different versions
-or training runs; the cause has not yet been confirmed. Members must compare
-the SHA-256 checksum before assuming their local `best.pt` is the same artifact.
+Lifecycle status: **candidate**. Production authorization is **not granted**. No automatic
+promotion is performed by setup, readiness, or CI tooling — see the deployment manifest and the
+Teams-shared `WalkBuddy_Local_Setup_Tutorial_Windows_macOS_v1.2.pdf` setup guide for current
+governance details.
 
-Do not modify or replace the model as part of this task. Resolving the
-model/configuration lineage mismatch is separate follow-up work.
+Do not modify or replace the model as part of this task. Members must compare the SHA-256
+checksum locally before assuming their `best.pt` matches this record.
 
 ## Inspecting Active Model Metadata
 
