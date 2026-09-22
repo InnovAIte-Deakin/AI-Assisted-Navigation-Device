@@ -10,7 +10,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     espeak-ng \
     libespeak-ng1 \
     libasound2 \
+    ffmpeg \
   && rm -rf /var/lib/apt/lists/*
+# ffmpeg is required by pydub (tts_service.py's cloud-TTS fallback path):
+# - it decodes gTTS's MP3 output (no pure-Python MP3 decoder exists), and
+# - it provides ffplay, which pydub.playback.play() shells out to for
+#   actual audio output.
+# Without ffmpeg, AudioSegment.from_mp3() raises and the fallback silently
+# reports failure (caught by its own except-and-fail-safe handling)
+# without ever playing audio, even though the offline espeak path above
+# still works. Deliberately no Python playback binding (simpleaudio,
+# pyaudio) is installed: simpleaudio's native playback thread was found to
+# segfault the whole process when stdout/stderr are piped rather than a
+# real TTY (as they are under a test runner, and as a container's log
+# driver pipes them) -- see test_tts_service_integration.py. ffplay runs
+# as a fully separate OS process, so it is not vulnerable to that failure
+# mode, and is the playback path this app relies on.
 
 WORKDIR /app
 
