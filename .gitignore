@@ -31,3 +31,4 @@ ML_side/**/*.pt
 ML_side/**/*.pth
 ML_side/**/*.onnx
 ML_side/**/*.tflite
+ML_side/.pole_work/
