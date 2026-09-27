@@ -107,10 +107,10 @@ Get-Item ".\ML_side\models\best.pt" | Select-Object Name,Length
 Get-Item ".\ML_side\models\llama-3.2-1b-instruct-q4_k_m.gguf" | Select-Object Name,Length
 ```
 
-Verified file sizes:
+Verified file sizes (current production artifact -- cross-check against `ML_side/models/README.md` and the deployment manifest before relying on this table, since it can drift):
 
 ```text
-best.pt                             6244458
+best.pt                             5364741
 llama-3.2-1b-instruct-q4_k_m.gguf 807694464
 ```
 

@@ -38,10 +38,15 @@ matches this value:
   - 6: `bicycle`
   - 7: `vehicle`
 
-Lifecycle status: **candidate**. Production authorization is **not granted**. No automatic
-promotion is performed by setup, readiness, or CI tooling — see the deployment manifest and the
-Teams-shared `WalkBuddy_Local_Setup_Tutorial_Windows_macOS_v1.2.pdf` setup guide for current
-governance details.
+Lifecycle status: **production**. Production authorization was granted via an explicit
+human-team decision recorded in
+`ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json`
+(decision date: 2026-09-20). No automatic promotion is performed by setup, readiness, or CI
+tooling -- the model registry lifecycle and approval record remain authoritative for production
+status. See the deployment manifest, the model registry record
+(`ML_side/model_registry/records/navigation_candidate.json`), and the Teams-shared
+`WalkBuddy_Local_Setup_Tutorial_Windows_macOS_v1.2.pdf` setup guide for current governance
+details.
 
 Do not modify or replace the model as part of this task. Members must compare the SHA-256
 checksum locally before assuming their `best.pt` matches this record.
