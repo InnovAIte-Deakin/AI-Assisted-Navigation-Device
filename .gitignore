@@ -31,3 +31,17 @@ ML_side/**/*.pt
 ML_side/**/*.pth
 ML_side/**/*.onnx
 ML_side/**/*.tflite
+
+# Expo-generated native projects
+software_side/walkbuddy_reactNative/frontend_reactNative/android/
+
+# Locally downloaded development tools
+software_side/walkbuddy_reactNative/frontend_reactNative/.tools/
+software_side/walkbuddy_reactNative/frontend_reactNative/.tools-test/
+
+# Android build output
+**/.gradle/
+**/.cxx/
+**/build/
+*.apk
+*.aab
