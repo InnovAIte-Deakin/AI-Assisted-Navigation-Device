@@ -29,6 +29,8 @@ MANIFEST_PATH = REPO_ROOT / "ML_side/deployment/manifests/navigation_candidate_5
 MODELS_README = REPO_ROOT / "ML_side/models/README.md"
 LOCAL_SETUP = REPO_ROOT / "docs/LOCAL_SETUP.md"
 
+LEGACY_PATH_FRAGMENT = "2026 Trimester 1/models/v1"
+
 
 def _load_canonical_identity():
     manifest, _ = load_manifest(MANIFEST_PATH)
@@ -73,4 +75,44 @@ def test_local_setup_guide_file_size_matches_canonical_identity():
     assert expected_size in text, (
         f"docs/LOCAL_SETUP.md does not mention the current artifact size "
         f"({expected_size} bytes) -- its verified file sizes table may be stale."
+    )
+
+
+def test_local_setup_guide_mentions_sha256_for_identity_verification():
+    manifest, _ = load_manifest(MANIFEST_PATH)
+    text = LOCAL_SETUP.read_text()
+
+    assert manifest["expected_sha256"] in text, (
+        "docs/LOCAL_SETUP.md does not mention the expected SHA-256 checksum -- "
+        "the setup flow may only be checking file size, not exact model identity. "
+        "A byte count alone cannot distinguish two different models of the same size."
+    )
+
+
+def test_local_setup_guide_does_not_present_legacy_path_as_current():
+    text = LOCAL_SETUP.read_text()
+
+    if LEGACY_PATH_FRAGMENT in text:
+        lowered = text.lower()
+        assert "legacy" in lowered or "non-production" in lowered or "superseded" in lowered, (
+            "docs/LOCAL_SETUP.md mentions the legacy archive path "
+            f"({LEGACY_PATH_FRAGMENT!r}) without clearly labeling it as "
+            "legacy/non-production/superseded. A new developer could mistake "
+            "it for a valid source of the current production model."
+        )
+
+
+def test_local_setup_guide_advertises_current_canonical_location():
+    registry = _load_canonical_identity()
+    text = LOCAL_SETUP.read_text()
+
+    location = registry["artifact"]["location"]
+    if "AIAND_REPO" in location:
+        location = location[location.index("AIAND_REPO"):]
+    canonical_dir = location.rsplit("/", 1)[0]
+
+    assert canonical_dir in text, (
+        "docs/LOCAL_SETUP.md does not mention the current canonical storage "
+        f"location ({canonical_dir}) for the production model -- a new "
+        "developer may not know where to find the real artifact."
     )

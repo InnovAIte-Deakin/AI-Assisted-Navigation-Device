@@ -75,7 +75,11 @@ For easier access, the required files are shared in the project Teams chat insid
 
 The folder link is shared or pinned in Teams.
 
-The original archive location remains:
+Current production location (Candidate 1, WB-OD-NAV-001 v0.1.0) -- this is the only valid source for the current `best.pt`:
+
+`AIAND_REPO/ML_side/T2_2026/Models/navigation/WB-OD-NAV-001/0.1.0`
+
+Legacy archive location (superseded -- NOT valid for the current production model; kept here only for historical reference):
 
 `AIAND_REPO/ML_side/2026 Trimester 1/models/v1`
 
@@ -113,6 +117,20 @@ Verified file sizes (current production artifact -- cross-check against `ML_side
 best.pt                             5364741
 llama-3.2-1b-instruct-q4_k_m.gguf 807694464
 ```
+
+Verify exact model identity -- matching file size is not enough to confirm this is the correct production artifact:
+
+```powershell
+Get-FileHash ".\ML_side\models\best.pt" -Algorithm SHA256
+```
+
+Expected SHA-256 (current production artifact, Candidate 1 / WB-OD-NAV-001 v0.1.0):
+
+```text
+3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f
+```
+
+If the checksum does not match, do not proceed -- redownload `best.pt` from the current production location above, not the legacy archive path.
 
 Confirm Git ignores them:
 
@@ -509,6 +527,20 @@ cd software_side/walkbuddy_reactNative/backend
 export WALKBUDDY_MODEL_DIR="$(cd ../../../ML_side/models && pwd)"
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+Verify exact model identity before starting the backend -- matching file size is not enough to confirm this is the correct production artifact:
+
+```bash
+shasum -a 256 ML_side/models/best.pt
+```
+
+Expected SHA-256 (current production artifact, Candidate 1 / WB-OD-NAV-001 v0.1.0):
+
+```text
+3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f
+```
+
+If the checksum does not match, do not start the backend -- redownload `best.pt` from the current production location above, not the legacy archive path.
 
 In a second terminal, verify both local and LAN access:
 
