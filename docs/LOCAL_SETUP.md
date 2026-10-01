@@ -523,9 +523,6 @@ GitHub:
 cd /path/to/AI-Assisted-Navigation-Device
 ls -lh ML_side/models/best.pt
 ls -lh ML_side/models/llama-3.2-1b-instruct-q4_k_m.gguf
-cd software_side/walkbuddy_reactNative/backend
-export WALKBUDDY_MODEL_DIR="$(cd ../../../ML_side/models && pwd)"
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 Verify exact model identity before starting the backend -- matching file size is not enough to confirm this is the correct production artifact:
@@ -541,6 +538,12 @@ Expected SHA-256 (current production artifact, Candidate 1 / WB-OD-NAV-001 v0.1.
 ```
 
 If the checksum does not match, do not start the backend -- redownload `best.pt` from the current production location above, not the legacy archive path.
+
+```bash
+cd software_side/walkbuddy_reactNative/backend
+export WALKBUDDY_MODEL_DIR="$(cd ../../../ML_side/models && pwd)"
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
 
 In a second terminal, verify both local and LAN access:
 
