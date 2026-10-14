@@ -117,6 +117,27 @@ Keys are safe relative image paths from the dataset root, and values are non-emp
 
 The controlled verdict is `fail` when validation errors exist, `pass_with_warnings` when no errors but one or more warnings exist, and `pass` otherwise. A passing result does not establish legal, privacy, ethical, accessibility, representativeness, model-quality, production-readiness, or final dataset-fitness approval.
 
+### Split coverage and CSV output (inspector 1.1)
+
+`class_distribution.csv` contains one row per source class and train/validation/test
+split: valid paired annotation count, number of images containing the class, and
+annotation share. JSON and Markdown report the same counts. Undeclared test
+splits have zero counts and `declared_path: null`; this does not mean a test set
+was inspected. Counts exclude invalid rows and orphan labels. They validate label
+syntax, not whether the objects were correctly annotated.
+
+Each split reports its largest/smallest **nonzero** class annotation count ratio
+and lists classes with no valid annotations separately. A ratio of 1 with absent
+classes is not evidence of full coverage. Training classes absent from validation
+produce a coverage warning. No universal acceptable imbalance threshold is
+implied; review source, scene, geometry and consequence coverage as well.
+
+Declared empty splits, malformed/nonconsecutive class IDs, `nc` mismatches,
+invalid orphan label rows and multiple images sharing one paired label stem
+fail inspection. Empty label files remain visible for review: they may represent
+intentional negative images or missed annotations. Exact SHA-256 checks do not
+detect re-encoded duplicates; use explicit sequence/group IDs for leakage checks.
+
 ### Explicit mapping and candidate manifest metadata
 
 An optional reviewed metadata JSON or YAML file supplies source-to-WalkBuddy mapping decisions. It must use the following project-specific shape; values below are fictional examples only:

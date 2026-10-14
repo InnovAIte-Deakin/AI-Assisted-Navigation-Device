@@ -1,0 +1,383 @@
+{
+  "automatic_promotion_performed": false,
+  "candidate": {
+    "artifact_filename": "best.pt",
+    "candidate_id": "WB-OD-NAV-001",
+    "expected_sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+    "expected_size_bytes": 5364741,
+    "lifecycle_state": "production",
+    "run_id": "navigation-mvp-full-candidate-56c445bb8c85"
+  },
+  "evidence_references": {
+    "acceptance": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-runtime-acceptance/issue-74-real-candidate-safety-validation.json",
+    "benchmark": "ML_side/benchmark_results/inference_performance.json",
+    "heldout": "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json",
+    "manifest": "ML_side/deployment/manifests/navigation_candidate_56c445bb8c85.json",
+    "registry": "ML_side/model_registry/records/navigation_candidate.json",
+    "training": "ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml"
+  },
+  "generated_at_utc": "2026-10-14T15:24:07Z",
+  "governance_note": "Technical verification is read-only. It does not alter lifecycle state, authorize production, or perform automatic promotion.",
+  "lifecycle_state": "production",
+  "live_verification": null,
+  "production_authorization": "GRANTED (EXPLICIT HUMAN TEAM APPROVAL)",
+  "production_authorization_reference": "ML_side/model_registry/approvals/WB-OD-NAV-001-v0.1.0-production-approval.json",
+  "schema_version": "1.0.0",
+  "sections": [
+    {
+      "checks": [
+        {
+          "detail": "A unique candidate deployment manifest exists.",
+          "name": "candidate_manifest",
+          "status": "PASS"
+        },
+        {
+          "detail": "candidate_id is present.",
+          "name": "manifest_candidate_id",
+          "status": "PASS"
+        },
+        {
+          "detail": "run_id is present.",
+          "name": "manifest_run_id",
+          "status": "PASS"
+        },
+        {
+          "detail": "expected_lifecycle is present.",
+          "name": "manifest_expected_lifecycle",
+          "status": "PASS"
+        },
+        {
+          "detail": "expected_artifact_filename is present.",
+          "name": "manifest_expected_artifact_filename",
+          "status": "PASS"
+        },
+        {
+          "detail": "expected_sha256 is present.",
+          "name": "manifest_expected_sha256",
+          "status": "PASS"
+        },
+        {
+          "detail": "registry_record_reference is present.",
+          "name": "manifest_registry_record_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "compute_policy is present.",
+          "name": "manifest_compute_policy",
+          "status": "PASS"
+        },
+        {
+          "detail": "Supported manifest schema version.",
+          "name": "manifest_schema_version",
+          "status": "PASS"
+        },
+        {
+          "detail": "Expected SHA-256 is well formed.",
+          "name": "manifest_sha256_format",
+          "status": "PASS"
+        },
+        {
+          "detail": "Expected artifact size is positive.",
+          "name": "manifest_size",
+          "status": "PASS"
+        },
+        {
+          "detail": "Ordered taxonomy is non-empty and unique.",
+          "name": "manifest_taxonomy",
+          "status": "PASS"
+        },
+        {
+          "detail": "Lifecycle is supported.",
+          "name": "manifest_lifecycle",
+          "status": "PASS"
+        },
+        {
+          "detail": "Compute policy is supported.",
+          "name": "manifest_compute_policy",
+          "status": "PASS"
+        },
+        {
+          "detail": "Reference is portable and contained.",
+          "name": "manifest_registry_record_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "Reference is portable and contained.",
+          "name": "manifest_training_configuration_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "Reference is portable and contained.",
+          "name": "manifest_evaluation_evidence_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest candidate ID matches the requested candidate.",
+          "name": "manifest_candidate_id",
+          "status": "PASS"
+        },
+        {
+          "detail": "Registry record is schema-valid.",
+          "name": "registry_schema",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_candidate_id",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_expected_lifecycle",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_expected_artifact_filename",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_expected_sha256",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_ordered_taxonomy",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_training_configuration_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest and registry agree.",
+          "name": "registry_evaluation_evidence_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "Referenced registry record exists.",
+          "name": "registry_record_exists",
+          "status": "PASS"
+        },
+        {
+          "detail": "Registry candidate ID matches the requested candidate.",
+          "name": "registry_candidate_id",
+          "status": "PASS"
+        }
+      ],
+      "name": "Candidate identity",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Registry taxonomy exactly matches the canonical navigation taxonomy.",
+          "name": "registry_taxonomy_matches_canonical",
+          "status": "PASS"
+        },
+        {
+          "detail": "Manifest taxonomy exactly matches the canonical navigation taxonomy.",
+          "name": "manifest_taxonomy_matches_canonical",
+          "status": "PASS"
+        }
+      ],
+      "name": "Taxonomy",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Registry records a controlled dataset release ID.",
+          "name": "dataset_release_identity",
+          "status": "PASS"
+        },
+        {
+          "detail": "Registry records the controlled dataset-manifest reference.",
+          "name": "dataset_manifest_reference",
+          "status": "PASS"
+        },
+        {
+          "detail": "Corrected held-out evidence records labelled evaluation on the test split.",
+          "name": "heldout_evaluation_record",
+          "status": "PASS"
+        }
+      ],
+      "name": "Dataset lineage",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Referenced corrected held-out evaluation evidence exists.",
+          "name": "heldout_evidence_exists",
+          "status": "PASS"
+        },
+        {
+          "detail": "Held-out evidence matches the candidate identity and taxonomy.",
+          "name": "heldout_identity_matches_candidate",
+          "status": "PASS"
+        },
+        {
+          "detail": "Evidence records labelled evaluation on the held-out test split.",
+          "name": "heldout_is_test_split",
+          "status": "PASS"
+        },
+        {
+          "detail": "Held-out aggregate metrics are present and finite.",
+          "name": "heldout_metrics_material",
+          "status": "PASS"
+        }
+      ],
+      "name": "Held-out evaluation evidence",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Formal inference benchmark evidence exists.",
+          "name": "benchmark_evidence_exists",
+          "status": "PASS"
+        },
+        {
+          "detail": "Benchmark artifact matches the deployment manifest; candidate association is derived from that canonical identity.",
+          "name": "benchmark_identity_matches_candidate",
+          "status": "PASS"
+        },
+        {
+          "detail": "Benchmark explicitly records that it did not use held-out test data.",
+          "name": "benchmark_excludes_heldout_data",
+          "status": "PASS"
+        },
+        {
+          "detail": "Benchmark environment and device context are recorded.",
+          "name": "benchmark_environment_recorded",
+          "status": "PASS"
+        },
+        {
+          "detail": "Benchmark records finite latency and throughput results.",
+          "name": "benchmark_latency_throughput_material",
+          "status": "PASS"
+        }
+      ],
+      "name": "Benchmark evidence",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Real Candidate 1 runtime acceptance evidence exists.",
+          "name": "runtime_acceptance_evidence_exists",
+          "status": "PASS"
+        },
+        {
+          "detail": "Runtime evidence matches the candidate identity.",
+          "name": "runtime_identity_matches_candidate",
+          "status": "PASS"
+        },
+        {
+          "detail": "Runtime evidence records a controlled non-mock launch with usable CUDA.",
+          "name": "controlled_runtime_launch",
+          "status": "PASS"
+        },
+        {
+          "detail": "CUDA preflight, live readiness, and controlled startup all passed.",
+          "name": "deployment_preflight_evidence",
+          "status": "PASS"
+        },
+        {
+          "detail": "Model-info, ready, and health endpoint acceptance passed.",
+          "name": "runtime_operational_endpoints",
+          "status": "PASS"
+        }
+      ],
+      "name": "Runtime evidence",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Real hazard, non-trigger, and chat safety cases passed.",
+          "name": "safety_hazard_and_nontrigger",
+          "status": "PASS"
+        },
+        {
+          "detail": "Safety evidence confirms deterministic chat handling before the LLM path.",
+          "name": "deterministic_chat_override",
+          "status": "PASS"
+        },
+        {
+          "detail": "Runtime acceptance records validation-only inputs and no held-out data.",
+          "name": "validation_only_runtime_inputs",
+          "status": "PASS"
+        },
+        {
+          "detail": "relative_depth is unitless and distance_m is not derived from it.",
+          "name": "relative_depth_semantics",
+          "status": "PASS"
+        },
+        {
+          "detail": "Issue #74 real-candidate acceptance passed.",
+          "name": "issue_74_acceptance",
+          "status": "PASS"
+        }
+      ],
+      "name": "Safety acceptance",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "No model-weight artifact is tracked.",
+          "name": "tracked_model_weights",
+          "status": "PASS"
+        },
+        {
+          "detail": "Candidate evidence contains no developer-local absolute paths.",
+          "name": "portable_evidence_paths",
+          "status": "PASS"
+        },
+        {
+          "detail": "Candidate evidence contains no private or loopback IP address.",
+          "name": "private_ip_free_evidence",
+          "status": "PASS"
+        },
+        {
+          "detail": "Candidate evidence does not represent relative_depth as metres.",
+          "name": "relative_depth_not_metres",
+          "status": "PASS"
+        }
+      ],
+      "name": "Evidence hygiene",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "Production authorization is derived from the validated, registry-bound explicit human-team approval.",
+          "name": "production_approval",
+          "status": "PASS"
+        }
+      ],
+      "name": "Production authorization",
+      "status": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "detail": "No live backend URL was supplied.",
+          "name": "live_mode",
+          "status": "NOT_CHECKED"
+        }
+      ],
+      "name": "Live verification",
+      "status": "NOT_CHECKED"
+    }
+  ],
+  "technical_readiness": "PASS",
+  "tool": {
+    "name": "walkbuddy_release_readiness",
+    "version": "1.0.0"
+  }
+}
