@@ -1,0 +1,423 @@
+{
+  "chart": {
+    "filename": "recorded_per_class_metrics.png",
+    "source": "recorded_evaluation.per_class",
+    "status": "GENERATED"
+  },
+  "dataset_integrity": {
+    "reason": "No controlled dataset supplied to this evidence summarizer; no real duplicate/coverage counts claimed.",
+    "status": "NOT_CHECKED"
+  },
+  "historical_experiment_final_rows": [
+    {
+      "evidence_kind": "historical_final_epoch_csv_not_current_weights",
+      "final_epoch": 99,
+      "logged_epochs": 99,
+      "mAP50": 0.82974,
+      "mAP50_95": 0.55695,
+      "model_sha256": null,
+      "precision": 0.83265,
+      "recall": 0.84573,
+      "run": "yolo_v11n"
+    },
+    {
+      "evidence_kind": "historical_final_epoch_csv_not_current_weights",
+      "final_epoch": 92,
+      "logged_epochs": 92,
+      "mAP50": 0.85881,
+      "mAP50_95": 0.58806,
+      "model_sha256": null,
+      "precision": 0.86975,
+      "recall": 0.80252,
+      "run": "yolo_v5n"
+    },
+    {
+      "evidence_kind": "historical_final_epoch_csv_not_current_weights",
+      "final_epoch": 100,
+      "logged_epochs": 100,
+      "mAP50": 0.8518,
+      "mAP50_95": 0.60335,
+      "model_sha256": null,
+      "precision": 0.86914,
+      "recall": 0.82047,
+      "run": "yolo_v5s"
+    },
+    {
+      "evidence_kind": "historical_final_epoch_csv_not_current_weights",
+      "final_epoch": 100,
+      "logged_epochs": 100,
+      "mAP50": 0.85731,
+      "mAP50_95": 0.62584,
+      "model_sha256": null,
+      "precision": 0.85305,
+      "recall": 0.84148,
+      "run": "yolo_v8n"
+    },
+    {
+      "evidence_kind": "historical_final_epoch_csv_not_current_weights",
+      "final_epoch": 169,
+      "logged_epochs": 169,
+      "mAP50": 0.83456,
+      "mAP50_95": 0.58134,
+      "model_sha256": null,
+      "precision": 0.86706,
+      "recall": 0.79105,
+      "run": "yolo_v8s_heavy_aug"
+    }
+  ],
+  "live_mobile_or_backend_test": "NOT_CHECKED",
+  "local_artifact": {
+    "filename": "best.pt",
+    "scope": "Bytes only; no model loaded, backend launch or live deployment identity checked.",
+    "sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+    "size_bytes": 5364741,
+    "status": "MATCH"
+  },
+  "model_inference_performed": false,
+  "network_access": false,
+  "recorded_evaluation": {
+    "aggregate_f1": null,
+    "aggregate_f1_reason": "No aggregate F1 was recorded. Micro F1 requires TP/FP/FN; support-weighted F1 requires class support. Neither is available.",
+    "aggregate_recorded_metrics": {
+      "mAP50": 0.6685228522547324,
+      "mAP50_95": 0.43567024908867424,
+      "precision": 0.6960311872630458,
+      "recall": 0.6121509391506618
+    },
+    "created_at_utc": "2026-09-02T07:44:09Z",
+    "derived_macro_f1_from_recorded_class_pr": 0.6128528228775197,
+    "derived_macro_f1_semantics": "Unweighted mean of the supplied per-class derived F1 values; not a recorded aggregate measurement or runtime warning score.",
+    "evidence_kind": "historical_recorded_labelled_evaluation_not_rerun",
+    "f1_semantics": "Algebraic per-class 2PR/(P+R) from saved evaluator P/R (null if denominator zero); not measured at the runtime 0.5 warning threshold.",
+    "image_count": 3497,
+    "model_sha256": "3cbdadd14b018573803d31f3c7bd5683bf7abd19649aff6da7c1f1ea1d78cc5f",
+    "per_class": [
+      {
+        "class_id": 0,
+        "class_name": "person",
+        "derived_f1_from_recorded_pr": 0.5301929212974599,
+        "mAP50": 0.6966511422147185,
+        "mAP50_95": 0.2045417110546674,
+        "precision": 0.8913696479581575,
+        "recall": 0.37730968464192277
+      },
+      {
+        "class_id": 1,
+        "class_name": "stairs",
+        "derived_f1_from_recorded_pr": 0.6687066000007253,
+        "mAP50": 0.6979979584952999,
+        "mAP50_95": 0.4636492289371731,
+        "precision": 0.7446857530833727,
+        "recall": 0.6067961165048543
+      },
+      {
+        "class_id": 2,
+        "class_name": "door",
+        "derived_f1_from_recorded_pr": 0.7140343085247013,
+        "mAP50": 0.7546172752084193,
+        "mAP50_95": 0.4805960272020123,
+        "precision": 0.7842625553947875,
+        "recall": 0.6553497942386831
+      },
+      {
+        "class_id": 3,
+        "class_name": "chair",
+        "derived_f1_from_recorded_pr": 0.8081764280138962,
+        "mAP50": 0.8377175449886045,
+        "mAP50_95": 0.6571289922896953,
+        "precision": 0.8470344532528719,
+        "recall": 0.7727272727272727
+      },
+      {
+        "class_id": 4,
+        "class_name": "table",
+        "derived_f1_from_recorded_pr": 0.6397627972383869,
+        "mAP50": 0.6737955875857491,
+        "mAP50_95": 0.38223381800121514,
+        "precision": 0.7886297732835261,
+        "recall": 0.5381735884445873
+      },
+      {
+        "class_id": 5,
+        "class_name": "pole",
+        "derived_f1_from_recorded_pr": 0.0991512347792503,
+        "mAP50": 0.1755032227582662,
+        "mAP50_95": 0.14760744539687995,
+        "precision": 0.05481791322931422,
+        "recall": 0.5184049079754601
+      },
+      {
+        "class_id": 6,
+        "class_name": "bicycle",
+        "derived_f1_from_recorded_pr": 0.6701048812711223,
+        "mAP50": 0.7043285646762873,
+        "mAP50_95": 0.5217241579275919,
+        "precision": 0.6780920678235393,
+        "recall": 0.662303664921466
+      },
+      {
+        "class_id": 7,
+        "class_name": "vehicle",
+        "derived_f1_from_recorded_pr": 0.7726934118946155,
+        "mAP50": 0.8075715221105139,
+        "mAP50_95": 0.6278806119001585,
+        "precision": 0.7793573340787976,
+        "recall": 0.7661424837510473
+      }
+    ],
+    "provenance_not_recorded": [
+      "dataset content digest",
+      "dataset release ID in the evaluator summary",
+      "per-class instance support",
+      "TP/FP/FN",
+      "evaluation seed",
+      "evaluation environment versions",
+      "runtime warning operating-point accuracy"
+    ],
+    "settings_as_recorded": {
+      "operating_point_inference": null,
+      "validation_ap": {
+        "confidence": "ultralytics_default_sweep",
+        "dataset_split": "test",
+        "engine": "ultralytics_model_val",
+        "iou": "ultralytics_default",
+        "plots": false,
+        "save_json": false,
+        "verbose": false
+      }
+    },
+    "split": "test"
+  },
+  "registry_dataset_release_claim": "walkbuddy-navigation-v5",
+  "registry_lifecycle": "production",
+  "registry_model_id": "WB-OD-NAV-001",
+  "safety_gate_probes": [
+    {
+      "case_id": "canonical-person",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "person"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: person ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-stairs",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "stairs"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: stairs ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-door",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "door"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: door ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-chair",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "chair"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: chair ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-table",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "table"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: table ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-pole",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "pole"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: pole ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-bicycle",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "bicycle"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: bicycle ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "canonical-vehicle",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "vehicle"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: vehicle ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "stairs-below-warning-threshold",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": false,
+      "input": {
+        "confidence": 0.499,
+        "direction": "ahead",
+        "label": "stairs"
+      },
+      "matches_current_gate": true,
+      "observed_stop": false,
+      "response": null
+    },
+    {
+      "case_id": "stairs-at-warning-threshold",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.5,
+        "direction": "ahead",
+        "label": "stairs"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: stairs ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "stairs-to-left",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": false,
+      "input": {
+        "confidence": 0.9,
+        "direction": "left",
+        "label": "stairs"
+      },
+      "matches_current_gate": true,
+      "observed_stop": false,
+      "response": null
+    },
+    {
+      "case_id": "chair-alias",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "office-chair"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: chair ahead. Stop and reassess or change direction."
+    },
+    {
+      "case_id": "unsupported-stationary-pothole",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": false,
+      "input": {
+        "confidence": 0.99,
+        "direction": "ahead",
+        "label": "pothole"
+      },
+      "matches_current_gate": true,
+      "observed_stop": false,
+      "response": null
+    },
+    {
+      "case_id": "unknown-approaching",
+      "evidence_kind": "synthetic_contract_probe",
+      "expected_stop_under_current_gate": true,
+      "input": {
+        "approaching": true,
+        "confidence": 0.9,
+        "direction": "ahead",
+        "label": "unknown"
+      },
+      "matches_current_gate": true,
+      "observed_stop": true,
+      "response": "Not safe to move forward. Hazard ahead: unknown approaching ahead. Stop and reassess or change direction."
+    }
+  ],
+  "schema_version": "1.0.0",
+  "source_hash_semantics": "SHA-256 of text bytes with CRLF normalized to LF; model artifact hashes use exact bytes.",
+  "source_sha256": {
+    "ML_side/config/training_navigation_full_candidate_56c445bb8c85.yaml": "1728677e907247f59fdb0185a00791ef20861e292ec48c555b2d7cb2c90d3afc",
+    "ML_side/evaluation/candidates/navigation-mvp-full-candidate-56c445bb8c85-heldout-test-corrected/summary.json": "9260171adbb9dbf5bc53f72c67f1dd450b29ac47f9b9851460edca4749faced9",
+    "ML_side/experiments/cohort-1/yolo_v11n/args.yaml": "c843cbff2334165f859cf60747ee45cfaa466e91ae55b9355c69f862396137bc",
+    "ML_side/experiments/cohort-1/yolo_v11n/results.csv": "b5290f2dd895cfd9e0068c77ae28dd8deb477a953c6cb565a4d8705fecad4ef9",
+    "ML_side/experiments/cohort-1/yolo_v5n/args.yaml": "afbf491d179591abc3ad094441d8f71061b81896a0b051a1fbf8e6e39851f7b3",
+    "ML_side/experiments/cohort-1/yolo_v5n/results.csv": "4216ba954817c2571fed0520d01e5ad323d496cf2e972322925efb75cc642450",
+    "ML_side/experiments/cohort-1/yolo_v5s/args.yaml": "a39d75e09191df7093ab2bfdb8e2f0ba714449dda30f466f83a0c1e30ecbe3ee",
+    "ML_side/experiments/cohort-1/yolo_v5s/results.csv": "45cdb7c51b835b463bddcd64b5f09201ae66ff5efbbf018658166462bdda7c01",
+    "ML_side/experiments/cohort-1/yolo_v8n/args.yaml": "64f86bf94ec1ad2154891e4a529fadc89f8ed145a20b8596a9238565ad66f6a0",
+    "ML_side/experiments/cohort-1/yolo_v8n/results.csv": "25d74fd9bf2255de1a5ca16a298eb7a1c67b53ca7f346e56e3e097a499f0e0d8",
+    "ML_side/experiments/cohort-1/yolo_v8s_heavy_aug/args.yaml": "ebbfecd25a9124443e030bf58d7cc48d553b6822390723b277dd36cb2c9061ab",
+    "ML_side/experiments/cohort-1/yolo_v8s_heavy_aug/results.csv": "9d594896f6d3d140981a8d7347417bcfe538ba726937e728e0fe7bcd4d0b147b",
+    "ML_side/model_registry/records/navigation_candidate.json": "c9e3a7d137d6a7f5982157490c012a9abe155ed82035557998b502f4c1357d4d",
+    "ML_side/tools/build_interview_evidence.py": "29f76cc2922bd968fefb617e7a0a070d154727c0504b1b58145dab294036bf2f",
+    "ML_side/tools/inspect_candidate_dataset.py": "bfdb0218a9eebf1db96c9588ddf57488adf7e1b09cc844049744413db5d7ea75",
+    "software_side/walkbuddy_reactNative/backend/adapters/vision_adapter.py": "b74ae660a469a3c96506332940de1cbf487030082254098930d7aa05ca0720b9",
+    "software_side/walkbuddy_reactNative/backend/ml_contract/navigation_semantics.py": "f30ba597fdf3dfcb3c6c2a894108e1e549a3609a2ba07ba2a60d857c3a9c0edd",
+    "software_side/walkbuddy_reactNative/backend/routers/ai_service.py": "bc1f8468e06dec3b548949835a9770ae4b8a7884da462dfcf47948af61ccaaa4",
+    "software_side/walkbuddy_reactNative/backend/slow_lane/safetygate.py": "027a4e97bf13fbba6f89d40e7632b376763a83ac63ebb17d20e57e6dbf3ead59"
+  },
+  "tool": "build_interview_evidence",
+  "training_configuration": {
+    "evidence_kind": "committed_configuration_not_training_rerun",
+    "initial_weights_reference": "ML_side/models/yolo26n.pt",
+    "settings": {
+      "batch_size": 16,
+      "confidence": 0.001,
+      "deterministic": true,
+      "device": "auto",
+      "epochs": 20,
+      "fraction": 1.0,
+      "image_size": 640,
+      "iou": 0.7,
+      "learning_rate": 0.001,
+      "optimizer": "AdamW",
+      "resume_behavior": "never",
+      "seed": 42,
+      "val": true,
+      "workers": 0
+    }
+  }
+}

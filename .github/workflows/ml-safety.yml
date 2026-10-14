@@ -34,6 +34,8 @@ jobs:
         run: >
           python -m pytest -q
           ML_side/tests/test_dataset_manifest_validation.py
+          ML_side/tests/test_inspect_candidate_dataset.py
+          ML_side/tests/test_interview_evidence.py
           ML_side/tests/test_validate_cvat_yolo_export.py
           ML_side/tests/test_build_navigation_dataset_release.py
           ML_side/tests/test_train_navigation_model.py

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import csv
 import json
 import sys
 from pathlib import Path
@@ -503,3 +504,82 @@ def test_cli_help_succeeds(capsys: pytest.CaptureFixture[str]) -> None:
 
     assert exit_result.value.code == 0
     assert "--generate-manifest" in capsys.readouterr().out
+
+
+def test_split_coverage_and_imbalance_count_only_valid_paired_rows(tmp_path: Path) -> None:
+    root, yaml_path = create_dataset(tmp_path, names=["person", "stairs", "pole"])
+    add_pair(root, "train", "mixed.png", "0 0.5 0.5 0.2 0.2\n" * 3 + "1 0.5 0.5 0.2 0.2\n")
+    (root / "train/labels/train.txt").write_text("0 0.5 0.5 0.2 0.2\n5 0.5 0.5 0.2 0.2\n")
+    (root / "train/labels/orphan.txt").write_text("2 0.5 0.5 0.2 0.2\n")
+    report = inspect(root, yaml_path, decode_images=False)
+    train = report["splits"]["train"]
+    assert train["annotation_count"] == 5
+    assert [(row["count"], row["image_count"]) for row in train["annotation_counts_by_source_class"]] == [(4, 2), (1, 1), (0, 0)]
+    assert train["annotation_counts_by_source_class"][0]["annotation_share"] == 0.8
+    assert train["class_imbalance"] == {
+        "largest_to_smallest_nonzero_ratio": 4.0,
+        "classes_without_valid_annotations": ["pole"],
+    }
+    assert report["coverage"]["training_classes_without_validation_annotations"] == ["stairs"]
+    assert any(issue["location"] == "coverage.validation" for issue in report["warnings"])
+    output = tmp_path / "reports"
+    inspector.write_outputs(report, None, output, root)
+    with (output / "class_distribution.csv").open(newline="", encoding="utf-8") as source:
+        rows = list(csv.DictReader(source))
+    assert len(rows) == 9  # Undeclared test split is explicit zero coverage.
+    assert rows[0]["valid_annotation_count"] == "4"
+    assert rows[0]["image_count"] == "2"
+    assert rows[-1]["annotation_share"] == ""
+    second = tmp_path / "second"
+    inspector.write_outputs(report, None, second, root)
+    assert (output / "class_distribution.csv").read_bytes() == (second / "class_distribution.csv").read_bytes()
+
+
+def test_invalid_orphan_label_is_not_silently_skipped(tmp_path: Path) -> None:
+    root, yaml_path = create_dataset(tmp_path)
+    (root / "train/labels/orphan.txt").write_text("0 nan 0.5 0.2 0.2\n")
+    report = inspect(root, yaml_path, decode_images=False)
+    assert report["quality_verdict"] == "fail"
+    assert report["totals"]["invalid_annotation_count"] == 1
+    assert "orphan.txt:1" in messages(report)
+    assert report["totals"]["annotation_count"] == 2
+
+
+def test_declared_empty_split_fails_instead_of_implying_usable_data(tmp_path: Path) -> None:
+    root, yaml_path = create_dataset(tmp_path)
+    (root / "val/images/validation.png").unlink()
+    report = inspect(root, yaml_path, decode_images=False)
+    assert report["quality_verdict"] == "fail"
+    assert "declared split contains no supported images" in messages(report)
+
+
+def test_different_image_extensions_sharing_one_label_are_ambiguous(tmp_path: Path) -> None:
+    root, yaml_path = create_dataset(tmp_path)
+    (root / "train/images/train.jpg").write_bytes(b"another image")
+    report = inspect(root, yaml_path, decode_images=False)
+    assert report["quality_verdict"] == "fail"
+    assert "multiple images share a paired label stem" in messages(report)
+
+
+@pytest.mark.parametrize("names,nc", [({0: "person", 2: "stairs"}, 2), ({0.5: "person"}, 1), ({0: "person"}, 2), ({0: "person"}, True)])
+def test_malformed_taxonomy_and_nc_are_reported(tmp_path: Path, names: dict, nc: object) -> None:
+    root, _ = create_dataset(tmp_path)
+    config = write_json(root / "dataset.json", {"path": ".", "train": "train/images", "val": "val/images", "names": names, "nc": nc})
+    report = inspect(root, config, decode_images=False)
+    assert report["quality_verdict"] == "fail"
+    assert any(issue["location"] in {"$.nc", "$.names"} for issue in report["validation_errors"])
+
+
+def test_missing_dataset_root_has_a_clear_cli_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert inspector.main(["--dataset-root", str(tmp_path / "missing"), "--dataset-yaml", "missing.yaml", "--output-dir", str(tmp_path / "reports")]) == 1
+    error = capsys.readouterr().err
+    assert "Dataset root is not an existing directory" in error
+    assert "Traceback" not in error
+
+
+def test_yaml_fractional_class_id_is_not_truncated_to_integer(tmp_path: Path) -> None:
+    root, yaml_path = create_dataset(tmp_path)
+    yaml_path.write_text("path: .\ntrain: train/images\nval: val/images\nnames:\n  0.5: person\n")
+    report = inspect(root, yaml_path, decode_images=False)
+    assert report["quality_verdict"] == "fail"
+    assert "class IDs must be integers" in messages(report)

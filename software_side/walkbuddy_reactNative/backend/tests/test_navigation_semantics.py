@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import importlib.util
 import sys
 from dataclasses import FrozenInstanceError
@@ -29,7 +28,7 @@ from ml_contract.navigation_semantics import (
     is_potential_hazard,
     severity_rank,
 )
-from tts_service.message_reasoning import Detection, format_object_name, generate_guidance_message
+from tts_service.message_reasoning import Detection, format_object_name, generate_guidance_message, process_adapter_output
 from tts_service.tts_service import RiskLevel
 
 
@@ -52,6 +51,21 @@ def _load_safetygate() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _run_immediate_route(coroutine):
+    """Exercise an early-return branch without Windows event-loop socket setup.
+
+    These mocked branches must finish before any asynchronous LLM operation.
+    Suspending is a test failure, not an emulation of HTTP transport.
+    """
+    try:
+        coroutine.send(None)
+    except StopIteration as completed:
+        return completed.value
+    finally:
+        coroutine.close()
+    raise AssertionError("Expected route to return before asynchronous work")
 
 
 def _load_vision_adapter(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
@@ -406,7 +420,7 @@ def test_chat_safety_gate_returns_before_the_llm_for_a_canonical_hazard(
     llm = ProbeLLM()
     ai_service.state.llm_brain = llm
 
-    response = asyncio.run(
+    response = _run_immediate_route(
         ai_service.chat_endpoint(
             SimpleNamespace(),
             {
@@ -450,3 +464,51 @@ def test_safetygate_retains_only_explicit_historical_non_mvp_labels(label: str) 
     assert safetygate.extract_hazards(
         [{"label": label, "direction": "ahead", "confidence": 0.9}]
     ) == [f"{label} ahead"]
+
+
+@pytest.mark.parametrize("confidence,should_warn", [(0.25, False), (0.499, False), (0.5, True), (0.501, True)])
+def test_stairs_warning_threshold_is_distinct_from_detector_threshold(confidence: float, should_warn: bool) -> None:
+    gate = _load_safetygate()
+    assert bool(gate.safe_or_stop_recommendation([
+        {"label": "stairs", "direction": "ahead", "confidence": confidence}
+    ])) is should_warn
+
+
+def test_stationary_unsupported_hazard_has_no_stop_override() -> None:
+    # Characterization of the current coverage gap; no assertion of user safety.
+    gate = _load_safetygate()
+    assert gate.safe_or_stop_recommendation([
+        {"label": "pothole", "direction": "ahead", "confidence": 0.99}
+    ]) is None
+
+
+def test_chat_normalization_drops_motion_used_by_the_safety_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _load_ai_service_for_safety_contract(monkeypatch)
+    gate = _load_safetygate()
+    events = [{"label": "unknown", "direction": "ahead", "confidence": 0.9, "approaching": True}]
+    assert gate.safe_or_stop_recommendation(events) is not None
+    normalized = service.normalize_vision_events(events)
+    assert "approaching" not in normalized[0]
+    assert gate.safe_or_stop_recommendation(normalized) is None
+
+
+@pytest.mark.parametrize("confidence", [None, 0.25, 0.299])
+def test_empty_detector_output_currently_produces_path_clear(monkeypatch: pytest.MonkeyPatch, confidence: float | None) -> None:
+    # Exposes an overconfident UX statement. Empty output is not evidence of a clear path.
+    service = _load_ai_service_for_safety_contract(monkeypatch)
+    monkeypatch.setattr(service, "process_adapter_output", process_adapter_output)
+    detections = [] if confidence is None else [{
+        "category": "stairs", "direction": "ahead", "confidence": confidence,
+        "bbox": {"x_min": 300, "y_min": 200, "x_max": 340, "y_max": 240},
+    }]
+    assert service._guidance_payload({"detections": detections}) == ("Path clear", "CLEAR")
+
+
+def test_scene_question_returns_description_before_stop_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _load_ai_service_for_safety_contract(monkeypatch)
+    response = _run_immediate_route(service.chat_endpoint(SimpleNamespace(), {
+        "query": "Is it safe to move ahead?",
+        "vision_events": [{"label": "stairs", "direction": "ahead", "confidence": 0.9}],
+    }))
+    # The word 'ahead' selects current_scene_response before the safety override.
+    assert response["response"] == "I can see stairs ahead."
