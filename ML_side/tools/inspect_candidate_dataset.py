@@ -8,6 +8,7 @@ dataset files.  Reports are deterministic apart from ``execution.time_utc``.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import math
@@ -22,7 +23,7 @@ import validate_dataset_manifest as manifest_validator
 
 
 TOOL_NAME = "inspect_candidate_dataset"
-TOOL_VERSION = "1.0.0"
+TOOL_VERSION = "1.1.0"
 SPLIT_KEYS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("train", ("train",)),
     ("validation", ("validation", "val")),
@@ -114,8 +115,8 @@ def _source_taxonomy(dataset_yaml: Mapping[str, object], errors: list[dict[str, 
                 taxonomy[class_id] = class_name.strip()
     elif isinstance(names, Mapping):
         for raw_id, class_name in names.items():
-            if isinstance(raw_id, bool):
-                errors.append(_issue("$.names", "contains a boolean rather than an integer class ID."))
+            if not isinstance(raw_id, (int, str)) or isinstance(raw_id, bool):
+                errors.append(_issue("$.names", "class IDs must be integers or integer strings."))
                 continue
             try:
                 class_id = int(raw_id)
@@ -138,6 +139,12 @@ def _source_taxonomy(dataset_yaml: Mapping[str, object], errors: list[dict[str, 
 
     if not taxonomy:
         errors.append(_issue("$.names", "must define at least one source class."))
+    if sorted(taxonomy) != list(range(len(taxonomy))):
+        errors.append(_issue("$.names", "class IDs must be consecutive starting at zero."))
+    if "nc" in dataset_yaml and (
+        type(dataset_yaml["nc"]) is not int or dataset_yaml["nc"] != len(taxonomy)
+    ):
+        errors.append(_issue("$.nc", "must equal the number of source classes."))
     for name, count in Counter(value.casefold() for value in taxonomy.values()).items():
         if count > 1:
             errors.append(_issue("$.names", f"contains duplicate source class name {name!r}."))
@@ -462,6 +469,8 @@ def _scan_split(
             continue
         images.append(path)
     images.sort(key=lambda path: _relative_path(dataset_root, path).casefold())
+    if not images:
+        errors.append(_issue(f"splits.{split_name}", "declared split contains no supported images."))
     unsupported = sorted(
         _relative_path(dataset_root, path)
         for path in image_directory.rglob("*")
@@ -484,6 +493,8 @@ def _scan_split(
                 )
                 continue
             key = path.relative_to(label_directory).with_suffix("").as_posix().casefold()
+            if key in label_paths:
+                errors.append(_issue(_relative_path(dataset_root, path), "ambiguous normalized label stem."))
             label_paths[key] = path
     else:
         warnings.append(_issue(f"splits.{split_name}", "paired labels directory is missing."))
@@ -494,6 +505,8 @@ def _scan_split(
     for image_path in images:
         relative_image = _relative_path(dataset_root, image_path)
         image_key = image_path.relative_to(image_directory).with_suffix("").as_posix().casefold()
+        if image_key in image_keys:
+            errors.append(_issue(relative_image, "multiple images share a paired label stem."))
         image_keys.add(image_key)
         label_path = label_paths.get(image_key)
         annotations: list[dict[str, object]] = []
@@ -542,6 +555,11 @@ def _scan_split(
     )
     for orphan in orphan_labels:
         warnings.append(_issue(orphan, "label has no paired supported image file."))
+        # Validate orphan rows too, but do not include them in usable class counts.
+        _, invalid_rows, _ = _parse_label_file(
+            dataset_root / orphan, orphan, source_taxonomy, mappings, excluded, errors
+        )
+        invalid_annotation_count += invalid_rows
     empty_labels = sorted(
         record["label_path"]
         for record in records
@@ -564,6 +582,53 @@ def _scan_split(
         },
         records,
     )
+
+
+def _split_distributions(
+    split_reports: dict[str, object],
+    records: Sequence[Mapping[str, object]],
+    source_taxonomy: Mapping[int, str],
+    warnings: list[dict[str, str]],
+) -> dict[str, object]:
+    """Describe valid paired annotations; zero coverage is separate from imbalance."""
+    for split_name, split in split_reports.items():
+        selected = [record for record in records if record["split"] == split_name]
+        counts = Counter(
+            annotation["source_class_id"]
+            for record in selected for annotation in record["annotations"]
+        )
+        image_counts = Counter(
+            class_id for record in selected
+            for class_id in {annotation["source_class_id"] for annotation in record["annotations"]}
+        )
+        total = sum(counts.values())
+        split["annotation_count"] = total
+        split["annotation_counts_by_source_class"] = [
+            {"id": class_id, "name": name, "count": counts[class_id],
+             "image_count": image_counts[class_id],
+             "annotation_share": counts[class_id] / total if total else None}
+            for class_id, name in source_taxonomy.items()
+        ]
+        nonzero = [count for count in counts.values() if count]
+        split["class_imbalance"] = {
+            "largest_to_smallest_nonzero_ratio": max(nonzero) / min(nonzero) if nonzero else None,
+            "classes_without_valid_annotations": [
+                name for class_id, name in source_taxonomy.items() if not counts[class_id]
+            ],
+        }
+    train_classes = {
+        row["name"] for row in split_reports["train"]["annotation_counts_by_source_class"] if row["count"]
+    }
+    missing_validation = split_reports["validation"]["class_imbalance"]["classes_without_valid_annotations"]
+    train_without_validation = sorted(train_classes.intersection(missing_validation))
+    if train_without_validation:
+        warnings.append(_issue("coverage.validation", "training classes lack valid validation annotations: "
+                               + ", ".join(train_without_validation)))
+    return {
+        "training_classes_without_validation_annotations": train_without_validation,
+        "definition": "Syntactically valid annotations with paired images, not verified semantic labels.",
+        "imbalance_definition": "Largest/smallest nonzero annotation count; absent classes are listed separately.",
+    }
 
 
 def _analysis_findings(
@@ -843,6 +908,7 @@ def inspect_dataset(
         records.extend(split_records)
 
     findings = _analysis_findings(records, group_map, errors, warnings)
+    coverage = _split_distributions(split_reports, records, source_taxonomy, warnings)
     source_counts = Counter(
         int(annotation["source_class_id"])
         for record in records
@@ -900,6 +966,7 @@ def inspect_dataset(
         else None,
         "settings": {"image_decoding": decode_images, "checksums": checksums},
         "splits": split_reports,
+        "coverage": coverage,
         "source_taxonomy": [{"id": class_id, "name": name} for class_id, name in source_taxonomy.items()],
         "walkbuddy_target_taxonomy": [
             {"id": class_id, "name": name} for class_id, name in APPROVED_TAXONOMY
@@ -948,6 +1015,8 @@ def inspect_dataset(
             "A passing inspection does not establish legal, privacy, ethical, or dataset-fitness approval.",
             "This inspection does not measure model quality or production readiness.",
             "Group leakage is checked only when explicit group identifiers are supplied.",
+            "Exact byte checksums do not detect re-encoded images or visually similar frames.",
+            "Empty labels may be intentional negatives or missed annotations; semantic review is required.",
         ],
     }
     candidate: dict[str, object] | None = None
@@ -1024,6 +1093,18 @@ def render_markdown_report(report: Mapping[str, object]) -> str:
     for name, split in report["splits"].items():  # type: ignore[index]
         split_rows.append((name, split["image_count"], split["label_file_count"], split["invalid_annotation_count"]))
     lines.extend(_markdown_table(split_rows, ["Split", "Images", "Label files", "Invalid label rows"]))
+    lines.extend(["", "## Class distribution by split", ""])
+    lines.extend(_markdown_table(
+        [(name, row["id"], row["name"], row["count"], row["image_count"])
+         for name, split in report["splits"].items()
+         for row in split["annotation_counts_by_source_class"]],
+        ["Split", "Class ID", "Class", "Valid paired annotations", "Images containing class"],
+    ))
+    lines.extend(["", "Imbalance is the largest/smallest nonzero annotation count; absent classes are reported separately.", ""])
+    for name, split in report["splits"].items():
+        imbalance = split["class_imbalance"]
+        lines.append(f"- {name}: ratio={imbalance['largest_to_smallest_nonzero_ratio']}; "
+                     f"classes without annotations={imbalance['classes_without_valid_annotations']}.")
     lines.extend(["", "## Source class distribution", ""])
     lines.extend(
         _markdown_table(
@@ -1069,6 +1150,14 @@ def write_outputs(
     json_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     markdown_path.write_text(render_markdown_report(report), encoding="utf-8")
     paths = [json_path, markdown_path]
+    csv_path = resolved_output / "class_distribution.csv"
+    with csv_path.open("w", encoding="utf-8", newline="") as output:
+        writer = csv.writer(output)
+        writer.writerow(["split", "class_id", "class_name", "valid_annotation_count", "image_count", "annotation_share"])
+        for name, split in report["splits"].items():
+            for row in split["annotation_counts_by_source_class"]:
+                writer.writerow([name, row["id"], row["name"], row["count"], row["image_count"], row["annotation_share"]])
+    paths.append(csv_path)
     if candidate_manifest is not None:
         manifest_path = resolved_output / "candidate_manifest.json"
         manifest_path.write_text(json.dumps(candidate_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1104,7 +1193,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             generate_manifest=args.generate_manifest,
         )
         paths = write_outputs(report, candidate, args.output_dir, args.dataset_root)
-    except CandidateInspectionError as exc:
+    except (CandidateInspectionError, OSError) as exc:
         print(f"Candidate dataset inspection failed: {exc}", file=sys.stderr)
         return 1
     print(f"Candidate dataset inspection verdict: {report['quality_verdict']}")

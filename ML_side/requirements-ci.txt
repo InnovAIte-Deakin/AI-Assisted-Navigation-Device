@@ -2,3 +2,5 @@
 pytest==9.1.1
 PyYAML==6.0.3
 jsonschema==4.25.1
+# Inspector fixture tests exercise real image verification, including corruption.
+Pillow==12.1.0
