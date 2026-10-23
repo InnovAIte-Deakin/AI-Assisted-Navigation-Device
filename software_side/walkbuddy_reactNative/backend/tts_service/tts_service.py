@@ -26,6 +26,18 @@ except ImportError:
 
 try:
     from gtts import gTTS
+    from pydub import AudioSegment
+    # play_audio (pydub.playback.play) tries simpleaudio, then pyaudio, then
+    # falls back to shelling out to ffplay. Do NOT add simpleaudio or
+    # pyaudio to requirements.txt: simpleaudio's native playback thread was
+    # found to segfault the whole process whenever stdout/stderr are piped
+    # rather than a real TTY (as they are under pytest, and as a
+    # container's log driver pipes them) -- reproduced directly, not just
+    # suspected. ffplay runs as a separate OS process, so it isn't
+    # vulnerable to that failure mode; this app deliberately relies on the
+    # ffplay fallback (see the Dockerfile's ffmpeg install) rather than a
+    # Python playback binding. See test_tts_service_integration.py.
+    from pydub.playback import play as play_audio
     import tempfile
     import os
     GTTS_AVAILABLE = True
@@ -226,21 +238,29 @@ class TTSService:
             
             # Fallback to cloud TTS if offline failed and enabled
             if not success and self.use_cloud_fallback and GTTS_AVAILABLE:
+                temp_file = None
                 try:
                     tts = gTTS(text=message, lang=self.language, slow=False)
-                    # Save to temp file and play (platform-specific)
-                    # Note: This is a simplified version - full implementation
-                    # would use platform audio player
                     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
                     tts.write_to_fp(temp_file)
                     temp_file.close()
-                    # TODO: Play audio file using platform player
-                    # For now, just mark as success
-                    os.unlink(temp_file.name)  # Clean up
+                    # Actually play the generated audio (via pydub, already a
+                    # project dependency) before cleaning it up. Previously
+                    # this deleted the file and reported success without
+                    # ever playing it, so a user heard nothing on fallback.
+                    audio = AudioSegment.from_mp3(temp_file.name)
+                    play_audio(audio)
                     success = True
                 except Exception as e:
                     print(f"[TTS Service] Cloud TTS fallback failed: {e}")
                     success = False
+                finally:
+                    # Clean up even if AudioSegment.from_mp3()/play_audio()
+                    # raised above -- previously cleanup only ran on the
+                    # success path, so a decode/playback failure left the
+                    # temporary MP3 behind.
+                    if temp_file is not None and os.path.exists(temp_file.name):
+                        os.unlink(temp_file.name)
             
             if success:
                 # Update state
